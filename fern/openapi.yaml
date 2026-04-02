@@ -1477,8 +1477,6 @@ paths:
         **Required fields (two-step):** `amount` + header `X-Pix-Lookup-E2E`
 
 
-        ---
-
 
         **Scope:** `pix:cashout:write`
       requestBody:

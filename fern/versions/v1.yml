@@ -5,8 +5,6 @@ navigation:
         path: ../docs/pages/introduction.mdx
       - page: Authentication
         path: ../docs/pages/authentication.mdx
-      - page: Onboarding Guide
-        path: ../docs/pages/onboarding.mdx
       - page: Rate Limits
         path: ../docs/pages/rate-limits.mdx
       - page: Error Handling
