@@ -27,10 +27,10 @@ layout:
 navbar-links:
   - type: secondary
     text: Status
-    url: https://api.brzip.com.br/health
+    url: https://status.brzip.com.br/
   - type: primary
     text: Dashboard
-    url: https://api.brzip.com.br
+    url: https://ib.brzip.com.br
 
 versions:
   - display-name: v1 (Current)
