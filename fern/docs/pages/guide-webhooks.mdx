@@ -1,0 +1,186 @@
+---
+title: "Webhooks Integration"
+description: "Set up real-time notifications for PIX events using webhooks."
+---
+
+# Webhooks Integration
+
+Webhooks allow you to receive real-time HTTP POST notifications when events occur in your account (PIX received, transfer confirmed, etc.).
+
+## Creating a Webhook
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/webhooks \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-system.com/webhooks/pix",
+    "events": [
+      "pix.cash_in.confirmed",
+      "pix.cash_in.received",
+      "pix.cash_out.completed"
+    ]
+  }'
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "webhook": {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "url": "https://your-system.com/webhooks/pix",
+      "events": ["pix.cash_in.confirmed", "pix.cash_in.received", "pix.cash_out.completed"],
+      "secret": "whsec_a1b2c3d4e5f67890abcdef1234567890",
+      "status": "active",
+      "created_at": "2025-01-15T10:00:00Z"
+    }
+  }
+}
+```
+
+<Callout intent="warning">
+  The `secret` is returned **only at creation time**. Store it securely — you will need it to validate webhook signatures.
+</Callout>
+
+## Supported Events
+
+| Event | Description |
+|-------|-------------|
+| `*` | All events |
+| `pix.cash_in.received` | Cash-in PIX received |
+| `pix.cash_in.confirmed` | Cash-in PIX confirmed |
+| `pix.cash_in.expired` | Cash-in PIX expired |
+| `pix.cash_in.refunded` | Cash-in PIX refunded |
+| `pix.cash_out.created` | Cash-out PIX created |
+| `pix.cash_out.completed` | Cash-out PIX completed |
+| `pix.cash_out.failed` | Cash-out PIX failed |
+| `pix.cash_out.returned` | Cash-out PIX returned |
+| `pix.reversal.created` | PIX reversal created |
+| `pix.reversal.completed` | PIX reversal completed |
+| `pix.reversal.failed` | PIX reversal failed |
+| `pix.inbound.received` | Inbound PIX received (direct) |
+| `onboarding.status_changed` | Onboarding status changed |
+| `limits.request_approved` | Limit change request approved |
+| `limits.request_rejected` | Limit change request rejected |
+| `pix.infraction.received` | PIX infraction notification received |
+| `pix.med_refund.received` | MED refund request received |
+| `p2p.completed` | P2P transfer completed |
+| `payment_link.paid` | Payment link paid |
+| `payment_link.expired` | Payment link expired |
+
+## Notification Payload
+
+Each notification sent to your URL follows this format:
+
+```json
+{
+  "id": "uuid-of-transaction",
+  "source": "pixgw",
+  "event": "pix.cash_in.confirmed",
+  "timestamp": "2025-01-15T10:30:00Z",
+  "correlationId": "uuid-of-transaction",
+  "data": {
+    "transaction": {
+      "id": "internal-uuid",
+      "amount": 150.00,
+      "status": "completed",
+      "reference": "ref-001",
+      "pixKey": "key@pix.com",
+      "pixKeyType": "EMAIL",
+      "payer": {
+        "name": "João Silva",
+        "document": "123.456.789-00"
+      }
+    }
+  }
+}
+```
+
+## Signature Validation
+
+Each notification includes an `X-Webhook-Signature` header with an HMAC-SHA256 signature using the webhook `secret`:
+
+```javascript
+const crypto = require('crypto');
+
+function validateWebhook(payload, signature, secret) {
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(JSON.stringify(payload))
+    .digest('hex');
+  return signature === expected;
+}
+```
+
+## Retry Policy
+
+If your URL returns an error (status >= 400 or timeout), the system retries automatically with exponential backoff:
+
+| Attempt | Delay |
+|---------|-------|
+| 1st retry | 1 minute |
+| 2nd retry | 5 minutes |
+| 3rd retry | 30 minutes |
+| 4th retry | 1 hour |
+| 5th retry | Sent to DLQ (Dead Letter Queue) |
+
+## Managing Webhooks
+
+### List Webhooks
+
+```bash
+curl -X GET "https://pix-api.corpx.com.br/api/v1/webhooks?limit=20&offset=0" \
+  -H "Authorization: Bearer <your-jwt>"
+```
+
+### Update a Webhook
+
+```bash
+curl -X PUT https://pix-api.corpx.com.br/api/v1/webhooks/<webhook-id> \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-system.com/webhooks/pix-v2",
+    "events": ["*"],
+    "status": "active"
+  }'
+```
+
+### Delete a Webhook
+
+```bash
+curl -X DELETE https://pix-api.corpx.com.br/api/v1/webhooks/<webhook-id> \
+  -H "Authorization: Bearer <your-jwt>"
+```
+
+### List Deliveries
+
+```bash
+curl -X GET "https://pix-api.corpx.com.br/api/v1/webhooks/deliveries?webhookId=<webhook-id>&limit=20&page=1" \
+  -H "Authorization: Bearer <your-jwt>"
+```
+
+### Resend a Failed Delivery
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/webhooks/deliveries/<delivery-id>/resend \
+  -H "Authorization: Bearer <your-jwt>"
+```
+
+## Tenant Delegation
+
+To manage webhooks for a sub-client, add the `X-Client-ID` header:
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/webhooks \
+  -H "Authorization: Bearer <tenant-jwt>" \
+  -H "X-Client-ID: <sub-client-id>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://sub-client-system.com/webhooks/pix",
+    "events": ["*"]
+  }'
+```

@@ -1,0 +1,28 @@
+navigation:
+  - section: Getting Started
+    contents:
+      - page: Introduction
+        path: ../docs/pages/introduction.mdx
+      - page: Authentication
+        path: ../docs/pages/authentication.mdx
+      - page: Onboarding Guide
+        path: ../docs/pages/onboarding.mdx
+      - page: Rate Limits
+        path: ../docs/pages/rate-limits.mdx
+      - page: Error Handling
+        path: ../docs/pages/error-handling.mdx
+  - section: Guides
+    contents:
+      - page: Cash-In (Receiving Payments)
+        path: ../docs/pages/guide-cash-in.mdx
+      - page: Cash-Out (Sending Payments)
+        path: ../docs/pages/guide-cash-out.mdx
+      - page: PIX Keys Management
+        path: ../docs/pages/guide-pix-keys.mdx
+      - page: Webhooks Integration
+        path: ../docs/pages/guide-webhooks.mdx
+      - page: P2P Internal Transfers
+        path: ../docs/pages/guide-p2p.mdx
+      - page: MED (Special Returns)
+        path: ../docs/pages/guide-med.mdx
+  - api: API Reference

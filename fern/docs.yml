@@ -1,0 +1,38 @@
+instances:
+  - url: brz-api.docs.buildwithfern.com
+    custom-domain: docs.brzip.com.br
+
+title: BRZ API Documentation
+
+colors:
+  accent-primary:
+    dark: "#00D26A"
+    light: "#006030"
+  background:
+    dark: "#0D1117"
+    light: "#FFFFFF"
+
+typography:
+  bodyFont:
+    name: Inter
+  headingsFont:
+    name: Inter
+  codeFont:
+    name: JetBrains Mono
+
+layout:
+  page-width: full
+  sidebar-width: 280px
+
+navbar-links:
+  - type: secondary
+    text: Status
+    url: https://pix-api.corpx.com.br/health
+  - type: primary
+    text: Dashboard
+    url: https://pix-api.corpx.com.br
+
+versions:
+  - display-name: v1 (Current)
+    path: ./versions/v1.yml
+    availability: stable

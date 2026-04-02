@@ -1,0 +1,111 @@
+---
+title: "Cash-Out (Sending Payments)"
+description: "Learn how to send PIX payments using the BRZ API."
+---
+
+# Cash-Out (Sending Payments)
+
+Cash-Out endpoints allow you to send PIX payments to any bank account in Brazil via SPI.
+
+<Callout intent="info">
+  Cash-Out endpoints use **Bearer Token** authentication. Include the `X-Idempotency-Key` header to prevent duplicate payments.
+</Callout>
+
+## Creating a Payment via PIX Key
+
+Send a payment using the recipient's PIX key:
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-out \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
+  -d '{
+    "amount": "1000.00",
+    "pix_key": "12345678901",
+    "pix_key_type": "CPF",
+    "description": "Supplier payment",
+    "reference": "pag-001"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "transactionId": "txn_a9b8c7d6-e5f4-3210-fedc-ba0987654321",
+  "status": "PROCESSING",
+  "amount": "250.00",
+  "currency": "BRL",
+  "recipient": {
+    "pixKey": "22768368067",
+    "name": "Ana Paula Oliveira",
+    "taxId": "***683680**"
+  },
+  "createdAt": "2026-02-23T21:20:00.000Z"
+}
+```
+
+### Required Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `amount` | string | Payment amount (e.g., `"1000.00"`) |
+| `pix_key` | string | Recipient's PIX key |
+| `pix_key_type` | string | Key type: `CPF`, `CNPJ`, `EMAIL`, `PHONE`, `EVP` |
+
+### Optional Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | string | Payment description |
+| `reference` | string | External reference ID |
+
+## Creating a Payment via Bank Details
+
+Alternatively, send a payment using the recipient's bank account details:
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-out/bank-details \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: 660e8400-e29b-41d4-a716-446655440001" \
+  -d '{
+    "amount": "500.00",
+    "receiver_name": "Maria Santos",
+    "receiver_document": "98765432100",
+    "receiver_ispb": "12345678",
+    "receiver_branch": "0001",
+    "receiver_account": "87654321",
+    "receiver_account_type": "CACC",
+    "description": "Freelancer payment"
+  }'
+```
+
+### Required Fields (Bank Details)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `amount` | string | Payment amount |
+| `receiver_name` | string | Recipient's full name |
+| `receiver_document` | string | Recipient's CPF or CNPJ |
+| `receiver_ispb` | string | Recipient bank's ISPB code |
+| `receiver_branch` | string | Branch number |
+| `receiver_account` | string | Account number |
+| `receiver_account_type` | string | Account type (`CACC`, `SVGS`, etc.) |
+
+## Transaction Statuses
+
+| Status | Description |
+|--------|-------------|
+| `PROCESSING` | Payment is being processed |
+| `COMPLETED` | Payment was successful |
+| `FAILED` | Payment failed |
+| `RETURNED` | Payment was returned by the recipient's bank |
+
+## Best Practices
+
+1. **Always use idempotency keys** to prevent duplicate payments in case of network issues.
+2. **Check your balance** before initiating large payments.
+3. **Monitor webhooks** for real-time status updates on your payments.
+4. **Verify limits** — ensure the payment amount is within your configured limits.

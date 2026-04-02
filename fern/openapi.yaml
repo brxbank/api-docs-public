@@ -1,0 +1,1922 @@
+openapi: 3.0.0
+info:
+  title: BRZ API
+  description: >-
+    # BRZ - API Pública
+
+
+    API completa do gateway PIX da CorpX (gw-core-pix). Conexão direta com
+    BACEN/JDPI, sem provedores externos.
+
+
+    ## URLs Base
+
+
+    - **Produção:** `https://pix-api.corpx.com.br`
+        
+    - **Homologação:** `https://pix-api-staging.corpx.com.br`
+        
+    - **Local:** `http://localhost:8099`
+        
+
+    Todos os endpoints PIX usam o prefixo `/api/v1/pix`.
+
+
+    ## Autenticação
+
+
+    A API usa dois métodos de autenticação:
+
+
+    ### 1\. Bearer Token (JWT) — Maioria dos endpoints
+
+
+    Todos os endpoints **exceto Cash-In** usam Bearer Token:
+
+
+    ```
+
+    Authorization: Bearer <seu-token-jwt>
+
+     ```
+
+    Obtenha o JWT chamando `POST /v1/auth/bearer-token` com suas credenciais de
+    API Key.
+
+
+    ### 2\. API Key — Apenas endpoints de Cash-In
+
+
+    Endpoints de Cash-In (`/api/v1/pix/cash-in/\\\\*`) usam dois headers:
+
+
+    ```
+
+    x-key-id: <seu-key-id>
+
+    x-secret-key: <seu-secret-key>
+
+     ```
+
+    ## Reset de Senha
+
+
+    ### Fluxo 1 — Cliente Independente (OTP duplo)
+
+
+    1. `POST /v1/auth/reset-password` com `{ email }` (sem autenticação)
+        
+    2. Sistema envia OTP para email E telefone (códigos diferentes)
+        
+    3. `POST /v1/auth/confirm-reset-password` com `{ email, email_code,
+    phone_code, new_password }`
+        
+
+    ### Fluxo 2 — Via Tenant (skip_otp)
+
+
+    1. `POST /v1/auth/reset-password` com Bearer Token + `X-Client-Id` + `{
+    email }`
+        
+    2. Se tenant tem `skip_otp=true`: retorna senha temporária no response
+        
+    3. Sub-cliente faz login com senha temporária e é obrigado a trocar
+        
+
+    ## Limite de Requisições
+
+
+    - Padrão: 50 req/s por cliente, pico de até 100.
+        
+    - Ao exceder, retorna HTTP 429 com header `Retry-After`.
+        
+
+    ## Headers Comuns
+
+
+    | Header | Obrigatório | Descrição |
+
+    | --- | --- | --- |
+
+    | `Authorization` | Sim (Bearer) | `Bearer` para endpoints PIX |
+
+    | `x-key-id` | Sim (Cash-In) | ID da API Key |
+
+    | `x-secret-key` | Sim (Cash-In) | Secret da API Key |
+
+    | `X-Idempotency-Key` | Recomendado | Evita operações duplicadas (UUID) |
+
+    | `Content-Type` | Sim (POST/PUT) | Sempre `application/json` |
+
+
+    ---
+
+
+    ## Fluxo de Onboarding (Passo a Passo)
+
+
+    ### Passo 1 — Criar Conta
+
+
+    Crie sua conta com `POST /v1/auth/signup`. Guarde o `keyId` e `secretKey`
+    retornados. Codigos OTP serao enviados por email e SMS.
+
+
+    ### Passo 1b — Verificar Email
+
+
+    Verifique seu email com `POST /v1/auth/verify-email` usando o codigo OTP
+    recebido.
+
+
+    ### Passo 1c — Verificar Telefone
+
+
+    Verifique seu telefone com `POST /v1/auth/verify-phone` usando o codigo OTP
+    recebido por SMS.
+
+
+    ### Passo 1d — Reenviar OTP (opcional)
+
+
+    Se necessario, reenvie o codigo com `POST /v1/auth/resend-otp` (max 5 por
+    hora).
+
+
+    ### Passo 2 — Login
+
+
+    Faça login com `POST /v1/auth/login` para obter o token de sessão.
+
+
+    ### Passo 3 — Enviar Documentos (3 etapas)
+
+
+    1. Obtenha URLs pré-assinadas com `POST /v1/auth/documents/presigned-urls`
+        
+    2. Faça `PUT` de cada arquivo diretamente na URL do S3 (raw binary, sem
+    FormData)
+        
+    3. Confirme os uploads com `POST /v1/auth/documents/confirm`
+        
+
+    **Tipos de documento (Pessoa Física):** `cpf_frente`, `cpf_verso`,
+    `selfie_com_cpf`, `comprovante_residencia`  
+
+    **Tipos de documento (Pessoa Jurídica):** `cnpj`, `contrato_social`,
+    `comprovante_residencia_empresa`
+
+
+    ### Passo 4 — Aguardar Aprovação
+
+
+    Acompanhe o status com `GET /v1/auth/status`. Aguarde a aprovação da equipe.
+
+
+    ### Passo 5 — Gerar Bearer Token
+
+
+    Após aprovação, gere seu Bearer Token com `POST /v1/auth/bearer-token`
+    usando suas credenciais.
+
+
+    ### Passo 6 — Registrar Chave PIX
+
+
+    Registre uma chave PIX no DICT/BACEN com `POST /api/v1/pix/keys`. Basta
+    enviar `{"key_type": "EVP"}` — os dados da conta são preenchidos
+    automaticamente do onboarding!
+
+
+    ### Passo 7 — Pronto para Operar!
+
+
+    Agora você pode criar cobranças (Cash-In), fazer transferências e consultar
+    saldo.
+
+
+    ---
+  version: 1.0.0
+servers:
+  - url: https://pix-api.corpx.com.br
+    description: Production
+  - url: https://pix-api-staging.corpx.com.br
+    description: Staging
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+security:
+  - bearerAuth: []
+tags:
+  - name: Saúde do Serviço
+    description: Endpoints de verificação de saúde. Sem autenticação.
+  - name: Chaves PIX (DICT/BACEN)
+    description: |-
+      Gerenciamento de chaves PIX no DICT do BACEN.
+
+      **Autenticação:** Bearer Token
+      **Escopo necessário:** `pix:keys:read` e/ou `pix:keys:write`
+  - name: Saldo PIX
+    description: |-
+      Consulta de saldo da conta.
+
+      **Autenticação:** Bearer Token
+      **Escopo:** `pix:balance:read`
+  - name: Transações
+    description: >-
+      Consulta de transações PIX do cliente.
+
+
+      Endpoints servidos pelo **gw-payment-orchestrator** via ALB path
+      `/api/v1/transactions/*`.
+
+
+      **Autenticação:** Bearer Token
+
+      **Escopo:** Bearer (JWT obtido via `/v1/auth/bearer-token`)
+  - name: Limites PIX
+    description: |-
+      Consulta de limites de transação PIX.
+
+      **Autenticação:** Bearer Token
+      **Escopo:** `pix:limits:read`
+  - name: PIX Cash-In (Recebimentos)
+    description: >-
+      Criar e gerenciar cobranças PIX (Cash-In). Gera QR Code para o pagador.
+
+
+      **Autenticação:** API Key via headers `x-key-id` + `x-secret-key` (NÃO usa
+      Bearer Token)
+
+
+      **Endpoints:**
+
+      - `POST /cash-in` — Criar cobrança assíncrona
+
+      - `POST /cash-in/sync` — Criar cobrança síncrona via SPI
+
+      - `GET /cash-in/{id}` — Consultar status
+
+      - `POST /cash-in/{id}/cancel` — Cancelar cobrança
+
+
+      **Campos financeiros (CobV — cobrança com vencimento):**
+
+      - `due_date` — Data de vencimento (YYYY-MM-DD)
+
+      - `penalty` — Multa após vencimento (`mode` + `value`)
+
+      - `interest` — Juros diários (`mode` + `value`)
+
+      - `discount` — Desconto antecipado (`mode` + `value` + `fixed_dates[]`)
+
+      - `rebate` — Abatimento (`mode` + `value`)
+
+
+      **PIX Saque e PIX Troco:**
+
+      - `withdraw_amount` — Valor de saque (PIX Saque)
+
+      - `change_amount` — Valor de troco (PIX Troco)
+  - name: PIX Cash-In (Recebimentos) > Reversals (Devoluções PIX)
+    description: >-
+      Endpoints para gerenciar devoluções (reversals) de pagamentos PIX
+      recebidos.
+
+
+      **Autenticação:** Bearer Token
+
+
+      **Scopes necessários:**
+
+      - `pix:reversals:write` para criar devoluções
+
+      - `pix:reversals:read` para consultar devoluções
+  - name: PIX Cash-Out (Pagamentos)
+    description: |-
+      Enviar pagamentos PIX (Cash-Out) via Temporal workflows.
+
+      **Autenticação:** Bearer Token
+      **Escopo:** `pix:cashout:write` / `pix:cashout:read`
+  - name: MED - Devoluções Especiais
+    description: |-
+      Gerenciar pedidos de devolução MED (Mecanismo Especial de Devolução).
+
+      **Autenticação:** Bearer Token
+      **Escopo:** `pix:med:read` / `pix:med:write`
+  - name: Webhooks (Notificações)
+    description: >-
+      Endpoints para gerenciar webhooks de notificação. Permite que clientes
+      registrem URLs para receber notificações em tempo real sobre eventos PIX.
+
+        ## Visão Geral
+
+        O sistema de webhooks envia notificações HTTP POST para URLs cadastradas pelo cliente quando eventos ocorrem (PIX recebido, transferência confirmada, etc.).
+
+        ## Autenticação
+
+        Todos os endpoints usam Bearer Token JWT com os seguintes scopes:
+        - `webhooks:read` — Listar, buscar webhooks e deliveries
+        - `webhooks:write` — Criar, atualizar, excluir webhooks e reenviar deliveries
+
+        **IMPORTANTE:** Os tokens precisam incluir explicitamente `webhooks:read` e/ou `webhooks:write` nos scopes solicitados na geração do token. API Keys criadas pelo sistema já incluem esses scopes por padrão.
+
+        ## Delegação (Multi-Tenant)
+
+        Tenants primários podem gerenciar webhooks dos seus sub-clientes usando o header `X-Client-ID`:
+        ```
+        Authorization: Bearer <jwt-do-tenant>
+        X-Client-ID: <id-do-sub-cliente>
+        ```
+        O sistema valida que o sub-cliente pertence ao tenant antes de permitir a operação.
+
+        ## Eventos Suportados
+
+        Estes são os eventos que podem ser registrados na configuração do webhook (`events` array):
+
+        | Evento | Descrição |
+        |--------|----------|
+        | `*` | Todos os eventos |
+        | `pix.cash_in.received` | Cash-in PIX recebido |
+        | `pix.cash_in.confirmed` | Cash-in PIX confirmado |
+        | `pix.cash_in.expired` | Cash-in PIX expirado |
+        | `pix.cash_in.refunded` | Cash-in PIX devolvido |
+        | `pix.cash_out.created` | Cash-out PIX criado |
+        | `pix.cash_out.completed` | Cash-out PIX completado |
+        | `pix.cash_out.failed` | Cash-out PIX falhou |
+        | `pix.cash_out.returned` | Cash-out PIX devolvido |
+        | `pix.reversal.created` | Devolução PIX criada |
+        | `pix.reversal.completed` | Devolução PIX concluída |
+        | `pix.reversal.failed` | Devolução PIX falhou |
+        | `pix.inbound.received` | PIX inbound recebido (direto) |
+        | `onboarding.status_changed` | Status do onboarding alterado (aprovado/rejeitado) |
+        | `limits.request_approved` | Solicitação de alteração de limite aprovada |
+        | `limits.request_rejected` | Solicitação de alteração de limite rejeitada |
+        | `pix.infraction.received` | Notificação de infração PIX recebida |
+        | `pix.med_refund.received` | Solicitação de devolução MED recebida |
+        | `onboarding.status_changed` | Status de onboarding alterado (multi-tenant) |
+        | `balance.updated` | Saldo atualizado |
+        | `payment_link.paid` | Link de pagamento pago |
+        | `payment_link.expired` | Link de pagamento expirado |
+
+        ## Payload de Notificação
+
+        Cada notificação enviada para sua URL usa o formato legacy compatível:
+        ```json
+        {
+          "id": "uuid-da-transacao",
+          "source": "pixgw",
+          "event": "pix.cash_in.confirmed",
+          "timestamp": "2025-01-15T10:30:00Z",
+          "correlationId": "uuid-da-transacao",
+          "data": {
+            "transaction": {
+              "id": "uuid-interno",
+              "amount": 150.00,
+              "status": "completed",
+              "reference": "ref-001",
+              "pixKey": "chave@pix.com",
+              "pixKeyType": "EMAIL",
+              "payer": {
+                "name": "João Silva",
+                "document": "123.456.789-00"
+              }
+            }
+          }
+        }
+        ```
+
+        A notificação inclui um header `X-Webhook-Signature` com HMAC-SHA256 usando o `secret` do webhook para validação.
+
+        ### Status internos no payload
+
+        | Status | Significado |
+        |--------|-----------|
+        | `pending` | Recebido, aguardando processamento |
+        | `processing` | Em processamento |
+        | `completed` | Concluído com sucesso |
+        | `failed` | Falhou |
+        | `expired` | Expirado |
+        | `cancelled` | Cancelado |
+        | `refunded` | Devolvido |
+        | `returned` | Retornado (cash-out) |
+
+        ## Retentativas
+
+        Se sua URL retornar erro (status >= 400 ou timeout), o sistema reenvia automaticamente com backoff exponencial:
+        - 1ª retentativa: 1 minuto
+        - 2ª retentativa: 5 minutos
+        - 3ª retentativa: 30 minutos
+        - 4ª retentativa: 1 hora
+        - 5ª retentativa: enviado para DLQ (Dead Letter Queue)
+
+        ## Fluxo Temporal
+
+        Eventos de cash-in com status `completed` e cash-out com status final são processados pelo Temporal Workflow antes da entrega do webhook. O workflow gerencia:
+        - Captura de ledger (saldo)
+        - Checagem de retenção (cash-in)
+        - Envio do webhook para o cliente
+
+        Isso garante consistência entre o saldo e a notificação.
+
+        ---
+  - name: P2P (Transferência Interna)
+    description: >-
+      Endpoints para transferência P2P interna entre contas do mesmo tenant. Não
+      passa pelo SPI (BACEN) — é um movimento contábil interno no Ledger.
+
+
+      ## Delegação Multi-Tenant
+
+
+      O tenant primário pode operar P2P em nome de um sub-cliente adicionando o
+      header:
+
+      ```
+
+      X-Client-ID: <id-do-sub-cliente>
+
+      ```
+
+
+      O Bearer Token deve ser do tenant primário. O middleware valida que:
+
+      1. O caller é uma conta primária (não é sub-cliente)
+
+      2. O sub-cliente pertence ao tenant
+
+      3. O sub-cliente está com status `active`
+
+
+      Se qualquer validação falhar, retorna HTTP 403 com código
+      `DELEGATION_DENIED`.
+
+
+      ### Comportamento com delegação
+
+
+      | Operação | `ClientID` usado | `TenantID` usado |
+
+      |----------|-----------------|------------------|
+
+      | Lookup | Sub-cliente | Tenant (escopo de busca) |
+
+      | Transfer (sender) | Sub-cliente | Tenant (validação de escopo) |
+paths:
+  /health:
+    get:
+      tags:
+        - Saúde do Serviço
+      summary: Health Check
+      description: |-
+        Verificação básica de saúde do serviço.
+
+        Retorna HTTP 200 se o serviço está no ar.
+
+        **Resposta:** `{"status":"healthy","service":"gw-core-pix-api"}`
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /ready:
+    get:
+      tags:
+        - Saúde do Serviço
+      summary: Readiness Check
+      description: |-
+        Verifica se o serviço está pronto para receber requisições.
+
+        Retorna HTTP 200 quando está pronto.
+
+        **Resposta:** `{"status":"ready","service":"gw-core-pix-api"}`
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/keys:
+    post:
+      tags:
+        - Chaves PIX (DICT/BACEN)
+      summary: Passo 6 — Registrar Chave PIX
+      description: >-
+        Registra uma nova chave PIX no DICT/BACEN.
+
+
+        **Simplificado!** Apenas `key_type` é obrigatório. Os dados da conta
+        (account_type, account_number, branch_number, person_type, tax_id, name,
+        trade_name, account_open_date) são preenchidos automaticamente a partir
+        dos dados do onboarding aprovado.
+
+
+        **Tipos de chave (`key_type`):**
+
+        - `CPF` — CPF do titular (11 dígitos)
+
+        - `CNPJ` — CNPJ da empresa (14 dígitos)
+
+        - `EMAIL` — E-mail
+
+        - `PHONE` — Telefone (+55...)
+
+        - `EVP` — Chave aleatória (gerada pelo BACEN, envie `key` vazio)
+
+
+        **Campo obrigatório:** `key_type`
+
+        **Campo opcional:** `key` (obrigatório para CPF, CNPJ, EMAIL, PHONE;
+        vazio para EVP)
+
+
+        **Campos opcionais (override):** Se precisar sobrescrever os dados do
+        onboarding, envie qualquer um destes campos: `account_type`,
+        `account_number`, `branch_number`, `person_type`, `tax_id`, `name`,
+        `trade_name`, `account_open_date`
+
+
+        **Dica:** Para chave EVP (aleatória), basta enviar `{"key_type":
+        "EVP"}`. O BACEN gera a chave automaticamente.
+
+
+        **Escopo:** `pix:keys:write`
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                key_type: EVP
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - Chaves PIX (DICT/BACEN)
+      summary: Listar Chaves PIX
+      description: |-
+        Lista todas as chaves PIX registradas para o cliente autenticado.
+
+        **Escopo:** `pix:keys:read`
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/keys/:key:
+    get:
+      tags:
+        - Chaves PIX (DICT/BACEN)
+      summary: Buscar Chave PIX por Valor
+      description: |-
+        Busca uma chave PIX específica pelo valor (CPF, e-mail, UUID EVP, etc.).
+
+        **Escopo:** `pix:keys:read`
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    delete:
+      tags:
+        - Chaves PIX (DICT/BACEN)
+      summary: Excluir Chave PIX
+      description: |-
+        Remove uma chave PIX do DICT/BACEN.
+
+        **Parâmetro da URL:** `key` — valor da chave PIX
+        **Body:** `reason` (opcional, padrão: `USER_REQUESTED`)
+
+        **Escopo:** `pix:keys:write`
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/balance:
+    get:
+      tags:
+        - Saldo PIX
+      summary: Consultar Saldo
+      description: >-
+        Consulta o saldo da conta. Se `account_id` for omitido, usa a conta
+        padrão do cliente.
+
+
+        **Resposta (200):**
+
+        ```json
+
+        {
+          "account_id": "acc-uuid",
+          "available_balance": "10000.00",
+          "blocked_balance": "500.00",
+          "total_balance": "10500.00",
+          "currency": "BRL",
+          "updated_at": "2025-01-15T10:00:00Z"
+        }
+
+        ```
+
+
+        **Escopo:** `pix:balance:read`
+      parameters:
+        - name: account_id
+          in: query
+          schema:
+            type: string
+          description: ID da conta (opcional, usa a conta padrão se omitido)
+          example: acc-uuid-aqui
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/transactions:
+    get:
+      tags:
+        - Transações
+      summary: Listar Transações
+      description: >-
+        Lista todas as transações do cliente autenticado com paginação e filtro
+        por tipo.
+
+
+        **Query Parameters:**
+
+        - `limit` — Quantidade por página (1-100, padrão: 20)
+
+        - `offset` — Offset para paginação (padrão: 0)
+
+        - `type` — Filtro por tipo: `cash_in`, `cash_out`, `p2p` (opcional)
+
+
+        **Resposta (200):**
+
+        ```json
+
+        {
+          "success": true,
+          "data": {
+            "transactions": [
+              {
+                "id": "uuid",
+                "external_id": "123",
+                "client_id": "uuid",
+                "type": "cash_out",
+                "status": "completed",
+                "amount": "100.00",
+                "gross_amount": "100.00",
+                "net_amount": "99.50",
+                "tax_amount": "0.50",
+                "currency": "BRL",
+                "pix_key": "email@example.com",
+                "pix_key_type": "email",
+                "e2e": "E1234...",
+                "payer_name": "João Silva",
+                "payer_document": "12345678901",
+                "receiver_name": "Maria Santos",
+                "receiver_document": "98765432100",
+                "created_at": "2026-03-26T20:00:00Z",
+                "updated_at": "2026-03-26T20:01:00Z",
+                "processed_at": "2026-03-26T20:01:00Z"
+              }
+            ],
+            "total": 1,
+            "limit": 20,
+            "offset": 0
+          }
+        }
+
+        ```
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+          description: 'Quantidade de registros por página (1-100, padrão: 20)'
+          example: '20'
+        - name: offset
+          in: query
+          schema:
+            type: integer
+          description: 'Offset para paginação (padrão: 0)'
+          example: '0'
+        - name: type
+          in: query
+          schema:
+            type: string
+          description: 'Filtrar por tipo: cash_in, cash_out, p2p (opcional)'
+          example: cash_in
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/transactions/:id:
+    get:
+      tags:
+        - Transações
+      summary: Consultar Transação por ID
+      description: >-
+        Consulta os detalhes de uma transação específica pelo ID. Retorna 404 se
+        a transação não pertencer ao cliente autenticado.
+
+
+        **Resposta (200):**
+
+        ```json
+
+        {
+          "success": true,
+          "data": {
+            "id": "uuid",
+            "external_id": "123",
+            "client_id": "uuid",
+            "type": "cash_out",
+            "status": "completed",
+            "amount": "100.00",
+            "gross_amount": "100.00",
+            "net_amount": "99.50",
+            "tax_amount": "0.50",
+            "currency": "BRL",
+            "pix_key": "email@example.com",
+            "pix_key_type": "email",
+            "e2e": "E1234...",
+            "payer_name": "João Silva",
+            "receiver_name": "Maria Santos",
+            "created_at": "2026-03-26T20:00:00Z",
+            "updated_at": "2026-03-26T20:01:00Z",
+            "processed_at": "2026-03-26T20:01:00Z"
+          }
+        }
+
+        ```
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/limits:
+    get:
+      tags:
+        - Limites PIX
+      summary: Consultar Limites
+      description: >-
+        Consulta os limites de transação PIX da conta, agrupados por tipo
+        (pix_out, pix_in, ted, boleto, p2p) e período (daytime/nighttime).
+
+
+        **Resposta (200):**
+
+        ```json
+
+        {
+          "limits": {
+            "pix_out": {
+              "daytime": {
+                "perTransaction": "50000.00",
+                "daily": "200000.00",
+                "used": "0.00"
+              },
+              "nighttime": {
+                "perTransaction": "5000.00",
+                "daily": "20000.00",
+                "used": "0.00"
+              }
+            },
+            "pix_in": {
+              "daytime": {
+                "perTransaction": "100000.00",
+                "daily": "500000.00",
+                "used": "0.00"
+              },
+              "nighttime": {
+                "perTransaction": "10000.00",
+                "daily": "50000.00",
+                "used": "0.00"
+              }
+            }
+          },
+          "period": {
+            "daytime": "06:00-20:00",
+            "nighttime": "20:00-06:00"
+          },
+          "currency": "BRL"
+        }
+
+        ```
+
+
+        **Escopo:** `pix:limits:read`
+      parameters:
+        - name: account_id
+          in: query
+          schema:
+            type: string
+          description: ID da conta (opcional, usa a conta padrão se omitido)
+          example: acc-uuid-aqui
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/limits/requests:
+    post:
+      tags:
+        - Limites PIX
+      summary: Solicitar Alteração de Limite
+      description: >-
+        Cria uma solicitação de alteração de limite PIX. A solicitação fica
+        pendente até ser aprovada ou rejeitada por um administrador.
+
+
+        **Campos obrigatórios:**
+
+        - `type` — Tipo de limite: `pix_in`, `pix_out`, `ted`, `boleto`, `p2p`,
+        `total`
+
+        - `period` — Período: `daily`, `nightly`, `monthly`
+
+        - `requested_amount` — Valor solicitado (string decimal)
+
+
+        **Campos opcionais:**
+
+        - `reason` — Justificativa da solicitação
+
+
+        **Regras:**
+
+        - Apenas uma solicitação pendente por tipo/período é permitida
+
+        - Se já existir uma pendente, retorna HTTP 409
+
+
+        **Escopo:** `pix:limits:write`
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                type: pix_in
+                period: daily
+                requested_amount: '500000.00'
+                reason: Aumento de volume de vendas no e-commerce
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - Limites PIX
+      summary: Listar Solicitações Pendentes
+      description: |-
+        Lista todas as solicitações de limite pendentes da conta autenticada.
+
+        Retorna apenas as solicitações com status `pending`.
+
+        **Escopo:** `pix:limits:read`
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/limits/requests/{limit_request_id}:
+    get:
+      tags:
+        - Limites PIX
+      summary: Consultar Solicitação por ID
+      description: >-
+        Consulta os detalhes de uma solicitação de limite específica.
+
+
+        Retorna os dados completos incluindo status atual (pending, approved,
+        rejected, expired).
+
+
+        **Escopo:** `pix:limits:read`
+      parameters:
+        - name: limit_request_id
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/reversals:
+    post:
+      tags:
+        - PIX Cash-In (Recebimentos) > Reversals (Devoluções PIX)
+      summary: Create PIX Reversal
+      description: >-
+        Cria uma devolução (reversal) de um pagamento PIX recebido.
+
+
+        **Campos obrigatórios:**
+
+        - `amount` (string): Valor em reais a ser devolvido. Ex: "10.00" =
+        R$10,00
+
+        - `external_id` (string): ID único da devolução no seu sistema
+
+        - `end_to_end_id` (string): EndToEndID do pagamento PIX original
+        recebido
+
+
+        **Campos opcionais:**
+
+        - `reason` (string): Motivo da devolução
+
+        - `tags` (array): Tags para categorização
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                amount: '10.00'
+                external_id: rev-unique-id-001
+                end_to_end_id: E35547753202201201450u34sDGd19l2
+                reason: Devolução a pedido do cliente
+                tags:
+                  - devolucao
+                  - cliente
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: X-Idempotency-Key
+          in: header
+          schema:
+            type: string
+          example: '550e8400-e29b-41d4-a716-446655440000'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - PIX Cash-In (Recebimentos) > Reversals (Devoluções PIX)
+      summary: List PIX Reversals
+      description: |-
+        Lista todas as devoluções PIX com suporte a paginação e filtros.
+
+        **Filtros disponíveis:**
+        - `limit`: Número máximo de resultados (1-100)
+        - `cursor`: Cursor para próxima página
+        - `after`/`before`: Filtrar por data de criação
+        - `status`: Filtrar por status
+        - `endToEndIds`: Filtrar por EndToEndID original
+        - `externalIds`: Filtrar por ID externo
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+          description: Máximo de resultados (max 100)
+          example: '10'
+        - name: cursor
+          in: query
+          schema:
+            type: string
+          description: Cursor para paginação
+        - name: after
+          in: query
+          schema:
+            type: string
+          description: Filtrar após esta data
+          example: '2024-01-01'
+        - name: before
+          in: query
+          schema:
+            type: string
+          description: Filtrar antes desta data
+          example: '2024-12-31'
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: Filtrar por status (processing, success, failed)
+          example: success
+        - name: endToEndIds
+          in: query
+          schema:
+            type: string
+          description: Filtrar por EndToEndID(s)
+        - name: externalIds
+          in: query
+          schema:
+            type: string
+          description: Filtrar por external ID(s)
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/reversals/5632510516002816:
+    get:
+      tags:
+        - PIX Cash-In (Recebimentos) > Reversals (Devoluções PIX)
+      summary: Get PIX Reversal by ID
+      description: >-
+        Consulta o status e detalhes de uma devolução PIX pelo ID retornado na
+        criação.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/cash-in/sync:
+    post:
+      tags:
+        - PIX Cash-In (Recebimentos)
+      summary: Criar Cobrança (Síncrona via SPI)
+      description: >-
+        Cria uma cobrança PIX síncrona via gateway SPI. Aguarda o resultado
+        completo do processamento.
+
+
+        **Campos:** Mesmos da cobrança assíncrona.
+
+
+        **Resposta:**
+
+        ```json
+
+        {
+          "success": true,
+          "transaction_id": "txn_abc123",
+          "status": "pending",
+          "qr_code": "base64-imagem-qr",
+          "qr_code_text": "00020126...",
+          "expires_at": "2025-01-15T10:30:00Z",
+          "provider": "jdpi"
+        }
+
+        ```
+
+
+        **Escopo:** `pix:cashin:write`
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                amount: '250.00'
+                reference: pedido-67890
+                description: Pagamento síncrono via SPI
+                payer_name: Carlos Lima
+                payer_document: '11122233344'
+                expiration_time: 1800
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: x-key-id
+          in: header
+          schema:
+            type: string
+          description: ID da API Key
+          example: 'your-api-key-id'
+        - name: x-secret-key
+          in: header
+          schema:
+            type: string
+          description: Secret da API Key
+          example: 'your-api-key-secret'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/cash-in/:cashInId:
+    get:
+      tags:
+        - PIX Cash-In (Recebimentos)
+      summary: Consultar Status do Cash-In
+      description: >-
+        Consulta o status de uma cobrança PIX.
+
+
+        **Status possíveis:** `pending`, `paid`, `expired`, `cancelled`,
+        `failed`
+
+
+        **Escopo:** `pix:cashin:read`
+      parameters:
+        - name: x-key-id
+          in: header
+          schema:
+            type: string
+          example: 'your-api-key-id'
+        - name: x-secret-key
+          in: header
+          schema:
+            type: string
+          example: 'your-api-key-secret'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/cash-in/:cashInId/cancel:
+    post:
+      tags:
+        - PIX Cash-In (Recebimentos)
+      summary: Cancelar Cash-In
+      description: |-
+        Cancela uma cobrança PIX pendente.
+
+        Só funciona para cobranças com status `pending`.
+
+        **Escopo:** `pix:cashin:write`
+      requestBody:
+        content: {}
+      parameters:
+        - name: x-key-id
+          in: header
+          schema:
+            type: string
+          example: 'your-api-key-id'
+        - name: x-secret-key
+          in: header
+          schema:
+            type: string
+          example: 'your-api-key-secret'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/cash-out:
+    post:
+      tags:
+        - PIX Cash-Out (Pagamentos)
+      summary: Criar Cash-Out (via QR Code)
+      description: >-
+        Inicia um pagamento PIX (Cash-Out) via QR Code.
+
+
+        **Fluxo otimizado (Two-Step - RECOMENDADO):**
+
+        1. Primeiro decodifique o QR Code via `POST /api/v1/pix/qrcode/decode`
+
+        2. Use o `end_to_end_id` retornado como header `X-Pix-Lookup-E2E` nesta
+        chamada
+
+        3. O sistema recupera os dados pré-decodificados e paga direto via JDPI
+        8.4.1 (sem decodificar novamente)
+
+        4. Campos como `pix_key`, `receiver_name`, `amount` são resolvidos
+        automaticamente do lookup
+
+
+        **Fluxo legado (backward compatible):**
+
+        1. Envie o `br_code` diretamente nesta chamada
+
+        2. O sistema decodifica internamente via JDPI 8.3.3 e depois paga via
+        8.4.1
+
+
+        **Para QR Estático:** `tpIniciacao=2`, `idConciliacaoRecebedor` opcional
+
+        **Para QR Dinâmico:** `tpIniciacao=3`, `idConciliacaoRecebedor`
+        obrigatório (vem do decode)
+
+
+        **Campos obrigatórios (fluxo legado):** `amount`, `br_code`
+
+        **Campos obrigatórios (two-step):** `amount` + header `X-Pix-Lookup-E2E`
+
+        **Campos opcionais:** `pix_key`, `pix_key_type`, `receiver_name`,
+        `receiver_document`, `description`, `reference`
+
+
+        **Escopo:** `pix:cashout:write`
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                amount: '10.00'
+                br_code: >-
+                  00020126580014br.gov.bcb.pix013626318747000186520400005303986540510.005802BR5913Fulano
+                  de Tal6008BRASILIA62070503***6304B13E
+                description: Pagamento via QR Code
+                reference: pag-qr-001
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: X-Idempotency-Key
+          in: header
+          schema:
+            type: string
+          description: Evita pagamentos duplicados
+          example: '550e8400-e29b-41d4-a716-446655440000'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/cash-out/:cashOutId:
+    get:
+      tags:
+        - PIX Cash-Out (Pagamentos)
+      summary: Consultar Status do Cash-Out
+      description: |-
+        Consulta o status de um pagamento PIX (Cash-Out).
+
+        **Status possíveis:** `processing`, `completed`, `failed`, `returned`
+
+        **Escopo:** `pix:cashout:read`
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/qrcode/decode:
+    post:
+      tags:
+        - PIX Cash-Out (Pagamentos)
+      summary: Decodificar QR Code
+      description: >-
+        Decodifica um QR Code PIX (estático ou dinâmico) via JDPI API 8.3.3.
+
+
+        **Campos obrigatórios:** `br_code` (payload EMV do QR Code)
+
+
+        **Resposta (200) — QR Estático:**
+
+        ```json
+
+        {
+          "success": true,
+          "qr_code_type": "static",
+          "pix_key": "26318747000186",
+          "amount": 10.00,
+          "receiver_name": "Fulano de Tal",
+          "receiver_ispb": "00000000",
+          "receiver_participant_name": "BCO DO BRASIL S.A.",
+          "end_to_end_id": "E54811417202603071234abcdef123456"
+        }
+
+        ```
+
+
+        **Resposta (200) — QR Dinâmico CobV (com encargos financeiros):**
+
+        ```json
+
+        {
+          "success": true,
+          "qr_code_type": "dynamic",
+          "amount": 500.00,
+          "receiver_ispb": "00360305",
+          "receiver_participant_name": "CAIXA ECONOMICA FEDERAL",
+          "due_date": "2026-04-15",
+          "penalty": { "mode": 2, "value": 2.00 },
+          "interest": { "mode": 2, "value": 1.00 },
+          "discount": { "mode": 1, "value": 10.00 },
+          "rebate": { "mode": 1, "value": 5.00 },
+          "final_amount": 485.00
+        }
+
+        ```
+
+
+        **Campos de participante (resolvidos via lista BACEN
+        ParticipantesSTR):**
+
+        - `receiver_participant_name` — Nome reduzido da instituição do
+        recebedor (sempre presente, string vazia se ISPB desconhecido)
+
+        - `withdraw_participant_name` — Nome da instituição do agente de saque
+        (presente apenas em PIX Saque)
+
+        - `change_participant_name` — Nome da instituição do agente de troco
+        (presente apenas em PIX Troco)
+
+
+        **Campos financeiros (retornados quando presentes no QR CobV):**
+
+        - `due_date` — Data de vencimento (YYYY-MM-DD)
+
+        - `penalty` — Multa: `mode` (1=fixo, 2=%), `value`
+
+        - `interest` — Juros: `mode` (1=R$/dia, 2=%/dia, 3=%/mês, 4=%/ano),
+        `value`
+
+        - `discount` — Desconto: `mode` (1-4), `value`, `fixed_dates[]`
+
+        - `rebate` — Abatimento: `mode` (1=fixo, 2=%), `value`
+
+        - `final_amount` — Valor final calculado pelo BACEN (com encargos
+        aplicados)
+
+        - `withdraw_amount` — Valor de saque (PIX Saque)
+
+        - `change_amount` — Valor de troco (PIX Troco)
+
+
+        **Fluxo otimizado (Two-Step - RECOMENDADO):**
+
+        1. Decodifique o QR Code com esta API (os dados são salvos no histórico
+        de lookup)
+
+        2. Confirme os dados do recebedor com o usuário
+
+        3. Envie o Cash-Out usando o header `X-Pix-Lookup-E2E: {end_to_end_id}`
+        (SEM precisar enviar `br_code` novamente)
+
+        4. O sistema utiliza os dados pré-decodificados, evitando chamada
+        duplicada ao JDPI
+
+
+        **Fluxo legado (backward compatible):**
+
+        1. Decodifique o QR Code com esta API
+
+        2. Envie o Cash-Out com o campo `br_code` preenchido (o sistema
+        decodifica novamente internamente)
+
+
+        **Escopo:** `pix:cashout:write`
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                br_code: >-
+                  00020126580014br.gov.bcb.pix013626318747000186520400005303986540510.005802BR5913Fulano
+                  de Tal6008BRASILIA62070503***6304B13E
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/med/:medId/respond:
+    post:
+      tags:
+        - MED - Devoluções Especiais
+      summary: Responder Devolução MED
+      description: >-
+        Responde a uma solicitação de devolução MED recebida (inbound).
+
+
+        **Campos obrigatórios:** `action`
+
+
+        **Campos opcionais:** `reason`
+
+
+        **Ações possíveis:**
+
+        - `approve` — Aprova a devolução (captura o hold cautelar e efetua o
+        crédito)
+
+        - `reject` — Rejeita a devolução (libera o hold cautelar)
+
+
+        **Escopo:** `pix:med:write`
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                action: approve
+                reason: Devolução aprovada após análise
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/med/status/:status:
+    get:
+      tags:
+        - MED - Devoluções Especiais
+      summary: Listar MED por Status
+      description: >-
+        Lista pedidos MED filtrados por status.
+
+
+        **Status possíveis:** `OPEN`, `IN_ANALYSIS`, `APPROVED`, `REJECTED`,
+        `CLOSED`
+
+
+        **Escopo:** `pix:med:read`
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+          example: '1'
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+          example: '20'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/webhooks:
+    post:
+      tags:
+        - Webhooks (Notificações)
+      summary: Criar Webhook
+      description: >-
+        Cria um novo webhook para receber notificações de eventos PIX.
+
+
+        **Campos:**
+
+        - `url` (obrigatório): URL HTTPS que receberá as notificações
+
+        - `events` (opcional): Lista de eventos para filtrar. Se vazio ou
+        `["*"]`, recebe todos os eventos.
+
+
+        **Resposta:** Retorna o webhook criado com `id` e `secret` para
+        validação de assinaturas.
+
+
+        **IMPORTANTE:** O `secret` é retornado **apenas na criação**. Guarde-o
+        com segurança.
+
+
+        ### Delegação (Tenant)
+
+        Para criar webhook de um sub-cliente, adicione:
+
+        ```
+
+        X-Client-ID: <id-do-sub-cliente>
+
+        ```
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                url: https://meu-sistema.com.br/webhooks/pix
+                events:
+                  - pix.cash_in.confirmed
+                  - pix.cash_in.received
+                  - pix.cash_out.completed
+                  - onboarding.status_changed
+                  - limits.request_approved
+                  - limits.request_rejected
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    get:
+      tags:
+        - Webhooks (Notificações)
+      summary: Listar Webhooks
+      description: |-
+        Lista todos os webhooks cadastrados pelo cliente autenticado.
+
+        **Parâmetros de query:**
+        - `limit` (padrão 20, max 100)
+        - `offset` (padrão 0)
+
+        ### Delegação (Tenant)
+        Para listar webhooks de um sub-cliente, adicione:
+        ```
+        X-Client-ID: <id-do-sub-cliente>
+        ```
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+          example: '20'
+        - name: offset
+          in: query
+          schema:
+            type: integer
+          example: '0'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/webhooks/{webhook_id}:
+    get:
+      tags:
+        - Webhooks (Notificações)
+      summary: Buscar Webhook por ID
+      description: >-
+        Busca um webhook específico por ID.
+
+
+        Retorna os detalhes do webhook, incluindo status e timestamps de última
+        atividade.
+      parameters:
+        - name: webhook_id
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    put:
+      tags:
+        - Webhooks (Notificações)
+      summary: Atualizar Webhook
+      description: |-
+        Atualiza um webhook existente.
+
+        **Campos atualizáveis:**
+        - `url` — Nova URL de destino
+        - `events` — Nova lista de eventos (use `["*"]` para todos)
+        - `status` — `"active"` ou `"inactive"`
+
+        Todos os campos são opcionais — envie apenas o que deseja alterar.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                url: https://meu-sistema.com.br/webhooks/pix-v2
+                events:
+                  - '*'
+                status: active
+      parameters:
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: webhook_id
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+    delete:
+      tags:
+        - Webhooks (Notificações)
+      summary: Excluir Webhook
+      description: >-
+        Remove um webhook cadastrado. As deliveries pendentes para este webhook
+        serão canceladas.
+
+
+        **ATENÇÃO:** Esta ação é irreversível.
+      parameters:
+        - name: webhook_id
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/webhooks/deliveries:
+    get:
+      tags:
+        - Webhooks (Notificações)
+      summary: Listar Deliveries
+      description: >-
+        Lista as entregas (deliveries) de webhooks do cliente.
+
+
+        **Filtros disponíveis:**
+
+        - `webhookId` — Filtrar por webhook específico (UUID). Aceita também
+        `webhook_id`
+
+        - `transactionId` — Filtrar por transaction ID (UUID). Aceita também
+        `transaction_id`
+
+        - `eventType` — Filtrar por tipo de evento (ex:
+        `pix.cash_in.confirmed`). Aceita também `event_type`
+
+        - `status` — `delivered`, `pending`, `failed`
+
+        - `start_date` / `end_date` — Filtro por período (formato YYYY-MM-DD)
+
+
+        **Paginação:**
+
+        - `page` — Número da página (1-based, padrão 1)
+
+        - `limit` — Itens por página (max 100, padrão 50)
+
+        - `offset` — Alternativa ao `page` (0-based)
+
+
+        **Resposta inclui:** `page`, `totalPages`, `total`, `limit`, `offset`,
+        `payload`, `response_body`
+
+
+        Cada delivery mostra: ID, evento, status, payload enviado, resposta
+        recebida, tentativas, timestamps.
+
+
+        ### Delegação (Tenant)
+
+        Para listar deliveries de um sub-cliente, adicione:
+
+        ```
+
+        X-Client-ID: <id-do-sub-cliente>
+
+        ```
+      parameters:
+        - name: webhookId
+          in: query
+          schema:
+            type: string
+          description: Filtrar por webhook ID (aceita também webhook_id)
+          example: 'wh-a1b2c3d4-e5f6-7890'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+          description: Itens por página (max 100, padrão 50)
+          example: '20'
+        - name: page
+          in: query
+          schema:
+            type: integer
+          description: Número da página (1-based)
+          example: '1'
+        - name: offset
+          in: query
+          schema:
+            type: integer
+          description: Offset alternativo à paginação (0-based)
+          example: '0'
+        - name: transactionId
+          in: query
+          schema:
+            type: string
+          description: Filtrar por transaction ID (UUID). Aceita também transaction_id
+        - name: eventType
+          in: query
+          schema:
+            type: string
+          description: >-
+            Filtrar por tipo de evento (ex: pix.cash_in.confirmed). Aceita
+            também event_type
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: delivered, pending, failed
+        - name: start_date
+          in: query
+          schema:
+            type: string
+          description: Filtro por data inicial (YYYY-MM-DD)
+        - name: end_date
+          in: query
+          schema:
+            type: string
+          description: Filtro por data final (YYYY-MM-DD)
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/webhooks/deliveries/{delivery_id}:
+    get:
+      tags:
+        - Webhooks (Notificações)
+      summary: Buscar Delivery por ID
+      description: >-
+        Busca os detalhes de uma entrega específica, incluindo payload enviado,
+        status HTTP da resposta e número de tentativas.
+      parameters:
+        - name: delivery_id
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/webhooks/deliveries/{delivery_id}/resend:
+    post:
+      tags:
+        - Webhooks (Notificações)
+      summary: Reenviar Delivery
+      description: >-
+        Reenvia manualmente uma delivery que falhou ou não foi entregue.
+
+
+        Útil quando:
+
+        - Sua URL estava fora do ar e agora voltou
+
+        - Você perdeu uma notificação e precisa reprocessar
+
+        - Quer testar a integração com dados reais
+
+
+        A delivery será enfileirada novamente e entregue na próxima execução do
+        worker.
+      requestBody:
+        content: {}
+      parameters:
+        - name: delivery_id
+          in: path
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/p2p/lookup:
+    post:
+      tags:
+        - P2P (Transferência Interna)
+      summary: Lookup Interno (Delegação Tenant)
+      description: >-
+        ## Lookup P2P com Delegação
+
+
+        O tenant primário busca uma conta destino em nome de um sub-cliente.
+
+
+        O header `X-Client-ID` indica qual sub-cliente está fazendo a busca. O
+        Bearer Token deve ser do tenant primário.
+
+
+        ### Headers obrigatórios
+
+
+        | Header | Descrição |
+
+        |--------|----------|
+
+        | `Authorization` | Bearer token do **tenant primário** |
+
+        | `X-Client-ID` | ID do **sub-cliente** em nome do qual se opera |
+
+
+        ### Comportamento
+
+
+        - O `ClientID` no contexto será o sub-cliente
+
+        - O `TenantID` será o tenant primário (usado para escopo de busca)
+
+        - A busca retorna contas do mesmo tenant
+
+
+        ### Scope necessário
+
+
+        `pix:p2p:read`
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                search_type: email
+                search_value: destinatario@exemplo.com
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+          example: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+        - name: X-Client-ID
+          in: header
+          schema:
+            type: string
+          description: ID do sub-cliente em nome do qual o tenant está operando
+          example: 'sub-client-uuid-here'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}
+  /api/v1/pix/p2p:
+    post:
+      tags:
+        - P2P (Transferência Interna)
+      summary: Transferência P2P via Chave PIX
+      description: >-
+        ## Transferência P2P via Chave PIX Interna
+
+
+        Alternativa à transferência por account_id. O sistema resolve a chave
+        PIX internamente (tabela `pix_keys`) para encontrar a conta destino.
+
+
+        **Nota**: Só funciona para chaves PIX registradas internamente. Chaves
+        externas (de outros ISPBs) devem usar o fluxo Cash-Out convencional.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                external_id: p2p-via-key-001
+                amount: '75.50'
+                receiver_pix_key: maria@exemplo.com
+                description: Divisão da conta
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+          example: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        - name: Content-Type
+          in: header
+          schema:
+            type: string
+          example: application/json
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json: {}

@@ -1,0 +1,81 @@
+---
+title: "Error Handling"
+description: "Learn how the BRZ API handles errors and how to interpret error responses."
+---
+
+# Error Handling
+
+The BRZ API uses standard HTTP status codes and returns structured JSON error responses.
+
+## HTTP Status Codes
+
+| Status Code | Meaning |
+|-------------|---------|
+| `200` | Success |
+| `201` | Created successfully |
+| `400` | Bad Request — invalid parameters or missing fields |
+| `401` | Unauthorized — invalid or missing authentication |
+| `403` | Forbidden — insufficient permissions or delegation denied |
+| `404` | Not Found — resource does not exist |
+| `409` | Conflict — duplicate resource or pending request |
+| `429` | Too Many Requests — rate limit exceeded |
+| `500` | Internal Server Error — unexpected server error |
+
+## Error Response Format
+
+All error responses follow this structure:
+
+```json
+{
+  "success": false,
+  "error": "Human-readable error message",
+  "code": "MACHINE_READABLE_ERROR_CODE"
+}
+```
+
+## Common Error Codes
+
+### Authentication Errors
+
+| Code | Description |
+|------|-------------|
+| `UNAUTHORIZED` | Missing or invalid Bearer Token |
+| `INVALID_API_KEY` | Invalid `x-key-id` or `x-secret-key` |
+| `TOKEN_EXPIRED` | JWT token has expired |
+| `DELEGATION_DENIED` | Sub-client not found or not owned by tenant |
+
+### Validation Errors
+
+| Code | Description |
+|------|-------------|
+| `validation_error` | Request body validation failed |
+| `missing_fields` | Required fields are missing |
+| `invalid_key_type` | PIX key type must be CPF, CNPJ, EMAIL, PHONE, or EVP |
+
+### Transaction Errors
+
+| Code | Description |
+|------|-------------|
+| `TRANSACTION_NOT_FOUND` | Transaction ID does not exist |
+| `INSUFFICIENT_BALANCE` | Not enough balance for the operation |
+| `DUPLICATE_EXTERNAL_ID` | Duplicate `external_id` for this client |
+| `receiver_not_found` | Receiver PIX key not found internally |
+
+### Limit Errors
+
+| Code | Description |
+|------|-------------|
+| `LIMIT_EXCEEDED` | Transaction exceeds the configured limit |
+| `PENDING_REQUEST_EXISTS` | A pending limit change request already exists |
+
+## Idempotency
+
+Use the `X-Idempotency-Key` header (UUID format) to prevent duplicate operations. If you send the same idempotency key twice, the API returns the original response instead of creating a duplicate.
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-out \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
+  -d '{ "amount": "100.00", "pix_key": "12345678901", "pix_key_type": "CPF" }'
+```

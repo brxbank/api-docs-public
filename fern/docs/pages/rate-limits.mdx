@@ -1,0 +1,44 @@
+---
+title: "Rate Limits"
+description: "Understand the rate limiting policies of the BRZ API."
+---
+
+# Rate Limits
+
+The BRZ API enforces rate limits to ensure fair usage and system stability.
+
+## Default Limits
+
+| Metric | Limit |
+|--------|-------|
+| Sustained rate | 50 requests/second per client |
+| Burst rate | Up to 100 requests/second |
+
+## Exceeding the Limit
+
+When you exceed the rate limit, the API returns:
+
+- **HTTP Status**: `429 Too Many Requests`
+- **Header**: `Retry-After` — indicates how many seconds to wait before retrying
+
+### Example Response
+
+```json
+{
+  "error": "Rate limit exceeded",
+  "code": "RATE_LIMIT_EXCEEDED",
+  "retry_after": 5
+}
+```
+
+## Best Practices
+
+1. **Implement exponential backoff**: When receiving a 429 response, wait for the duration specified in the `Retry-After` header before retrying.
+2. **Use idempotency keys**: Include the `X-Idempotency-Key` header in POST requests to safely retry without creating duplicate operations.
+3. **Batch operations**: Where possible, batch multiple operations into fewer API calls.
+4. **Cache responses**: Cache responses for read operations (e.g., balance checks, key lookups) to reduce unnecessary API calls.
+5. **Monitor usage**: Track your API usage patterns to stay within limits.
+
+## Requesting Higher Limits
+
+If your use case requires higher rate limits, contact the BRZ support team to discuss custom limits for your account.

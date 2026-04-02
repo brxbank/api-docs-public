@@ -1,0 +1,168 @@
+---
+title: "P2P Internal Transfers"
+description: "Learn how to perform internal P2P transfers between accounts within the same tenant."
+---
+
+# P2P Internal Transfers
+
+P2P (Peer-to-Peer) transfers allow you to move funds between accounts within the same tenant. These transfers do not go through SPI (BACEN) — they are internal ledger movements.
+
+<Callout intent="info">
+  P2P transfers use **Bearer Token** authentication. Scope required: `pix:p2p:read` for lookups and `pix:p2p:write` for transfers.
+</Callout>
+
+## Lookup an Internal Account
+
+Before transferring, look up the recipient's account using their email, phone, document, or account number:
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/pix/p2p/lookup \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "search_type": "email",
+    "search_value": "recipient@example.com"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "account_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "client_id": "c1d2e3f4-5678-90ab-cdef-1234567890ab",
+      "name": "João Souza",
+      "masked_document": "987.***.***-65",
+      "person_type": "individual",
+      "branch_number": "0001",
+      "account_number": "123456",
+      "account_type": "payment"
+    }
+  ]
+}
+```
+
+### Search Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `email` | Search by email address | `user@example.com` |
+| `phone` | Search by phone number | `+5511999887766` |
+| `document` | Search by CPF or CNPJ | `12345678901` |
+| `account` | Search by branch/account | `0001/123456` |
+
+## Create a P2P Transfer
+
+### Via Account ID
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/pix/p2p \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "external_id": "p2p-transfer-001",
+    "amount": "150.00",
+    "receiver_account_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "description": "Lunch payment",
+    "metadata": {
+      "category": "food"
+    }
+  }'
+```
+
+### Via PIX Key (Internal)
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/pix/p2p \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "external_id": "p2p-via-key-001",
+    "amount": "75.50",
+    "receiver_pix_key": "maria@example.com",
+    "description": "Bill split"
+  }'
+```
+
+<Callout intent="warning">
+  P2P via PIX key only works for keys registered internally. External keys (from other ISPBs) must use the Cash-Out flow.
+</Callout>
+
+### Required Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `external_id` | string | Yes | External ID for idempotency |
+| `amount` | string | Yes | Transfer amount (e.g., `"150.00"`) |
+| `receiver_account_id` | string | Yes* | UUID of the destination account |
+| `receiver_pix_key` | string | Yes* | Internal PIX key of the recipient |
+
+*At least one of `receiver_account_id` or `receiver_pix_key` is required.
+
+### Optional Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | string | Transfer description |
+| `metadata` | object | Custom metadata |
+
+## Internal Workflow (Temporal)
+
+P2P transfers follow a 10-step Temporal Workflow:
+
+1. **ResolveReceiver** — Locates the destination account (same tenant)
+2. **CheckReceiveMode** — Verifies if the recipient accepts P2P (fail-closed)
+3. **AssessRisk** — Risk analysis / auto-suspend (fail-closed)
+4. **CheckP2PLimit** — Checks per-transaction and daily limits (fail-closed)
+5. **ValidateBalance** — Verifies sender's balance
+6. **HoldFundsWithTax** — Holds sender's funds (with fee)
+7. **CreditReceiver** — Credits the recipient (no fee)
+8. **CaptureFunds** — Captures the sender's hold
+9. **SplitFee** — Separates fee if applicable
+10. **PublishEvent** — Publishes `p2p.completed` event via SNS
+
+### Compensation on Failure
+
+If any step fails after the HOLD, funds are automatically released (Saga pattern). If capture fails after crediting, the recipient's credit is reversed.
+
+## Multi-Tenant Delegation
+
+Tenants can perform P2P operations on behalf of sub-clients using the `X-Client-ID` header:
+
+### Delegated Lookup
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/pix/p2p/lookup \
+  -H "Authorization: Bearer <tenant-jwt>" \
+  -H "X-Client-ID: <sub-client-id>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "search_type": "email",
+    "search_value": "recipient@example.com"
+  }'
+```
+
+### Delegated Transfer
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/pix/p2p \
+  -H "Authorization: Bearer <tenant-jwt>" \
+  -H "X-Client-ID: <sub-client-id>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "external_id": "p2p-delegated-001",
+    "amount": "200.00",
+    "receiver_account_id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+    "description": "Delegated transfer by tenant"
+  }'
+```
+
+### Delegation Behavior
+
+| Operation | `ClientID` Used | `TenantID` Used |
+|-----------|----------------|-----------------|
+| Lookup | Sub-client | Tenant (search scope) |
+| Transfer (sender) | Sub-client | Tenant (scope validation) |

@@ -1,0 +1,121 @@
+---
+title: "Cash-In (Receiving Payments)"
+description: "Learn how to create PIX charges and receive payments using the BRZ API."
+---
+
+# Cash-In (Receiving Payments)
+
+Cash-In endpoints allow you to create PIX charges (cobranças) and generate QR codes for payers.
+
+<Callout intent="info">
+  Cash-In endpoints use **API Key authentication** (`x-key-id` + `x-secret-key`), not Bearer Token.
+</Callout>
+
+## Creating a Charge
+
+### Asynchronous (Recommended)
+
+Create a charge asynchronously — the API returns immediately with a transaction ID and QR code:
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-in \
+  -H "Content-Type: application/json" \
+  -H "x-key-id: your-key-id" \
+  -H "x-secret-key: your-secret-key" \
+  -d '{
+    "amount": "150.00",
+    "reference": "order-12345",
+    "description": "Payment for order #12345",
+    "payer_name": "João Silva",
+    "payer_document": "12345678901",
+    "expiration_time": 3600
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "transactionId": "txn_f1e2d3c4-b5a6-7890-cdef-1234567890ab",
+  "status": "PENDING",
+  "amount": "150.00",
+  "currency": "BRL",
+  "pixKey": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "qrCode": "00020126580014br.gov.bcb.pix0136...",
+  "qrCodeBase64": "data:image/png;base64,iVBORw0KGgo...",
+  "expiresAt": "2026-02-23T22:10:00.000Z",
+  "createdAt": "2026-02-23T21:10:00.000Z"
+}
+```
+
+### Synchronous (via SPI)
+
+Create a charge synchronously — the API waits for the full SPI processing result:
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-in/sync \
+  -H "Content-Type: application/json" \
+  -H "x-key-id: your-key-id" \
+  -H "x-secret-key: your-secret-key" \
+  -d '{
+    "amount": "250.00",
+    "reference": "order-67890",
+    "description": "Synchronous payment via SPI",
+    "payer_name": "Carlos Lima",
+    "payer_document": "11122233344",
+    "expiration_time": 1800
+  }'
+```
+
+## Checking Charge Status
+
+Query the status of a charge by its transaction ID:
+
+```bash
+curl -X GET https://pix-api.corpx.com.br/api/v1/pix/cash-in/txn_abc123 \
+  -H "x-key-id: your-key-id" \
+  -H "x-secret-key: your-secret-key"
+```
+
+### Possible Statuses
+
+| Status | Description |
+|--------|-------------|
+| `pending` | Charge created, awaiting payment |
+| `paid` | Payment received and confirmed |
+| `expired` | Charge expired without payment |
+| `cancelled` | Charge was cancelled |
+| `failed` | Charge processing failed |
+
+## Cancelling a Charge
+
+Cancel a pending charge:
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-in/txn_abc123/cancel \
+  -H "x-key-id: your-key-id" \
+  -H "x-secret-key: your-secret-key"
+```
+
+<Callout intent="warning">
+  Only charges with `pending` status can be cancelled.
+</Callout>
+
+## Advanced Features (CobV)
+
+For charges with due dates (Cobrança com Vencimento), you can use additional fields:
+
+| Field | Description |
+|-------|-------------|
+| `due_date` | Due date (YYYY-MM-DD) |
+| `penalty` | Late payment penalty (`mode` + `value`) |
+| `interest` | Daily interest (`mode` + `value`) |
+| `discount` | Early payment discount (`mode` + `value` + `fixed_dates[]`) |
+| `rebate` | Rebate/abatement (`mode` + `value`) |
+
+### PIX Saque and PIX Troco
+
+| Field | Description |
+|-------|-------------|
+| `withdraw_amount` | Withdrawal amount (PIX Saque) |
+| `change_amount` | Change amount (PIX Troco) |

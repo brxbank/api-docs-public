@@ -1,0 +1,114 @@
+---
+title: "MED (Special Returns)"
+description: "Learn how to manage MED (Mecanismo Especial de Devolução) requests for PIX transactions."
+---
+
+# MED (Special Returns)
+
+MED (Mecanismo Especial de Devolução) is a BACEN mechanism for requesting the return of PIX funds in cases of fraud, operational errors, or other special circumstances.
+
+<Callout intent="info">
+  MED endpoints use **Bearer Token** authentication. Scopes required: `pix:med:read` and `pix:med:write`.
+</Callout>
+
+## Creating a MED Request
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/pix/med \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "end_to_end_id": "E12345678202302232120abcdef123456",
+    "type": "FRAUD",
+    "amount": "500.00",
+    "reason": "Amount sent by mistake to the wrong account"
+  }'
+```
+
+**Response (201 Created):**
+
+```json
+{
+  "medId": "med_e5f6a7b8-c9d0-1e2f-3a4b-5c6d7e8f9a0b",
+  "status": "OPEN",
+  "type": "FRAUD",
+  "amount": "500.00",
+  "currency": "BRL",
+  "endToEndId": "E12345678202302232120abcdef123456",
+  "reason": "Amount sent by mistake to the wrong account",
+  "createdAt": "2026-02-23T21:50:00.000Z"
+}
+```
+
+### Required Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `end_to_end_id` | string | The E2E ID of the original PIX transaction |
+| `type` | string | MED type: `FRAUD` or `OPERATIONAL_FAILURE` |
+| `amount` | string | Amount to be returned |
+| `reason` | string | Justification for the return request |
+
+## Checking MED Status
+
+```bash
+curl -X GET https://pix-api.corpx.com.br/api/v1/pix/med/<med-id> \
+  -H "Authorization: Bearer <your-jwt>"
+```
+
+### MED Statuses
+
+| Status | Description |
+|--------|-------------|
+| `OPEN` | Request created, awaiting analysis |
+| `IN_ANALYSIS` | Under review by the counterparty |
+| `APPROVED` | Return approved |
+| `REJECTED` | Return rejected |
+| `CLOSED` | Request closed |
+
+## Listing MED Requests by Status
+
+```bash
+curl -X GET "https://pix-api.corpx.com.br/api/v1/pix/med/status/OPEN?page=1&page_size=20" \
+  -H "Authorization: Bearer <your-jwt>"
+```
+
+**Response:**
+
+```json
+{
+  "meds": [
+    {
+      "medId": "med_e5f6a7b8-c9d0-1e2f-3a4b-5c6d7e8f9a0b",
+      "status": "OPEN",
+      "type": "FRAUD",
+      "amount": "500.00",
+      "currency": "BRL",
+      "endToEndId": "E12345678202302232120abcdef123456",
+      "reason": "Amount sent by mistake to the wrong account",
+      "createdAt": "2026-02-23T21:50:00.000Z"
+    }
+  ]
+}
+```
+
+### Query Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `page` | 1 | Page number |
+| `page_size` | 20 | Items per page |
+
+## MED Types
+
+| Type | Description |
+|------|-------------|
+| `FRAUD` | Suspected fraud or scam |
+| `OPERATIONAL_FAILURE` | Operational error (e.g., wrong amount, wrong recipient) |
+
+## Important Notes
+
+- MED requests are processed according to BACEN regulations and timelines.
+- The counterparty institution has a defined period to respond to the request.
+- Once approved, the funds are returned to the original sender's account.
+- MED is not a substitute for regular refunds — use the Reversals endpoint for standard refund operations.

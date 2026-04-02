@@ -1,0 +1,107 @@
+---
+title: "Authentication"
+description: "Learn about the two authentication methods used by the BRZ API: Bearer Token (JWT) and API Key."
+---
+
+# Authentication
+
+The BRZ API uses two authentication methods depending on the endpoint type.
+
+## 1. Bearer Token (JWT) — Most Endpoints
+
+All endpoints **except Cash-In** use Bearer Token authentication:
+
+```bash
+Authorization: Bearer <your-jwt-token>
+```
+
+### Obtaining a JWT
+
+Call `POST /v1/auth/bearer-token` with your API Key credentials to obtain a JWT:
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/v1/auth/bearer-token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key_id": "your-key-id",
+    "secret_key": "your-secret-key"
+  }'
+```
+
+The response will contain your JWT token, which should be included in the `Authorization` header for all subsequent requests.
+
+## 2. API Key — Cash-In Endpoints Only
+
+Cash-In endpoints (`/api/v1/pix/cash-in/*`) use API Key authentication via two headers:
+
+```bash
+x-key-id: <your-key-id>
+x-secret-key: <your-secret-key>
+```
+
+### Example
+
+```bash
+curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-in \
+  -H "Content-Type: application/json" \
+  -H "x-key-id: your-key-id" \
+  -H "x-secret-key: your-secret-key" \
+  -d '{
+    "amount": "150.00",
+    "description": "Payment for order #123"
+  }'
+```
+
+## Scopes
+
+The Bearer Token supports the following scopes:
+
+| Scope | Description |
+|-------|-------------|
+| `pix:keys:read` | List and search PIX keys |
+| `pix:keys:write` | Register and delete PIX keys |
+| `pix:balance:read` | Check account balance |
+| `pix:cashin:read` | Query Cash-In status |
+| `pix:cashin:write` | Create and cancel Cash-In charges |
+| `pix:cashout:read` | Query Cash-Out status |
+| `pix:cashout:write` | Create Cash-Out payments |
+| `pix:limits:read` | Query transaction limits |
+| `pix:limits:write` | Request limit changes |
+| `pix:med:read` | Query MED requests |
+| `pix:med:write` | Create MED requests |
+| `pix:reversals:read` | Query reversals |
+| `pix:reversals:write` | Create reversals |
+| `pix:p2p:read` | P2P lookup |
+| `pix:p2p:write` | P2P transfers |
+| `webhooks:read` | List and search webhooks |
+| `webhooks:write` | Create, update, delete webhooks |
+
+## Password Reset
+
+### Flow 1 — Independent Client (Dual OTP)
+
+1. `POST /v1/auth/reset-password` with `{ "email": "..." }` (no authentication)
+2. System sends OTP to email AND phone (different codes)
+3. `POST /v1/auth/confirm-reset-password` with `{ "email", "email_code", "phone_code", "new_password" }`
+
+### Flow 2 — Via Tenant (skip_otp)
+
+1. `POST /v1/auth/reset-password` with Bearer Token + `X-Client-Id` + `{ "email": "..." }`
+2. If tenant has `skip_otp=true`: returns temporary password in the response
+3. Sub-client logs in with temporary password and is forced to change it
+
+## Multi-Tenant Delegation
+
+Tenant accounts can operate on behalf of sub-clients by adding the `X-Client-ID` header:
+
+```bash
+Authorization: Bearer <tenant-jwt-token>
+X-Client-ID: <sub-client-id>
+```
+
+The system validates that:
+1. The caller is a primary account (not a sub-client)
+2. The sub-client belongs to the tenant
+3. The sub-client has `active` status
+
+If any validation fails, the API returns HTTP 403 with code `DELEGATION_DENIED`.
