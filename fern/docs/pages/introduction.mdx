@@ -27,15 +27,18 @@ Follow these steps to get started:
 
 <Steps>
   ### Step 1 — Open Your Account
-  Visit [brzip.com.br/abrasuaconta](https://brzip.com.br/abrasuaconta) and fill out the account opening form. Once your account is approved, you will receive your API credentials via email.
+  Visit [brzip.com.br/abrasuaconta](https://brzip.com.br/abrasuaconta) and fill out the account opening form. Once your account is approved, you will be notified via email.
 
-  ### Step 2 — Generate Bearer Token
+  ### Step 2 — Generate Your API Credentials
+  After approval, log in to the [Web Banking](https://ib.brzip.com.br) portal. Inside the platform, you can generate your API credentials (`key_id` and `secret_key`).
+
+  ### Step 3 — Generate Bearer Token
   With your credentials, generate your Bearer Token with `POST /v1/auth/bearer-token`.
 
-  ### Step 3 — Register a PIX Key
+  ### Step 4 — Register a PIX Key
   Register a PIX key with `POST /api/v1/pix/keys`. Just send `{"key_type": "EVP"}` — account data is auto-filled from onboarding.
 
-  ### Step 4 — Start Operating!
+  ### Step 5 — Start Operating!
   You are now ready to create charges (Cash-In), make transfers, and check balances.
 </Steps>
 
