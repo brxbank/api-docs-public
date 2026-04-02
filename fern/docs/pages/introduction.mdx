@@ -26,28 +26,16 @@ All PIX endpoints use the prefix `/api/v1/pix`.
 Follow these steps to get started:
 
 <Steps>
-  ### Step 1 — Create Account
-  Sign up with `POST /v1/auth/signup`. Save the returned `keyId` and `secretKey`. OTP codes will be sent via email and SMS.
+  ### Step 1 — Open Your Account
+  Visit [brzip.com.br/abrasuaconta](https://brzip.com.br/abrasuaconta) and fill out the account opening form. Once your account is approved, you will receive your API credentials via email.
 
-  ### Step 2 — Verify Email and Phone
-  Verify your email with `POST /v1/auth/verify-email` and your phone with `POST /v1/auth/verify-phone` using the OTP codes received.
+  ### Step 2 — Generate Bearer Token
+  With your credentials, generate your Bearer Token with `POST /v1/auth/bearer-token`.
 
-  ### Step 3 — Login
-  Log in with `POST /v1/auth/login` to obtain a session token.
-
-  ### Step 4 — Submit Documents
-  Upload required documents using pre-signed URLs from `POST /v1/auth/documents/presigned-urls`, then confirm with `POST /v1/auth/documents/confirm`.
-
-  ### Step 5 — Wait for Approval
-  Check your status with `GET /v1/auth/status`. Wait for team approval.
-
-  ### Step 6 — Generate Bearer Token
-  After approval, generate your Bearer Token with `POST /v1/auth/bearer-token`.
-
-  ### Step 7 — Register a PIX Key
+  ### Step 3 — Register a PIX Key
   Register a PIX key with `POST /api/v1/pix/keys`. Just send `{"key_type": "EVP"}` — account data is auto-filled from onboarding.
 
-  ### Step 8 — Start Operating!
+  ### Step 4 — Start Operating!
   You are now ready to create charges (Cash-In), make transfers, and check balances.
 </Steps>
 
