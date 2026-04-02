@@ -6,7 +6,7 @@ paths:
             body:
               status: healthy
               service: brz-api
-  /api/v1/pix/cash-in/:cashInId/cancel:
+  /api/v1/pix/cash-in/:cash_in_id/cancel:
     post:
       x-fern-examples:
         - headers:
@@ -96,8 +96,8 @@ paths:
             before: '2024-04-30T23:59:59Z'
             status: success
             cursor: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
-            endToEndIds: E2E1234567890
-            externalIds: EXT987654321
+            end_to_end_ids: E2E1234567890
+            external_ids: EXT987654321
           response:
             body:
               reversals:
@@ -131,7 +131,7 @@ paths:
               total_balance: '16430.75'
               currency: BRL
               updated_at: '2024-06-10T14:45:00Z'
-  /api/v1/pix/cash-out/:cashOutId:
+  /api/v1/pix/cash-out/:cash_out_id:
     get:
       x-fern-examples:
         - response:
@@ -342,7 +342,7 @@ paths:
               response_headers:
                 Content-Type: application/json
                 X-Request-ID: f47ac10b-58cc-4372-a567-0e02b2c3d479
-  /api/v1/pix/cash-in/:cashInId:
+  /api/v1/pix/cash-in/:cash_in_id:
     get:
       x-fern-examples:
         - headers:
@@ -574,11 +574,11 @@ paths:
               page_size: 20
               total_items: 85
               total_pages: 1
-  /api/v1/pix/cash-in/cashInId/cancel:
+  /api/v1/pix/cash-in/cash_in_id/cancel:
     post:
       x-fern-examples:
         - path-parameters:
-            cashInId: cashInId
+            cash_in_id: cash_in_id
           headers:
             x-key-id: your-api-key-id
             x-secret-key: your-api-key-secret
@@ -604,11 +604,11 @@ paths:
               qr_code_text: 00020126580014BR.GOV.BCB.PIX0136a1b2c3d4e5f6789012345678901234520400005303986540610.005802BR5925John Doe6009Sao Paulo62070503***63041D3D
               expires_at: '2024-01-15T09:30:00Z'
               provider: pix
-  /api/v1/pix/reversals/reversalId:
+  /api/v1/pix/reversals/reversal_id:
     get:
       x-fern-examples:
         - path-parameters:
-            reversalId: reversalId
+            reversal_id: reversal_id
           response:
             body:
               reversal_id: a3f1c9d2-7b4e-4f8a-9c3d-2e5b7f6a1d9e
@@ -646,11 +646,11 @@ paths:
               final_amount: '150.75'
               withdraw_amount: '0.00'
               change_amount: '0.00'
-  /api/v1/pix/cash-in/cashInId:
+  /api/v1/pix/cash-in/cash_in_id:
     get:
       x-fern-examples:
         - path-parameters:
-            cashInId: a3f1c9e2-7b4d-4f8a-9c2e-1d2b3f4a5e6f
+            cash_in_id: a3f1c9e2-7b4d-4f8a-9c2e-1d2b3f4a5e6f
           headers:
             x-key-id: 123e4567-e89b-12d3-a456-426614174000
             x-secret-key: 9f8e7d6c-5b4a-3c2d-1e0f-123456789abc
@@ -665,11 +665,11 @@ paths:
               payer:
                 name: John Doe
                 cpf_cnpj: '12345678909'
-  /api/v1/pix/cash-out/cashOutId:
+  /api/v1/pix/cash-out/cash_out_id:
     get:
       x-fern-examples:
         - path-parameters:
-            cashOutId: cashOutId
+            cash_out_id: cash_out_id
           response:
             body:
               cash_out_id: a3f47b9e-8c2d-4f1a-bb3e-9d7e2c5f1a2b
@@ -686,3 +686,14 @@ paths:
                 account_number: 12345-6
                 branch_number: '001'
               failure_reason: null
+  /api/v1/auth/bearer-token:
+    post:
+      x-fern-examples:
+        - headers:
+            x-key-id: key_abc123def456
+            x-secret-key: sec_xyz789ghi012
+          response:
+            body:
+              success: true
+              token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyX2tleV8xMjM0NTYiLCJzY29wZXMiOlsicGl4OmtleXM6cmVhZCIsInBpeDprZXlzOndyaXRlIiwicGl4OmJhbGFuY2U6cmVhZCIsInBpeDpjYXNob3V0OndyaXRlIiwid2ViaG9va3M6cmVhZCIsIndlYmhvb2tzOndyaXRlIl0sImlhdCI6MTY4NjQ4MDAwMCwiZXhwIjoxNjg2NDgzNjAwfQ.4f7X9vJq2X9QvYx7Z8kL5mN3Pq1R6TzW8YvJ9X0aB1c
+              expires_in: 3600

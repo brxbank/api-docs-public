@@ -256,7 +256,7 @@ curl -X DELETE https://api.brzip.com.br/api/v1/webhooks/<webhook-id> \
 View the delivery history for your webhooks. Each delivery shows the event, status, payload sent, response received, attempt count, and timestamps.
 
 ```bash
-curl -X GET "https://api.brzip.com.br/api/v1/webhooks/deliveries?webhookId=<webhook-id>&limit=20&page=1" \
+curl -X GET "https://api.brzip.com.br/api/v1/webhooks/deliveries?webhook_id=<webhook-id>&limit=20&page=1" \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
@@ -264,9 +264,9 @@ curl -X GET "https://api.brzip.com.br/api/v1/webhooks/deliveries?webhookId=<webh
 
 | Parameter | Description |
 |-----------|-------------|
-| `webhookId` | Filter by webhook ID (UUID) |
-| `transactionId` | Filter by transaction ID (UUID) |
-| `eventType` | Filter by event type (e.g., `pix.cash_in.confirmed`) |
+| `webhook_id` | Filter by webhook ID (UUID) |
+| `transaction_id` | Filter by transaction ID (UUID) |
+| `event_type` | Filter by event type (e.g., `pix.cash_in.confirmed`) |
 | `status` | Filter by status: `delivered`, `pending`, `failed` |
 | `start_date` | Filter by start date (YYYY-MM-DD) |
 | `end_date` | Filter by end date (YYYY-MM-DD) |

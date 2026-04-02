@@ -34,21 +34,21 @@ curl -X POST https://api.brzip.com.br/api/v1/pix/keys \
 
 ```json
 {
-  "keyType": "EVP",
+  "key_type": "EVP",
   "key": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "account": {
     "participant": "12345678",
     "branch": "0001",
-    "accountNumber": "12345678",
-    "accountType": "CACC",
-    "openingDate": "2026-02-23"
+    "account_number": "12345678",
+    "account_type": "CACC",
+    "opening_date": "2026-02-23"
   },
   "owner": {
     "type": "NATURAL_PERSON",
-    "taxIdNumber": "22768368067",
+    "tax_id_number": "22768368067",
     "name": "Ana Paula Oliveira"
   },
-  "createdAt": "2026-02-23T21:10:00.000Z",
+  "created_at": "2026-02-23T21:10:00.000Z",
   "status": "REGISTERED"
 }
 ```

@@ -12,7 +12,7 @@ info:
     **Base URL:** `https://api.brzip.com.br`
 
 
-    All PIX endpoints use the prefix `/api/v1/pix`.
+    All endpoints use the base path `/api/v1/`.
 
 
     ## Authentication
@@ -353,15 +353,15 @@ tags:
         "source": "pixgw",
         "event": "pix.cash_in.confirmed",
         "timestamp": "2025-01-15T10:30:00Z",
-        "correlationId": "transaction-uuid",
+        "correlation_id": "transaction-uuid",
         "data": {
           "transaction": {
             "id": "internal-uuid",
             "amount": "150.00",
             "status": "completed",
             "reference": "ref-001",
-            "pixKey": "key@pix.com",
-            "pixKeyType": "EMAIL",
+            "pix_key": "key@pix.com",
+            "pix_key_type": "EMAIL",
             "payer": {
               "name": "John Doe",
               "document": "123.456.789-00"
@@ -1204,7 +1204,7 @@ paths:
                   provider:
                     type: string
                     example: pix
-  /api/v1/pix/cash-in/{cashInId}:
+  /api/v1/pix/cash-in/{cash_in_id}:
     get:
       tags:
         - PIX Cash-In
@@ -1220,7 +1220,7 @@ paths:
 
         **Scope:** `pix:cashin:read`
       parameters:
-        - name: cashInId
+        - name: cash_in_id
           in: path
           required: true
           schema:
@@ -1245,7 +1245,7 @@ paths:
             application/json: {}
         '404':
           description: Cash-In not found
-  /api/v1/pix/cash-in/{cashInId}/cancel:
+  /api/v1/pix/cash-in/{cash_in_id}/cancel:
     post:
       tags:
         - PIX Cash-In
@@ -1258,7 +1258,7 @@ paths:
 
         **Scope:** `pix:cashin:write`
       parameters:
-        - name: cashInId
+        - name: cash_in_id
           in: path
           required: true
           schema:
@@ -1388,12 +1388,12 @@ paths:
             enum: [processing, success, failed]
           description: Filter by status
           example: success
-        - name: endToEndIds
+        - name: end_to_end_ids
           in: query
           schema:
             type: string
           description: Filter by EndToEndID(s)
-        - name: externalIds
+        - name: external_ids
           in: query
           schema:
             type: string
@@ -1403,7 +1403,7 @@ paths:
           description: List of reversals
           content:
             application/json: {}
-  /api/v1/pix/reversals/{reversalId}:
+  /api/v1/pix/reversals/{reversal_id}:
     get:
       tags:
         - PIX Reversals
@@ -1415,7 +1415,7 @@ paths:
 
         **Scope:** `pix:reversals:read`
       parameters:
-        - name: reversalId
+        - name: reversal_id
           in: path
           required: true
           schema:
@@ -1554,7 +1554,7 @@ paths:
             application/json: {}
         '400':
           description: Invalid request parameters
-  /api/v1/pix/cash-out/{cashOutId}:
+  /api/v1/pix/cash-out/{cash_out_id}:
     get:
       tags:
         - PIX Cash-Out
@@ -1569,7 +1569,7 @@ paths:
 
         **Scope:** `pix:cashout:read`
       parameters:
-        - name: cashOutId
+        - name: cash_out_id
           in: path
           required: true
           schema:
@@ -1704,7 +1704,7 @@ paths:
                     description: Change amount (PIX Troco)
         '400':
           description: Invalid or unreadable QR Code
-  /api/v1/pix/med/{medId}/respond:
+  /api/v1/pix/med/{med_id}/respond:
     post:
       tags:
         - MED
@@ -1724,7 +1724,7 @@ paths:
 
         **Scope:** `pix:med:write`
       parameters:
-        - name: medId
+        - name: med_id
           in: path
           required: true
           schema:
@@ -1972,17 +1972,17 @@ paths:
         status, payload sent, response received, attempt count, and timestamps.
 
       parameters:
-        - name: webhookId
+        - name: webhook_id
           in: query
           schema:
             type: string
           description: Filter by webhook ID (UUID)
-        - name: transactionId
+        - name: transaction_id
           in: query
           schema:
             type: string
           description: Filter by transaction ID (UUID)
-        - name: eventType
+        - name: event_type
           in: query
           schema:
             type: string
