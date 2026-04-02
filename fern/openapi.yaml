@@ -239,7 +239,7 @@ tags:
 
       - `POST /cash-in` — Create asynchronous charge
 
-      - `POST /cash-in/sync` — Create synchronous charge via SPI
+      - `POST /cash-in/sync` — Create synchronous charge
 
       - `GET /cash-in/{id}` — Query status
 
@@ -1108,10 +1108,10 @@ paths:
     post:
       tags:
         - PIX Cash-In
-      summary: Create Charge (Sync via SPI)
+      summary: Create Charge (Sync)
       operationId: createCashInSync
       description: >-
-        Creates a synchronous PIX charge via the SPI gateway. Waits for the
+        Creates a synchronous PIX charge. Waits for the
         complete processing result.
 
 
@@ -1137,7 +1137,7 @@ paths:
                   example: order-67890
                 description:
                   type: string
-                  example: Synchronous payment via SPI
+                  example: Synchronous payment
                 payer_name:
                   type: string
                   example: John Doe
@@ -1188,7 +1188,7 @@ paths:
                     format: date-time
                   provider:
                     type: string
-                    example: spi
+                    example: pix
   /api/v1/pix/cash-in/{cashInId}:
     get:
       tags:
@@ -1420,9 +1420,8 @@ paths:
       summary: Create Cash-Out
       operationId: createCashOut
       description: >-
-        Initiates a PIX payment (Cash-Out) via SPI. This single endpoint
-        supports three different payment flows depending on the fields
-        provided:
+        Initiates a PIX payment (Cash-Out). This single endpoint supports three
+        different payment flows depending on the fields provided:
 
 
         ## Flow 1 — Via PIX Key
@@ -1437,45 +1436,26 @@ paths:
 
 
         Send a payment using the recipient's bank account details, without
-        needing a PIX key. The system sets `initiation_type = "manual"`
-        automatically and sends the data directly to SPI (no DICT lookup).
+        needing a PIX key.
 
         **Required fields:** `amount`, `receiver_name`, `receiver_document`,
         `receiver_ispb`, `receiver_branch`, `receiver_account`,
         `receiver_account_type`
 
 
-        ## Flow 3 — Via QR Code
+        ## Flow 3 — Via QR Code (Two-Step)
 
-
-        **Optimized flow (Two-Step — RECOMMENDED):**
 
         1. First decode the QR Code via `POST /api/v1/pix/qrcode/decode`
 
         2. Use the returned `end_to_end_id` as the `X-Pix-Lookup-E2E` header
         in this call
 
-        3. The system retrieves pre-decoded data and pays directly
+        3. The system retrieves pre-decoded data and processes the payment
         (without decoding again)
 
 
-        **Legacy flow (backward compatible):**
-
-        1. Send the `br_code` directly in this call
-
-        2. The system decodes internally then processes the payment
-
-
-        **For Static QR:** `tpIniciacao=2`, `idConciliacaoRecebedor` optional
-
-        **For Dynamic QR:** `tpIniciacao=3`, `idConciliacaoRecebedor` required
-        (from decode)
-
-
-        **Required fields (legacy):** `amount`, `br_code`
-
-        **Required fields (two-step):** `amount` + header `X-Pix-Lookup-E2E`
-
+        **Required fields:** `amount` + header `X-Pix-Lookup-E2E`
 
 
         **Scope:** `pix:cashout:write`
@@ -1526,10 +1506,6 @@ paths:
                   enum: [checking, savings, salary, payment]
                   description: Recipient account type (required for Flow 2)
                   example: checking
-                br_code:
-                  type: string
-                  description: EMV payload from QR Code (required for Flow 3 legacy)
-                  example: "00020126580014br.gov.bcb.pix0136263187470001865204000053039865405..."
                 description:
                   type: string
                   description: Payment description (optional)
@@ -1554,9 +1530,8 @@ paths:
           schema:
             type: string
           description: >-
-            EndToEndID from a previous QR Code decode (Flow 3 two-step). When
-            provided, the system uses pre-decoded data instead of decoding
-            again.
+            EndToEndID from a previous QR Code decode (required for Flow 3).
+            Obtained from `POST /api/v1/pix/qrcode/decode`.
       responses:
         '200':
           description: Cash-Out initiated

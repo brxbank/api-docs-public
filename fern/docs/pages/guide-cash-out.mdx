@@ -5,15 +5,75 @@ description: "Learn how to send PIX payments using the BRZ API."
 
 # Cash-Out (Sending Payments)
 
-Cash-Out endpoints allow you to send PIX payments to any bank account in Brazil via SPI.
+Cash-Out endpoints allow you to send PIX payments to any bank account in Brazil. There are three available flows depending on the information you have about the recipient.
 
 <Callout intent="info">
   Cash-Out endpoints use **Bearer Token** authentication. Always include the `X-Idempotency-Key` header to prevent duplicate payments.
 </Callout>
 
-## Two-Step Flow (Recommended)
+## Flow 1 — Via PIX Key
 
-The recommended approach is a two-step flow: first decode the QR Code, then send the payment using the pre-decoded data.
+Send a payment directly using the recipient's PIX key. The system resolves the key to obtain the recipient's bank details automatically.
+
+```bash
+curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-out \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
+  -d '{
+    "amount": "150.00",
+    "pix_key": "12345678901",
+    "pix_key_type": "CPF",
+    "description": "Payment via PIX key",
+    "reference": "pay-key-001"
+  }'
+```
+
+**Required fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `amount` | string | Payment amount in BRL (e.g., `"150.00"`) |
+| `pix_key` | string | Recipient's PIX key |
+| `pix_key_type` | string | Key type: `CPF`, `CNPJ`, `EMAIL`, `PHONE`, or `EVP` |
+
+## Flow 2 — Via Bank Details
+
+Send a payment using the recipient's bank account details directly, without needing a PIX key.
+
+```bash
+curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-out \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: 660e8400-e29b-41d4-a716-446655440001" \
+  -d '{
+    "amount": "2500.00",
+    "receiver_name": "Acme Corp Ltda",
+    "receiver_document": "12345678000190",
+    "receiver_ispb": "00000000",
+    "receiver_branch": "0001",
+    "receiver_account": "98765432",
+    "receiver_account_type": "checking",
+    "description": "Supplier invoice #4521",
+    "reference": "pay-bank-001"
+  }'
+```
+
+**Required fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `amount` | string | Payment amount in BRL (e.g., `"2500.00"`) |
+| `receiver_name` | string | Recipient's full name or company name |
+| `receiver_document` | string | Recipient's CPF (11 digits) or CNPJ (14 digits) |
+| `receiver_ispb` | string | Recipient's bank ISPB code (8 digits) |
+| `receiver_branch` | string | Recipient's branch number |
+| `receiver_account` | string | Recipient's account number |
+| `receiver_account_type` | string | Account type: `checking`, `savings`, `salary`, or `payment` |
+
+## Flow 3 — Via QR Code (Two-Step)
+
+The recommended approach for QR Code payments. First decode the QR Code, then send the payment using the pre-decoded data.
 
 ### Step 1 — Decode the QR Code
 
@@ -22,7 +82,7 @@ curl -X POST https://pix-api.brzip.com.br/api/v1/pix/qrcode/decode \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -d '{
-    "br_code": "00020126580014br.gov.bcb.pix0136263187470001865204000053039865405..."
+    "br_code": "00020126580014br.gov.bcb.pix0136a1b2c3d4-e5f6-7890-1234-567890123456..."
   }'
 ```
 
@@ -43,13 +103,13 @@ curl -X POST https://pix-api.brzip.com.br/api/v1/pix/qrcode/decode \
 
 ### Step 2 — Send the Payment
 
-Use the `end_to_end_id` from the decode response as the `X-Pix-Lookup-E2E` header. This avoids decoding the QR Code again:
+Use the `end_to_end_id` from the decode response as the `X-Pix-Lookup-E2E` header:
 
 ```bash
 curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-out \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
-  -H "X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
+  -H "X-Idempotency-Key: 770e8400-e29b-41d4-a716-446655440002" \
   -H "X-Pix-Lookup-E2E: E54811417202603071234abcdef123456" \
   -d '{
     "amount": "10.00",
@@ -58,57 +118,40 @@ curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-out \
   }'
 ```
 
-## Legacy Flow (Single Step)
-
-Alternatively, send the `br_code` directly in the Cash-Out request. The system will decode it internally before processing the payment:
-
-```bash
-curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-out \
-  -H "Authorization: Bearer <your-jwt>" \
-  -H "Content-Type: application/json" \
-  -H "X-Idempotency-Key: 660e8400-e29b-41d4-a716-446655440001" \
-  -d '{
-    "amount": "10.00",
-    "br_code": "00020126580014br.gov.bcb.pix0136263187470001865204000053039865405...",
-    "description": "QR Code payment (legacy)",
-    "reference": "pay-qr-002"
-  }'
-```
-
-## Request Fields
-
-### Required Fields
+**Required fields:**
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `amount` | string | Payment amount in BRL (e.g., `"1000.00"`) |
+| `amount` | string | Payment amount in BRL |
 
-### Optional Fields
+**Required header:**
+
+| Header | Description |
+|--------|-------------|
+| `X-Pix-Lookup-E2E` | `end_to_end_id` obtained from `POST /api/v1/pix/qrcode/decode` |
+
+## Optional Fields (All Flows)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `br_code` | string | EMV payload from QR Code (required for legacy flow) |
-| `pix_key` | string | Recipient's PIX key (resolved from lookup in two-step flow) |
-| `pix_key_type` | string | Key type: `CPF`, `CNPJ`, `EMAIL`, `PHONE`, `EVP` |
-| `receiver_name` | string | Recipient's name |
-| `receiver_document` | string | Recipient's CPF or CNPJ |
 | `description` | string | Payment description |
 | `reference` | string | Your internal reference ID |
+| `metadata` | object | Custom key-value metadata |
 
-### Important Headers
+## Important Headers
 
 | Header | Required | Description |
 |--------|----------|-------------|
 | `Authorization` | Yes | `Bearer <jwt>` |
 | `X-Idempotency-Key` | Recommended | UUID to prevent duplicate payments |
-| `X-Pix-Lookup-E2E` | Two-step flow | EndToEndID from a previous QR Code decode |
+| `X-Pix-Lookup-E2E` | Flow 3 only | EndToEndID from QR Code decode |
 
 ## Checking Payment Status
 
 Query the status of a Cash-Out by its transaction ID:
 
 ```bash
-curl -X GET https://pix-api.brzip.com.br/api/v1/pix/cash-out/txn_abc123 \
+curl -X GET https://pix-api.brzip.com.br/api/v1/pix/cash-out/<cash-out-id> \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
@@ -124,7 +167,7 @@ curl -X GET https://pix-api.brzip.com.br/api/v1/pix/cash-out/txn_abc123 \
 ## Best Practices
 
 1. **Always use idempotency keys** to prevent duplicate payments in case of network issues.
-2. **Use the two-step flow** for better performance and user experience — it allows you to show recipient details before confirming the payment.
+2. **Use the two-step flow** for QR Code payments — it allows you to show recipient details before confirming the payment.
 3. **Check your balance** before initiating large payments using `GET /api/v1/pix/balance`.
 4. **Monitor webhooks** for real-time status updates on your payments.
 5. **Verify limits** — ensure the payment amount is within your configured limits using `GET /api/v1/pix/limits`.

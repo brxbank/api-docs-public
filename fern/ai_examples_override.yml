@@ -78,6 +78,10 @@ paths:
               createdAt: '2024-05-10T09:15:30Z'
               lastTriggeredAt: '2024-06-01T14:22:10Z'
               secret: b7f8e9d3c4a1b2e5f6d7c8a9e0b1c2d3
+    put:
+      x-fern-examples:
+        - path-parameters:
+            webhook_id: webhook_id
   /api/v1/webhooks/deliveries/delivery_id/resend:
     post:
       x-fern-examples:
@@ -504,3 +508,178 @@ paths:
                   attempts: 3
                   created_at: '2024-05-09T09:15:01Z'
                   updated_at: '2024-05-09T09:50:00Z'
+  /api/v1/pix/keys/user%40example.com:
+    get:
+      x-fern-examples:
+        - path-parameters:
+            key: user@example.com
+          response:
+            body:
+              key: user@example.com
+              keyType: EMAIL
+              accountType: CHECKING
+              accountHolder:
+                name: João da Silva
+                taxIdNumber: 123.456.789-09
+              bank:
+                ispb: '60701190'
+                name: Banco do Brasil S.A.
+                branch: '1234'
+                accountNumber: 56789-0
+              createdAt: '2024-04-20T15:45:00Z'
+              status: ACTIVE
+  /api/v1/transactions/id:
+    get:
+      x-fern-examples:
+        - path-parameters:
+            id: id
+          response:
+            body:
+              id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+              amount: 1500.75
+              currency: BRL
+              status: completed
+              createdAt: '2024-06-10T09:45:00Z'
+              sender:
+                name: João Silva
+                pixKey: joao.silva@example.com
+              receiver:
+                name: Maria Oliveira
+                pixKey: '+5511999998888'
+              description: 'Payment for invoice #12345'
+  /api/v1/pix/med/status/OPEN:
+    get:
+      x-fern-examples:
+        - path-parameters:
+            status: OPEN
+          query-parameters:
+            page: 1
+            page_size: 20
+          response:
+            body:
+              med_requests:
+                - id: med-8a7f3c2d-4b9e-4f1a-9c3e-2d5f7a1b6e4c
+                  status: OPEN
+                  created_at: '2024-06-10T09:15:00Z'
+                  requester:
+                    name: João Silva
+                    cpf: 123.456.789-00
+                    bank_account:
+                      bank_code: '001'
+                      branch: '1234'
+                      account_number: 56789-0
+                      account_type: checking
+                  amount: 1500.75
+                  currency: BRL
+                  reason: Suspected fraud transaction
+                  last_updated: '2024-06-11T14:20:00Z'
+                - id: med-3b2d1f4a-7c8e-4d9b-8f2a-1e3c5d7b9a0f
+                  status: OPEN
+                  created_at: '2024-06-09T16:45:00Z'
+                  requester:
+                    name: Maria Oliveira
+                    cpf: 987.654.321-99
+                    bank_account:
+                      bank_code: '033'
+                      branch: '4321'
+                      account_number: 12345-6
+                      account_type: savings
+                  amount: 320
+                  currency: BRL
+                  reason: Operational error in transfer
+                  last_updated: '2024-06-10T10:05:00Z'
+              page: 1
+              page_size: 20
+              total_items: 2
+              total_pages: 1
+  /api/v1/pix/cash-in/cashInId/cancel:
+    post:
+      x-fern-examples:
+        - path-parameters:
+            cashInId: cashInId
+          headers:
+            x-key-id: your-api-key-id
+            x-secret-key: your-api-key-secret
+  /api/v1/pix/keys/key:
+    delete:
+      x-fern-examples:
+        - path-parameters:
+            key: key
+  /api/v1/pix/cash-in/sync:
+    post:
+      x-fern-examples:
+        - headers:
+            x-key-id: your-api-key-id
+            x-secret-key: your-api-key-secret
+          request:
+            amount: '250.00'
+          response:
+            body:
+              success: true
+              transaction_id: txn_9f8b7c6d5e4a3b2c1d0e
+              status: completed
+              qr_code: 00020126580014BR.GOV.BCB.PIX0136a1b2c3d4e5f6789012345678901234520400005303986540610.005802BR5925John Doe6009Sao Paulo62070503***63041D3D
+              qr_code_text: 00020126580014BR.GOV.BCB.PIX0136a1b2c3d4e5f6789012345678901234520400005303986540610.005802BR5925John Doe6009Sao Paulo62070503***63041D3D
+              expires_at: '2024-01-15T09:30:00Z'
+              provider: pix
+  /api/v1/pix/reversals/reversalId:
+    get:
+      x-fern-examples:
+        - path-parameters:
+            reversalId: reversalId
+          response:
+            body:
+              reversalId: a3f1c9d2-7b4e-4f8a-9c3d-2e5b7f6a1d9e
+              status: completed
+              originalTransactionId: b7d9e3f4-5a6c-4d8e-9f1b-3c2d7e8a9f0b
+              requestedAt: '2024-06-10T15:45:30Z'
+              completedAt: '2024-06-10T16:00:00Z'
+              amount: 150.75
+              currency: BRL
+              reason: Customer requested refund due to duplicate payment
+              initiator:
+                name: João Silva
+                accountNumber: 12345-6
+                bankCode: '001'
+  /api/v1/pix/qrcode/decode:
+    post:
+      x-fern-examples:
+        - request:
+            br_code: 00020126580014br.gov.bcb.pix0136a1b2c3d4e5f678901865204000053039854045802BR5925Joao Silva Santos6009Sao Paulo61080540900062070503***63041D3D
+          response:
+            body:
+              success: true
+              qr_code_type: static
+              pix_key: a1b2c3d4-e5f6-7890-1234-56789abcdef0
+              amount: 150.75
+              receiver_name: Joao Silva Santos
+              receiver_ispb: '12345678'
+              receiver_participant_name: Banco do Brasil S.A.
+              end_to_end_id: E2E20240615XYZ1234567890
+              due_date: '2024-07-01'
+              penalty: {}
+              interest: {}
+              discount: {}
+              rebate: {}
+              final_amount: 150.75
+              withdraw_amount: 0
+              change_amount: 0
+  /api/v1/pix/cash-in/cashInId:
+    get:
+      x-fern-examples:
+        - path-parameters:
+            cashInId: a3f1c9e2-7b4d-4f8a-9c2e-1d2b3f4a5e6f
+          headers:
+            x-key-id: 123e4567-e89b-12d3-a456-426614174000
+            x-secret-key: 9f8e7d6c-5b4a-3c2d-1e0f-123456789abc
+          response:
+            body:
+              id: a3f1c9e2-7b4d-4f8a-9c2e-1d2b3f4a5e6f
+              status: paid
+              amount: 150.75
+              currency: BRL
+              createdAt: '2024-06-10T15:45:00Z'
+              paidAt: '2024-06-10T16:00:00Z'
+              payer:
+                name: João Silva
+                cpfCnpj: 123.456.789-09

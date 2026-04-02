@@ -48,9 +48,9 @@ curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-in \
 }
 ```
 
-### Synchronous (via SPI)
+### Synchronous
 
-Create a charge synchronously — the API waits for the full SPI processing result:
+Create a charge synchronously — the API waits for the full processing result before returning:
 
 ```bash
 curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-in/sync \
@@ -60,7 +60,7 @@ curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-in/sync \
   -d '{
     "amount": "250.00",
     "reference": "order-67890",
-    "description": "Synchronous payment via SPI",
+    "description": "Synchronous payment",
     "payer_name": "Jane Smith",
     "payer_document": "11122233344",
     "expiration_time": 1800
