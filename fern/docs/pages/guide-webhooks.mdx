@@ -25,7 +25,7 @@ Instead of polling the API for status changes, you register a URL and the BRZ pl
 Register a new webhook to start receiving notifications:
 
 ```bash
-curl -X POST https://pix-api.brzip.com.br/api/v1/webhooks \
+curl -X POST https://api.brzip.com.br/api/v1/webhooks \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -193,7 +193,7 @@ After all retries are exhausted, the delivery is marked as `failed`. You can man
 Retrieve all registered webhooks:
 
 ```bash
-curl -X GET "https://pix-api.brzip.com.br/api/v1/webhooks?limit=20&offset=0" \
+curl -X GET "https://api.brzip.com.br/api/v1/webhooks?limit=20&offset=0" \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
@@ -209,7 +209,7 @@ curl -X GET "https://pix-api.brzip.com.br/api/v1/webhooks?limit=20&offset=0" \
 Retrieve details of a specific webhook, including status and last activity timestamps:
 
 ```bash
-curl -X GET https://pix-api.brzip.com.br/api/v1/webhooks/<webhook-id> \
+curl -X GET https://api.brzip.com.br/api/v1/webhooks/<webhook-id> \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
@@ -218,7 +218,7 @@ curl -X GET https://pix-api.brzip.com.br/api/v1/webhooks/<webhook-id> \
 Update an existing webhook. All fields are optional — send only what you want to change:
 
 ```bash
-curl -X PUT https://pix-api.brzip.com.br/api/v1/webhooks/<webhook-id> \
+curl -X PUT https://api.brzip.com.br/api/v1/webhooks/<webhook-id> \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -241,7 +241,7 @@ curl -X PUT https://pix-api.brzip.com.br/api/v1/webhooks/<webhook-id> \
 Permanently remove a webhook. Pending deliveries for this webhook will be cancelled.
 
 ```bash
-curl -X DELETE https://pix-api.brzip.com.br/api/v1/webhooks/<webhook-id> \
+curl -X DELETE https://api.brzip.com.br/api/v1/webhooks/<webhook-id> \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
@@ -256,7 +256,7 @@ curl -X DELETE https://pix-api.brzip.com.br/api/v1/webhooks/<webhook-id> \
 View the delivery history for your webhooks. Each delivery shows the event, status, payload sent, response received, attempt count, and timestamps.
 
 ```bash
-curl -X GET "https://pix-api.brzip.com.br/api/v1/webhooks/deliveries?webhookId=<webhook-id>&limit=20&page=1" \
+curl -X GET "https://api.brzip.com.br/api/v1/webhooks/deliveries?webhookId=<webhook-id>&limit=20&page=1" \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
@@ -286,7 +286,7 @@ curl -X GET "https://pix-api.brzip.com.br/api/v1/webhooks/deliveries?webhookId=<
 Retrieve details of a specific delivery, including the payload sent, HTTP response status, and number of attempts:
 
 ```bash
-curl -X GET https://pix-api.brzip.com.br/api/v1/webhooks/deliveries/<delivery-id> \
+curl -X GET https://api.brzip.com.br/api/v1/webhooks/deliveries/<delivery-id> \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
@@ -299,7 +299,7 @@ Manually resend a delivery that failed or was not delivered. Useful when:
 - You want to test your integration with real data
 
 ```bash
-curl -X POST https://pix-api.brzip.com.br/api/v1/webhooks/deliveries/<delivery-id>/resend \
+curl -X POST https://api.brzip.com.br/api/v1/webhooks/deliveries/<delivery-id>/resend \
   -H "Authorization: Bearer <your-jwt>"
 ```
 

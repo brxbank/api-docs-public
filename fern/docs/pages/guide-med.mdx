@@ -24,7 +24,7 @@ MED (Special Return Mechanism) is a BACEN mechanism that allows a payer's instit
 Use this endpoint to list all inbound MED requests filtered by their current status:
 
 ```bash
-curl -X GET "https://pix-api.brzip.com.br/api/v1/pix/med/status/OPEN?page=1&page_size=20" \
+curl -X GET "https://api.brzip.com.br/api/v1/pix/med/status/OPEN?page=1&page_size=20" \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
@@ -68,7 +68,7 @@ curl -X GET "https://pix-api.brzip.com.br/api/v1/pix/med/status/OPEN?page=1&page
 Once you have reviewed an inbound MED request, respond with `approve` or `reject`:
 
 ```bash
-curl -X POST https://pix-api.brzip.com.br/api/v1/pix/med/<med-id>/respond \
+curl -X POST https://api.brzip.com.br/api/v1/pix/med/<med-id>/respond \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -d '{

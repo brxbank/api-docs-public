@@ -9,10 +9,7 @@ info:
     ## Base URLs
 
 
-    | Environment | URL |
-    |-------------|-----|
-    | **Production** | `https://pix-api.brzip.com.br` |
-    | **Staging** | `https://pix-api-staging.brzip.com.br` |
+    **Base URL:** `https://api.brzip.com.br`
 
 
     All PIX endpoints use the prefix `/api/v1/pix`.
@@ -170,12 +167,9 @@ info:
     ---
   version: 1.0.0
 servers:
-  - url: https://pix-api.brzip.com.br
+  - url: https://api.brzip.com.br
     description: Production
     x-fern-server-name: Production
-  - url: https://pix-api-staging.brzip.com.br
-    description: Staging
-    x-fern-server-name: Staging
 components:
   securitySchemes:
     bearerAuth:
@@ -447,7 +441,7 @@ paths:
         Basic service health check. Returns HTTP 200 if the service is running.
 
 
-        **Response:** `{"status":"healthy","service":"brz-pix-api"}`
+        **Response:** `{"status":"healthy","service":"brz-api"}`
       responses:
         '200':
           description: Service is healthy
@@ -461,7 +455,7 @@ paths:
                     example: healthy
                   service:
                     type: string
-                    example: brz-pix-api
+                    example: brz-api
   /ready:
     get:
       tags:
@@ -473,7 +467,7 @@ paths:
         ready.
 
 
-        **Response:** `{"status":"ready","service":"brz-pix-api"}`
+        **Response:** `{"status":"ready","service":"brz-api"}`
       responses:
         '200':
           description: Service is ready
@@ -487,7 +481,7 @@ paths:
                     example: ready
                   service:
                     type: string
-                    example: brz-pix-api
+                    example: brz-api
   /api/v1/pix/keys:
     post:
       tags:

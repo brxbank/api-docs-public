@@ -20,7 +20,7 @@ Authorization: Bearer <your-jwt-token>
 Call `POST /v1/auth/bearer-token` with your API Key credentials to obtain a JWT:
 
 ```bash
-curl -X POST https://pix-api.brzip.com.br/v1/auth/bearer-token \
+curl -X POST https://api.brzip.com.br/v1/auth/bearer-token \
   -H "Content-Type: application/json" \
   -d '{
     "key_id": "your-key-id",
@@ -42,7 +42,7 @@ x-secret-key: <your-secret-key>
 ### Example
 
 ```bash
-curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-in \
+curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in \
   -H "Content-Type: application/json" \
   -H "x-key-id: your-key-id" \
   -H "x-secret-key: your-secret-key" \

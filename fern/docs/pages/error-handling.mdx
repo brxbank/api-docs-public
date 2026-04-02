@@ -72,7 +72,7 @@ All error responses follow this structure:
 Use the `X-Idempotency-Key` header (UUID format) to prevent duplicate operations. If you send the same idempotency key twice, the API returns the original response instead of creating a duplicate.
 
 ```bash
-curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-out \
+curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -H "X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
