@@ -1,0 +1,515 @@
+paths:
+  /health:
+    get:
+      x-fern-examples:
+        - response:
+            body:
+              status: healthy
+              service: gw-core-pix-api
+  /api/v1/pix/cash-in/:cashInId/cancel:
+    post:
+      x-fern-examples:
+        - headers:
+            x-key-id: your-api-key-id
+            x-secret-key: your-api-key-secret
+  /api/v1/pix/keys/:key:
+    delete:
+      x-fern-examples:
+        - request:
+            reason: USER_REQUESTED
+    get:
+      x-fern-examples:
+        - response:
+            body:
+              key: user@example.com
+              keyType: EMAIL
+              accountType: CONTA_CORRENTE
+              accountHolder:
+                name: João da Silva
+                taxIdNumber: 123.456.789-09
+              bankAccount:
+                participant: '001'
+                branch: '1234'
+                accountNumber: 56789-0
+                accountType: CACC
+              createdAt: '2024-04-20T15:45:00Z'
+  /api/v1/pix/limits/requests/limit_request_id:
+    get:
+      x-fern-examples:
+        - path-parameters:
+            limit_request_id: a3f47b9e-8c2d-4f1a-9b7e-2d5f3c6a1e4b
+          response:
+            body:
+              id: a3f47b9e-8c2d-4f1a-9b7e-2d5f3c6a1e4b
+              requestedBy: user_123456
+              requestedAt: '2024-06-10T15:45:30Z'
+              limitType: daily
+              requestedAmount: 50000
+              approvedAmount: 45000
+              currency: BRL
+              status: approved
+              statusUpdatedAt: '2024-06-11T10:00:00Z'
+              reason: Increase due to business volume growth
+  /ready:
+    get:
+      x-fern-examples:
+        - response:
+            body:
+              status: ready
+              service: gw-core-pix-api
+  /api/v1/webhooks/webhook_id:
+    delete:
+      x-fern-examples:
+        - path-parameters:
+            webhook_id: a3f47b9e-8c2d-4f1a-9b7e-2d5f6c8e9a12
+    get:
+      x-fern-examples:
+        - path-parameters:
+            webhook_id: webhook_id
+          response:
+            body:
+              id: a3f1c9e2-7b4d-4f6a-9d2e-8b7c3f1a2d4e
+              url: https://clientapp.com/webhook/receive
+              events:
+                - pix.cash_in.received
+                - pix.cash_in.confirmed
+                - pix.cash_out.completed
+              status: active
+              createdAt: '2024-05-10T09:15:30Z'
+              lastTriggeredAt: '2024-06-01T14:22:10Z'
+              secret: b7f8e9d3c4a1b2e5f6d7c8a9e0b1c2d3
+  /api/v1/webhooks/deliveries/delivery_id/resend:
+    post:
+      x-fern-examples:
+        - path-parameters:
+            delivery_id: delivery_id
+  /api/v1/pix/reversals:
+    get:
+      x-fern-examples:
+        - query-parameters:
+            limit: 20
+            after: '2024-04-01T00:00:00Z'
+            before: '2024-04-30T23:59:59Z'
+            status: success
+            cursor: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+            endToEndIds: E2E1234567890
+            externalIds: EXT987654321
+          response:
+            body:
+              reversals:
+                - id: rev-123e4567-e89b-12d3-a456-426614174000
+                  createdAt: '2024-04-15T10:20:30Z'
+                  status: success
+                  amount: 1500
+                  currency: BRL
+                  endToEndId: E2E1234567890
+                  externalId: EXT987654321
+                  reason: Pagamento duplicado
+                - id: rev-223e4567-e89b-12d3-a456-426614174001
+                  createdAt: '2024-04-16T11:25:40Z'
+                  status: processing
+                  amount: 500
+                  currency: BRL
+                  endToEndId: E2E0987654321
+                  externalId: EXT123456789
+                  reason: Erro no valor
+              cursor: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.next
+  /api/v1/pix/balance:
+    get:
+      x-fern-examples:
+        - query-parameters:
+            account_id: a3f47e2b-9c4d-4f1a-bb2e-8d7f9c6e1234
+          response:
+            body:
+              account_id: a3f47e2b-9c4d-4f1a-bb2e-8d7f9c6e1234
+              available_balance: '15230.75'
+              blocked_balance: '1200.00'
+              total_balance: '16430.75'
+              currency: BRL
+              updated_at: '2024-06-10T14:45:00Z'
+  /api/v1/pix/cash-out/:cashOutId:
+    get:
+      x-fern-examples:
+        - response:
+            body:
+              cashOutId: a3f1c9e2-7b4d-4f8a-9c2e-1d2b3f4a5e6c
+              status: completed
+              amount: 1500.75
+              currency: BRL
+              createdAt: '2024-06-10T15:45:30Z'
+              completedAt: '2024-06-10T15:47:00Z'
+              recipient:
+                name: João Silva
+                pixKey: joao.silva@email.com
+                bank: Banco do Brasil
+                accountType: checking
+                accountNumber: 12345-6
+                branchNumber: '001'
+              message: Pagamento PIX concluído com sucesso
+  /api/v1/pix/reversals/5632510516002816:
+    get:
+      x-fern-examples:
+        - response:
+            body:
+              id: '5632510516002816'
+              status: completed
+              createdAt: '2024-06-10T15:22:30Z'
+              updatedAt: '2024-06-10T15:45:00Z'
+              originalPaymentId: '7896541230001122'
+              amount: 150.75
+              currency: BRL
+              reason: Cliente solicitou devolução por pagamento duplicado
+              reversalDetails:
+                initiatedBy: merchant
+                processedBy: BRZ Gateway
+                processedAt: '2024-06-10T15:44:50Z'
+                confirmationCode: REV20240610152230BRZ
+  /api/v1/webhooks:
+    get:
+      x-fern-examples:
+        - query-parameters:
+            limit: 20
+            offset: 0
+          response:
+            body:
+              webhooks:
+                - id: a3f1c9e2-7b4d-4f8a-9d2e-1b2c3d4e5f6a
+                  url: https://client.example.com/webhook/pix
+                  events:
+                    - pix.cash_in.received
+                    - pix.cash_in.confirmed
+                    - pix.cash_out.completed
+                  active: true
+                  createdAt: '2024-05-10T14:22:30Z'
+                  lastDeliveryStatus: completed
+                  lastDeliveryAt: '2024-06-01T09:15:00Z'
+                - id: b7d2e3f4-8c5a-4e9b-8f3d-2c4e5f6a7b8c
+                  url: https://anotherclient.example.com/hooks/pix-events
+                  events:
+                    - '*'
+                  active: false
+                  createdAt: '2024-04-20T11:05:45Z'
+                  lastDeliveryStatus: failed
+                  lastDeliveryAt: '2024-05-30T16:40:00Z'
+              limit: 20
+              offset: 0
+              total: 2
+  /api/v1/pix/med/status/:status:
+    get:
+      x-fern-examples:
+        - query-parameters:
+            page: 1
+            page_size: 20
+          response:
+            body:
+              medOrders:
+                - orderId: MED123456789
+                  status: OPEN
+                  createdAt: '2024-06-10T09:15:00Z'
+                  customerName: João Silva
+                  amount: 1500.75
+                  currency: BRL
+                  description: Devolução por duplicidade de pagamento
+                - orderId: MED987654321
+                  status: OPEN
+                  createdAt: '2024-06-09T14:45:00Z'
+                  customerName: Maria Oliveira
+                  amount: 320
+                  currency: BRL
+                  description: Erro no valor da cobrança
+              page: 1
+              page_size: 20
+              total_pages: 5
+              total_items: 85
+  /api/v1/pix/limits/requests:
+    get:
+      x-fern-examples:
+        - response:
+            body:
+              requests:
+                - id: a3f1c9d2-4b7e-4f9a-9c3d-2e5b7f8a1d23
+                  requestedLimit: 5000
+                  currentLimit: 2000
+                  status: pending
+                  requestedAt: '2024-06-10T09:15:00Z'
+                  reason: Increase daily transfer limit for business operations
+                - id: b7d2e4f9-8c3a-4d1b-9f7e-5a6c8d9e0f12
+                  requestedLimit: 10000
+                  currentLimit: 5000
+                  status: pending
+                  requestedAt: '2024-06-12T14:45:30Z'
+                  reason: Temporary limit increase for upcoming payroll processing
+  /api/v1/pix/keys:
+    get:
+      x-fern-examples:
+        - response:
+            body:
+              keys:
+                - key: user.email@example.com
+                  key_type: EMAIL
+                  account_type: CONTA_CORRENTE
+                  bank_code: '001'
+                  branch: '1234'
+                  account_number: 567890-1
+                  created_at: '2024-05-10T14:22:30Z'
+                  status: ACTIVE
+                - key: '+5511998765432'
+                  key_type: PHONE
+                  account_type: CONTA_POUPANCA
+                  bank_code: '033'
+                  branch: '4321'
+                  account_number: 123456-7
+                  created_at: '2023-11-20T09:15:00Z'
+                  status: ACTIVE
+                - key: 123e4567-e89b-12d3-a456-426614174000
+                  key_type: EVP
+                  account_type: CONTA_CORRENTE
+                  bank_code: '104'
+                  branch: '5678'
+                  account_number: 987654-3
+                  created_at: '2024-01-05T18:45:10Z'
+                  status: INACTIVE
+  /api/v1/transactions:
+    get:
+      x-fern-examples:
+        - query-parameters:
+            limit: 20
+            offset: 0
+            type: cash_out
+          response:
+            body:
+              success: true
+              data:
+                transactions:
+                  - id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                    external_id: TXN20260326001
+                    client_id: 9b2d7f4e-8c3a-4f1a-9d2e-5a7b8c9d1234
+                    type: cash_out
+                    status: completed
+                    amount: '1500.00'
+                    gross_amount: '1500.00'
+                    net_amount: '1492.50'
+                    tax_amount: '7.50'
+                    currency: BRL
+                    pix_key: maria.santos@banco.com.br
+                    pix_key_type: email
+                    e2e: E20260326ABC123XYZ
+                    payer_name: Carlos Eduardo
+                    payer_document: '12345678909'
+                    receiver_name: Maria Santos
+                    receiver_document: '98765432100'
+                    created_at: '2026-03-26T19:45:00Z'
+                    updated_at: '2026-03-26T19:46:00Z'
+                    processed_at: '2026-03-26T19:46:00Z'
+                total: 1
+                limit: 20
+                offset: 0
+  /api/v1/webhooks/deliveries/delivery_id:
+    get:
+      x-fern-examples:
+        - path-parameters:
+            delivery_id: delivery_id
+          response:
+            body:
+              delivery_id: a3f1c9e2-7b4d-4f8a-9c2e-1d2f3b4a5c6d
+              webhook_id: 7e9d8c3b-2a1f-4e5d-9b7c-8f6a5d4e3c2b
+              event: pix.cash_in.confirmed
+              payload:
+                id: d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f90
+                source: pixgw
+                event: pix.cash_in.confirmed
+                timestamp: '2024-06-10T14:22:35Z'
+                correlationId: d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f90
+                data:
+                  transaction:
+                    id: 9f8e7d6c-5b4a-3c2d-1e0f-9a8b7c6d5e4f
+                    amount: 250.75
+                    status: completed
+                    reference: ref-20240610-001
+                    pixKey: cliente@example.com
+                    pixKeyType: EMAIL
+                    payer:
+                      name: Carlos Eduardo
+                      document: 123.456.789-00
+              http_status: 200
+              attempts: 1
+              last_attempt_at: '2024-06-10T14:22:36Z'
+              response_body: '{"status":"ok","message":"Notification received"}'
+              response_headers:
+                Content-Type: application/json
+                X-Request-ID: f47ac10b-58cc-4372-a567-0e02b2c3d479
+  /api/v1/pix/cash-in/:cashInId:
+    get:
+      x-fern-examples:
+        - headers:
+            x-key-id: your-api-key-id
+            x-secret-key: your-api-key-secret
+          response:
+            body:
+              cashInId: a3f1c9d2-7b4e-4f8a-9d3e-2b5f6c7d8e9f
+              status: paid
+              amount: 150.75
+              currency: BRL
+              createdAt: '2024-06-10T14:22:35Z'
+              paidAt: '2024-06-10T14:25:10Z'
+              payer:
+                name: João Silva
+                taxId: 123.456.789-00
+                email: joao.silva@example.com
+              paymentMethod: PIX
+              qrCode: 00020126580014br.gov.bcb.pix0136a3f1c9d2-7b4e-4f8a-9d3e-2b5f6c7d8e9f520400005303986540415075802BR5925João Silva6009São Paulo61080540900062070503***6304B14F
+  /api/v1/pix/limits:
+    get:
+      x-fern-examples:
+        - query-parameters:
+            account_id: acc-123e4567-e89b-12d3-a456-426614174000
+          response:
+            body:
+              limits:
+                pix_out:
+                  daytime:
+                    perTransaction: '45000.00'
+                    daily: '180000.00'
+                    used: '35000.00'
+                  nighttime:
+                    perTransaction: '4000.00'
+                    daily: '16000.00'
+                    used: '2000.00'
+                pix_in:
+                  daytime:
+                    perTransaction: '90000.00'
+                    daily: '450000.00'
+                    used: '120000.00'
+                  nighttime:
+                    perTransaction: '9000.00'
+                    daily: '45000.00'
+                    used: '5000.00'
+                ted:
+                  daytime:
+                    perTransaction: '100000.00'
+                    daily: '400000.00'
+                    used: '150000.00'
+                  nighttime:
+                    perTransaction: '10000.00'
+                    daily: '40000.00'
+                    used: '8000.00'
+                boleto:
+                  daytime:
+                    perTransaction: '20000.00'
+                    daily: '80000.00'
+                    used: '10000.00'
+                  nighttime:
+                    perTransaction: '2000.00'
+                    daily: '8000.00'
+                    used: '1000.00'
+                p2p:
+                  daytime:
+                    perTransaction: '15000.00'
+                    daily: '60000.00'
+                    used: '25000.00'
+                  nighttime:
+                    perTransaction: '1500.00'
+                    daily: '6000.00'
+                    used: '1200.00'
+              period:
+                daytime: 06:00-20:00
+                nighttime: 20:00-06:00
+              currency: BRL
+  /api/v1/transactions/:id:
+    get:
+      x-fern-examples:
+        - response:
+            body:
+              success: true
+              data:
+                id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                external_id: TXN-20260326-0001
+                client_id: 9b2d7f4e-8c3a-4f1a-9d2e-1a2b3c4d5e6f
+                type: cash_out
+                status: completed
+                amount: '1500.00'
+                gross_amount: '1500.00'
+                net_amount: '1492.50'
+                tax_amount: '7.50'
+                currency: BRL
+                pix_key: maria.santos@banco.com.br
+                pix_key_type: email
+                e2e: E20260326ABC123XYZ
+                payer_name: João Silva
+                receiver_name: Maria Santos
+                created_at: '2026-03-26T20:00:00Z'
+                updated_at: '2026-03-26T20:01:00Z'
+                processed_at: '2026-03-26T20:01:00Z'
+  /api/v1/webhooks/deliveries:
+    get:
+      x-fern-examples:
+        - query-parameters:
+            webhookId: a3f1c2d4-5b6e-7f89-0123-456789abcdef
+            limit: 20
+            page: 1
+            offset: 0
+            transactionId: d9e8f7a6-b5c4-3d2e-1f0a-9b8c7d6e5f4a
+            eventType: pix.cash_in.confirmed
+            status: delivered
+            start_date: '2024-05-01'
+            end_date: '2024-05-15'
+          response:
+            body:
+              page: 1
+              totalPages: 3
+              total: 45
+              limit: 20
+              offset: 0
+              payload:
+                - id: whd-123e4567-e89b-12d3-a456-426614174000
+                  event: pix.cash_in.confirmed
+                  status: delivered
+                  payload:
+                    id: txn-987e6543-b21a-34c5-d678-123456789abc
+                    source: pixgw
+                    event: pix.cash_in.confirmed
+                    timestamp: '2024-05-10T14:22:30Z'
+                    correlationId: txn-987e6543-b21a-34c5-d678-123456789abc
+                    data:
+                      transaction:
+                        id: txn-987e6543-b21a-34c5-d678-123456789abc
+                        amount: 250.75
+                        status: completed
+                        reference: ref-20240510-001
+                        pixKey: cliente@example.com
+                        pixKeyType: EMAIL
+                        payer:
+                          name: Maria Oliveira
+                          document: 987.654.321-00
+                  response_body:
+                    status: 200 OK
+                    message: Webhook received successfully
+                  attempts: 1
+                  created_at: '2024-05-10T14:22:31Z'
+                  updated_at: '2024-05-10T14:22:32Z'
+                - id: whd-223e4567-e89b-12d3-a456-426614174001
+                  event: pix.cash_in.confirmed
+                  status: failed
+                  payload:
+                    id: txn-123e4567-e89b-12d3-a456-426614174002
+                    source: pixgw
+                    event: pix.cash_in.confirmed
+                    timestamp: '2024-05-09T09:15:00Z'
+                    correlationId: txn-123e4567-e89b-12d3-a456-426614174002
+                    data:
+                      transaction:
+                        id: txn-123e4567-e89b-12d3-a456-426614174002
+                        amount: 100
+                        status: completed
+                        reference: ref-20240509-002
+                        pixKey: user@pix.com
+                        pixKeyType: EMAIL
+                        payer:
+                          name: Carlos Souza
+                          document: 123.456.789-99
+                  response_body:
+                    status: 500 Internal Server Error
+                    message: Timeout on client server
+                  attempts: 3
+                  created_at: '2024-05-09T09:15:01Z'
+                  updated_at: '2024-05-09T09:50:00Z'

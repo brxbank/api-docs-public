@@ -21,8 +21,6 @@ navigation:
         path: ../docs/pages/guide-pix-keys.mdx
       - page: Webhooks Integration
         path: ../docs/pages/guide-webhooks.mdx
-      - page: P2P Internal Transfers
-        path: ../docs/pages/guide-p2p.mdx
       - page: MED (Special Returns)
         path: ../docs/pages/guide-med.mdx
   - api: API Reference
