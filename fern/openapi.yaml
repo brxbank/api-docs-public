@@ -45,19 +45,6 @@ info:
     ```
 
 
-    ## Password Reset
-
-
-    ### Flow 1 — Independent Client (Dual OTP)
-
-
-    1. `POST /v1/auth/reset-password` with `{ email }` (no authentication)
-
-    2. System sends OTP to email AND phone (different codes)
-
-    3. `POST /v1/auth/confirm-reset-password` with `{ email, email_code,
-    phone_code, new_password }`
-
 
     ## Rate Limits
 
@@ -181,6 +168,13 @@ components:
 security:
   - bearerAuth: []
 tags:
+  - name: Authentication
+    description: >-
+      Generate and manage authentication tokens for the BRZ API.
+
+
+      Use `POST /v1/auth/bearer-token` with your API Key credentials to obtain
+      a JWT token required for most API endpoints.
   - name: Service Health
     description: >-
       Health check endpoints to verify service availability. No authentication
@@ -204,8 +198,7 @@ tags:
       **Scope:** `pix:balance:read`
   - name: Transactions
     description: >-
-      Query PIX transactions for the authenticated client. Served by
-      **gw-payment-orchestrator** via ALB path `/api/v1/transactions/*`.
+      Query PIX transactions for the authenticated client.
 
 
       **Authentication:** Bearer Token
@@ -218,7 +211,13 @@ tags:
 
       **Authentication:** Bearer Token
 
+
       **Scope:** `pix:limits:read` / `pix:limits:write`
+
+
+      **Important:** Approved limits that are not consistently used will be
+      automatically downgraded. If your limit is reduced due to inactivity,
+      you will need to submit a new limit increase request.
   - name: PIX Cash-In
     description: >-
       Create and manage PIX charges (Cash-In). Generates a QR Code for the
@@ -431,6 +430,71 @@ tags:
       ---
 
 paths:
+  /v1/auth/bearer-token:
+    post:
+      tags:
+        - Authentication
+      summary: Generate Bearer Token
+      operationId: generateBearerToken
+      description: >-
+        Generate a JWT Bearer Token using your API Key credentials. This token
+        is required for authenticating all API endpoints except Cash-In
+        (which uses API Key headers directly).
+
+
+        The returned token should be included in the `Authorization` header
+        as `Bearer <token>` for all subsequent requests.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - key_id
+                - secret_key
+              properties:
+                key_id:
+                  type: string
+                  description: Your API Key ID, provided after account approval.
+                  example: "key_abc123def456"
+                secret_key:
+                  type: string
+                  description: Your API Secret Key, provided after account approval.
+                  example: "sec_xyz789ghi012"
+      responses:
+        '200':
+          description: Token generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  token:
+                    type: string
+                    description: JWT Bearer Token to use in the Authorization header.
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  expires_in:
+                    type: integer
+                    description: Token expiration time in seconds.
+                    example: 3600
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Invalid key_id or secret_key"
   /health:
     get:
       tags:

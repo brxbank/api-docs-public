@@ -74,11 +74,4 @@ The Bearer Token supports the following scopes:
 | `webhooks:read` | List and search webhooks |
 | `webhooks:write` | Create, update, delete webhooks |
 
-## Password Reset
-
-### Flow 1 — Independent Client (Dual OTP)
-
-1. `POST /v1/auth/reset-password` with `{ "email": "..." }` (no authentication)
-2. System sends OTP to email AND phone (different codes)
-3. `POST /v1/auth/confirm-reset-password` with `{ "email", "email_code", "phone_code", "new_password" }`
 
