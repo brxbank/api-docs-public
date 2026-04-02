@@ -2,8 +2,8 @@ openapi: 3.0.0
 info:
   title: BRZ API
   description: >-
-    Complete PIX gateway API by CorpX (gw-core-pix). Direct integration with
-    BACEN/JDPI — no external providers.
+    Complete PIX gateway API by BRZ. Direct integration with
+    BACEN — no external providers.
 
 
     ## Base URLs
@@ -11,8 +11,8 @@ info:
 
     | Environment | URL |
     |-------------|-----|
-    | **Production** | `https://pix-api.corpx.com.br` |
-    | **Staging** | `https://pix-api-staging.corpx.com.br` |
+    | **Production** | `https://pix-api.brzip.com.br` |
+    | **Staging** | `https://pix-api-staging.brzip.com.br` |
 
 
     All PIX endpoints use the prefix `/api/v1/pix`.
@@ -60,19 +60,6 @@ info:
 
     3. `POST /v1/auth/confirm-reset-password` with `{ email, email_code,
     phone_code, new_password }`
-
-
-    ### Flow 2 — Via Tenant (skip_otp)
-
-
-    1. `POST /v1/auth/reset-password` with Bearer Token + `X-Client-Id` + `{
-    email }`
-
-    2. If tenant has `skip_otp=true`: returns a temporary password in the
-    response
-
-    3. Sub-client logs in with the temporary password and is required to change
-    it
 
 
     ## Rate Limits
@@ -183,10 +170,10 @@ info:
     ---
   version: 1.0.0
 servers:
-  - url: https://pix-api.corpx.com.br
+  - url: https://pix-api.brzip.com.br
     description: Production
     x-fern-server-name: Production
-  - url: https://pix-api-staging.corpx.com.br
+  - url: https://pix-api-staging.brzip.com.br
     description: Staging
     x-fern-server-name: Staging
 components:
@@ -336,21 +323,6 @@ tags:
       created by the system include these scopes by default.
 
 
-      ## Delegation (Multi-Tenant)
-
-
-      Primary tenants can manage webhooks for their sub-clients using the
-      `X-Client-ID` header:
-
-      ```
-      Authorization: Bearer <tenant-jwt>
-      X-Client-ID: <sub-client-id>
-      ```
-
-      The system validates that the sub-client belongs to the tenant before
-      allowing the operation.
-
-
       ## Supported Events
 
 
@@ -463,43 +435,7 @@ tags:
 
 
       ---
-  - name: P2P
-    description: >-
-      Internal P2P transfer endpoints between accounts of the same tenant. Does
-      not go through SPI (BACEN) — it is an internal ledger movement.
 
-
-      ## Multi-Tenant Delegation
-
-
-      The primary tenant can operate P2P on behalf of a sub-client by adding
-      the header:
-
-      ```
-      X-Client-ID: <sub-client-id>
-      ```
-
-
-      The Bearer Token must belong to the primary tenant. The middleware
-      validates that:
-
-      1. The caller is a primary account (not a sub-client)
-
-      2. The sub-client belongs to the tenant
-
-      3. The sub-client has `active` status
-
-
-      If any validation fails, returns HTTP 403 with code `DELEGATION_DENIED`.
-
-
-      ### Delegation Behavior
-
-
-      | Operation | `ClientID` used | `TenantID` used |
-      |-----------|----------------|-----------------|
-      | Lookup | Sub-client | Tenant (search scope) |
-      | Transfer (sender) | Sub-client | Tenant (scope validation) |
 paths:
   /health:
     get:
@@ -511,7 +447,7 @@ paths:
         Basic service health check. Returns HTTP 200 if the service is running.
 
 
-        **Response:** `{"status":"healthy","service":"gw-core-pix-api"}`
+        **Response:** `{"status":"healthy","service":"brz-pix-api"}`
       responses:
         '200':
           description: Service is healthy
@@ -525,7 +461,7 @@ paths:
                     example: healthy
                   service:
                     type: string
-                    example: gw-core-pix-api
+                    example: brz-pix-api
   /ready:
     get:
       tags:
@@ -537,7 +473,7 @@ paths:
         ready.
 
 
-        **Response:** `{"status":"ready","service":"gw-core-pix-api"}`
+        **Response:** `{"status":"ready","service":"brz-pix-api"}`
       responses:
         '200':
           description: Service is ready
@@ -551,7 +487,7 @@ paths:
                     example: ready
                   service:
                     type: string
-                    example: gw-core-pix-api
+                    example: brz-pix-api
   /api/v1/pix/keys:
     post:
       tags:
@@ -787,7 +723,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [cash_in, cash_out, p2p]
+            enum: [cash_in, cash_out]
           description: Filter by transaction type (optional)
           example: cash_in
       responses:
@@ -819,7 +755,7 @@ paths:
                               format: uuid
                             type:
                               type: string
-                              enum: [cash_in, cash_out, p2p]
+                              enum: [cash_in, cash_out]
                             status:
                               type: string
                               enum: [pending, processing, completed, failed, expired, cancelled, refunded, returned]
@@ -903,7 +839,7 @@ paths:
       operationId: getLimits
       description: >-
         Queries PIX transaction limits for the account, grouped by type
-        (pix_out, pix_in, ted, boleto, p2p) and period (daytime/nighttime).
+        (pix_out, pix_in, ted, boleto) and period (daytime/nighttime).
 
 
         **Scope:** `pix:limits:read`
@@ -969,7 +905,7 @@ paths:
               properties:
                 type:
                   type: string
-                  enum: [pix_in, pix_out, ted, boleto, p2p, total]
+                  enum: [pix_in, pix_out, ted, boleto, total]
                   description: Limit type
                   example: pix_in
                 period:
@@ -1252,7 +1188,7 @@ paths:
                     format: date-time
                   provider:
                     type: string
-                    example: jdpi
+                    example: spi
   /api/v1/pix/cash-in/{cashInId}:
     get:
       tags:
@@ -1481,37 +1417,67 @@ paths:
     post:
       tags:
         - PIX Cash-Out
-      summary: Create Cash-Out (via QR Code)
-      operationId: createCashOutQR
+      summary: Create Cash-Out
+      operationId: createCashOut
       description: >-
-        Initiates a PIX payment (Cash-Out) via QR Code.
+        Initiates a PIX payment (Cash-Out) via SPI. This single endpoint
+        supports three different payment flows depending on the fields
+        provided:
+
+
+        ## Flow 1 — Via PIX Key
+
+
+        Send a payment directly using the recipient's PIX key.
+
+        **Required fields:** `amount`, `pix_key`, `pix_key_type`
+
+
+        ## Flow 2 — Via Bank Details
+
+
+        Send a payment using the recipient's bank account details, without
+        needing a PIX key. The system sets `initiation_type = "manual"`
+        automatically and sends the data directly to SPI (no DICT lookup).
+
+        **Required fields:** `amount`, `receiver_name`, `receiver_document`,
+        `receiver_ispb`, `receiver_branch`, `receiver_account`,
+        `receiver_account_type`
+
+
+        ## Flow 3 — Via QR Code
 
 
         **Optimized flow (Two-Step — RECOMMENDED):**
 
         1. First decode the QR Code via `POST /api/v1/pix/qrcode/decode`
 
-        2. Use the returned `end_to_end_id` as the `X-Pix-Lookup-E2E` header in
-        this call
+        2. Use the returned `end_to_end_id` as the `X-Pix-Lookup-E2E` header
+        in this call
 
-        3. The system retrieves pre-decoded data and pays directly via JDPI
-        8.4.1 (without decoding again)
-
-        4. Fields like `pix_key`, `receiver_name`, `amount` are automatically
-        resolved from the lookup
+        3. The system retrieves pre-decoded data and pays directly
+        (without decoding again)
 
 
         **Legacy flow (backward compatible):**
 
         1. Send the `br_code` directly in this call
 
-        2. The system decodes internally via JDPI 8.3.3 then pays via 8.4.1
+        2. The system decodes internally then processes the payment
 
 
         **For Static QR:** `tpIniciacao=2`, `idConciliacaoRecebedor` optional
 
         **For Dynamic QR:** `tpIniciacao=3`, `idConciliacaoRecebedor` required
         (from decode)
+
+
+        **Required fields (legacy):** `amount`, `br_code`
+
+        **Required fields (two-step):** `amount` + header `X-Pix-Lookup-E2E`
+
+
+        ---
 
 
         **Scope:** `pix:cashout:write`
@@ -1527,45 +1493,70 @@ paths:
                 amount:
                   type: string
                   description: Payment amount in BRL
-                  example: "10.00"
-                br_code:
-                  type: string
-                  description: EMV payload from QR Code (required for legacy flow)
-                  example: "00020126580014br.gov.bcb.pix0136263187470001865204000053039865405..."
+                  example: "1000.00"
                 pix_key:
                   type: string
-                  description: Recipient PIX key (optional, resolved from lookup)
+                  description: Recipient PIX key (required for Flow 1)
+                  example: "12345678901"
                 pix_key_type:
                   type: string
-                  description: PIX key type (optional)
+                  enum: [CPF, CNPJ, EMAIL, PHONE, EVP]
+                  description: PIX key type (required for Flow 1)
+                  example: CPF
                 receiver_name:
                   type: string
-                  description: Recipient name (optional)
+                  description: Recipient full name (required for Flow 2)
+                  example: John Doe
                 receiver_document:
                   type: string
-                  description: Recipient document (optional)
+                  description: Recipient CPF or CNPJ (required for Flow 2)
+                  example: "98765432100"
+                receiver_ispb:
+                  type: string
+                  description: Recipient bank ISPB code, 8 digits (required for Flow 2)
+                  example: "00000000"
+                receiver_branch:
+                  type: string
+                  description: Recipient branch number (required for Flow 2)
+                  example: "0001"
+                receiver_account:
+                  type: string
+                  description: Recipient account number (required for Flow 2)
+                  example: "12345678"
+                receiver_account_type:
+                  type: string
+                  enum: [checking, savings, salary, payment]
+                  description: Recipient account type (required for Flow 2)
+                  example: checking
+                br_code:
+                  type: string
+                  description: EMV payload from QR Code (required for Flow 3 legacy)
+                  example: "00020126580014br.gov.bcb.pix0136263187470001865204000053039865405..."
                 description:
                   type: string
-                  description: Payment description
-                  example: QR Code payment
+                  description: Payment description (optional)
+                  example: Supplier payment
                 reference:
                   type: string
-                  description: Your internal reference
-                  example: pay-qr-001
+                  description: Your internal reference ID (optional)
+                  example: pay-001
+                metadata:
+                  type: object
+                  description: Custom metadata (optional)
       parameters:
         - name: X-Idempotency-Key
           in: header
           schema:
             type: string
             format: uuid
-          description: Prevents duplicate payments
+          description: Prevents duplicate payments (recommended)
           example: 550e8400-e29b-41d4-a716-446655440000
         - name: X-Pix-Lookup-E2E
           in: header
           schema:
             type: string
           description: >-
-            EndToEndID from a previous QR Code decode (two-step flow). When
+            EndToEndID from a previous QR Code decode (Flow 3 two-step). When
             provided, the system uses pre-decoded data instead of decoding
             again.
       responses:
@@ -1610,7 +1601,7 @@ paths:
       summary: Decode QR Code
       operationId: decodeQRCode
       description: >-
-        Decodes a PIX QR Code (static or dynamic) via JDPI API 8.3.3.
+        Decodes a PIX QR Code (static or dynamic).
 
 
         **Required field:** `br_code` (EMV payload from QR Code)
@@ -1657,7 +1648,7 @@ paths:
         3. Send the Cash-Out using the `X-Pix-Lookup-E2E: {end_to_end_id}`
         header (WITHOUT sending `br_code` again)
 
-        4. The system uses pre-decoded data, avoiding a duplicate JDPI call
+        4. The system uses pre-decoded data, avoiding a duplicate decode call
 
 
         **Scope:** `pix:cashout:write`
@@ -1827,10 +1818,6 @@ paths:
         **IMPORTANT:** The `secret` is returned **only at creation time**. Store
         it securely for signature validation.
 
-
-        ### Delegation (Tenant)
-
-        To create a webhook for a sub-client, add the `X-Client-ID` header.
       requestBody:
         required: true
         content:
@@ -1856,12 +1843,6 @@ paths:
                     - pix.cash_in.confirmed
                     - pix.cash_in.received
                     - pix.cash_out.completed
-      parameters:
-        - name: X-Client-ID
-          in: header
-          schema:
-            type: string
-          description: Sub-client ID for tenant delegation (optional)
       responses:
         '201':
           description: Webhook created successfully
@@ -1875,10 +1856,6 @@ paths:
       description: >-
         Lists all webhooks registered by the authenticated client.
 
-
-        ### Delegation (Tenant)
-
-        To list webhooks for a sub-client, add the `X-Client-ID` header.
       parameters:
         - name: limit
           in: query
@@ -1895,11 +1872,6 @@ paths:
             default: 0
           description: Offset for pagination (default 0)
           example: 0
-        - name: X-Client-ID
-          in: header
-          schema:
-            type: string
-          description: Sub-client ID for tenant delegation (optional)
       responses:
         '200':
           description: List of webhooks
@@ -2007,10 +1979,6 @@ paths:
         Lists webhook deliveries for the client. Each delivery shows the event,
         status, payload sent, response received, attempt count, and timestamps.
 
-
-        ### Delegation (Tenant)
-
-        To list deliveries for a sub-client, add the `X-Client-ID` header.
       parameters:
         - name: webhookId
           in: query
@@ -2066,11 +2034,6 @@ paths:
             type: integer
           description: Alternative to page-based pagination (0-based)
           example: 0
-        - name: X-Client-ID
-          in: header
-          schema:
-            type: string
-          description: Sub-client ID for tenant delegation (optional)
       responses:
         '200':
           description: List of deliveries
@@ -2134,120 +2097,3 @@ paths:
             application/json: {}
         '404':
           description: Delivery not found
-  /api/v1/pix/p2p/lookup:
-    post:
-      tags:
-        - P2P
-      summary: Internal Lookup
-      operationId: p2pLookup
-      description: >-
-        Looks up an internal account for P2P transfer. The primary tenant
-        searches for a destination account on behalf of a sub-client.
-
-
-        ### Required Headers
-
-
-        | Header | Description |
-        |--------|-------------|
-        | `Authorization` | Bearer token of the **primary tenant** |
-        | `X-Client-ID` | ID of the **sub-client** on whose behalf the operation is performed |
-
-
-        ### Behavior
-
-        - The `ClientID` in context will be the sub-client
-
-        - The `TenantID` will be the primary tenant (used for search scope)
-
-        - The search returns accounts within the same tenant
-
-
-        **Scope:** `pix:p2p:read`
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - search_type
-                - search_value
-              properties:
-                search_type:
-                  type: string
-                  enum: [email, cpf, cnpj, phone, evp, account_id]
-                  description: Type of search to perform
-                  example: email
-                search_value:
-                  type: string
-                  description: Value to search for
-                  example: recipient@example.com
-      parameters:
-        - name: X-Client-ID
-          in: header
-          required: true
-          schema:
-            type: string
-          description: Sub-client ID on whose behalf the tenant is operating
-          example: sub-client-uuid-here
-      responses:
-        '200':
-          description: Account found
-          content:
-            application/json: {}
-        '404':
-          description: Account not found
-  /api/v1/pix/p2p:
-    post:
-      tags:
-        - P2P
-      summary: P2P Transfer via PIX Key
-      operationId: p2pTransfer
-      description: >-
-        Performs an internal P2P transfer using an internal PIX key. The system
-        resolves the PIX key internally (via `pix_keys` table) to find the
-        destination account.
-
-
-        **Note:** Only works for PIX keys registered internally. External keys
-        (from other ISPBs) must use the standard Cash-Out flow.
-
-
-        **Scope:** `pix:p2p:write`
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - external_id
-                - amount
-                - receiver_pix_key
-              properties:
-                external_id:
-                  type: string
-                  description: Unique transfer ID in your system
-                  example: p2p-via-key-001
-                amount:
-                  type: string
-                  description: Transfer amount in BRL
-                  example: "75.50"
-                receiver_pix_key:
-                  type: string
-                  description: Recipient's internal PIX key
-                  example: recipient@example.com
-                description:
-                  type: string
-                  description: Transfer description (optional)
-                  example: Bill split payment
-      responses:
-        '200':
-          description: Transfer initiated
-          content:
-            application/json: {}
-        '400':
-          description: Invalid request parameters
-        '404':
-          description: Recipient PIX key not found internally

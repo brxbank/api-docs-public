@@ -18,7 +18,7 @@ Cash-In endpoints allow you to create PIX charges and generate QR codes for paye
 Create a charge asynchronously — the API returns immediately with a transaction ID and QR code:
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-in \
+curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-in \
   -H "Content-Type: application/json" \
   -H "x-key-id: your-key-id" \
   -H "x-secret-key: your-secret-key" \
@@ -53,7 +53,7 @@ curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-in \
 Create a charge synchronously — the API waits for the full SPI processing result:
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-in/sync \
+curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-in/sync \
   -H "Content-Type: application/json" \
   -H "x-key-id: your-key-id" \
   -H "x-secret-key: your-secret-key" \
@@ -72,7 +72,7 @@ curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-in/sync \
 Query the status of a charge by its transaction ID:
 
 ```bash
-curl -X GET https://pix-api.corpx.com.br/api/v1/pix/cash-in/txn_abc123 \
+curl -X GET https://pix-api.brzip.com.br/api/v1/pix/cash-in/txn_abc123 \
   -H "x-key-id: your-key-id" \
   -H "x-secret-key: your-secret-key"
 ```
@@ -92,7 +92,7 @@ curl -X GET https://pix-api.corpx.com.br/api/v1/pix/cash-in/txn_abc123 \
 Cancel a pending charge:
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-in/txn_abc123/cancel \
+curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-in/txn_abc123/cancel \
   -H "x-key-id: your-key-id" \
   -H "x-secret-key: your-secret-key"
 ```

@@ -10,7 +10,7 @@ Webhooks allow you to receive real-time HTTP POST notifications when events occu
 ## Creating a Webhook
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/api/v1/webhooks \
+curl -X POST https://pix-api.brzip.com.br/api/v1/webhooks \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -67,7 +67,6 @@ curl -X POST https://pix-api.corpx.com.br/api/v1/webhooks \
 | `limits.request_rejected` | Limit change request rejected |
 | `pix.infraction.received` | PIX infraction notification received |
 | `pix.med_refund.received` | MED refund request received |
-| `p2p.completed` | P2P transfer completed |
 | `payment_link.paid` | Payment link paid |
 | `payment_link.expired` | Payment link expired |
 
@@ -132,14 +131,14 @@ If your URL returns an error (status >= 400 or timeout), the system retries auto
 ### List Webhooks
 
 ```bash
-curl -X GET "https://pix-api.corpx.com.br/api/v1/webhooks?limit=20&offset=0" \
+curl -X GET "https://pix-api.brzip.com.br/api/v1/webhooks?limit=20&offset=0" \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
 ### Update a Webhook
 
 ```bash
-curl -X PUT https://pix-api.corpx.com.br/api/v1/webhooks/<webhook-id> \
+curl -X PUT https://pix-api.brzip.com.br/api/v1/webhooks/<webhook-id> \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -152,35 +151,21 @@ curl -X PUT https://pix-api.corpx.com.br/api/v1/webhooks/<webhook-id> \
 ### Delete a Webhook
 
 ```bash
-curl -X DELETE https://pix-api.corpx.com.br/api/v1/webhooks/<webhook-id> \
+curl -X DELETE https://pix-api.brzip.com.br/api/v1/webhooks/<webhook-id> \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
 ### List Deliveries
 
 ```bash
-curl -X GET "https://pix-api.corpx.com.br/api/v1/webhooks/deliveries?webhookId=<webhook-id>&limit=20&page=1" \
+curl -X GET "https://pix-api.brzip.com.br/api/v1/webhooks/deliveries?webhookId=<webhook-id>&limit=20&page=1" \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
 ### Resend a Failed Delivery
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/api/v1/webhooks/deliveries/<delivery-id>/resend \
+curl -X POST https://pix-api.brzip.com.br/api/v1/webhooks/deliveries/<delivery-id>/resend \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
-## Tenant Delegation
-
-To manage webhooks for a sub-client, add the `X-Client-ID` header:
-
-```bash
-curl -X POST https://pix-api.corpx.com.br/api/v1/webhooks \
-  -H "Authorization: Bearer <tenant-jwt>" \
-  -H "X-Client-ID: <sub-client-id>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://sub-client-system.com/webhooks/pix",
-    "events": ["*"]
-  }'
-```

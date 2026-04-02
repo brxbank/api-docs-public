@@ -402,15 +402,6 @@ paths:
                     perTransaction: '2000.00'
                     daily: '8000.00'
                     used: '1000.00'
-                p2p:
-                  daytime:
-                    perTransaction: '15000.00'
-                    daily: '60000.00'
-                    used: '25000.00'
-                  nighttime:
-                    perTransaction: '1500.00'
-                    daily: '6000.00'
-                    used: '1200.00'
               period:
                 daytime: 06:00-20:00
                 nighttime: 20:00-06:00

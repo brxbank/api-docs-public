@@ -18,7 +18,7 @@ The recommended approach is a two-step flow: first decode the QR Code, then send
 ### Step 1 — Decode the QR Code
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/api/v1/pix/qrcode/decode \
+curl -X POST https://pix-api.brzip.com.br/api/v1/pix/qrcode/decode \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -46,7 +46,7 @@ curl -X POST https://pix-api.corpx.com.br/api/v1/pix/qrcode/decode \
 Use the `end_to_end_id` from the decode response as the `X-Pix-Lookup-E2E` header. This avoids decoding the QR Code again:
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-out \
+curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-out \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -H "X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \
@@ -63,7 +63,7 @@ curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-out \
 Alternatively, send the `br_code` directly in the Cash-Out request. The system will decode it internally before processing the payment:
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-out \
+curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-out \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -H "X-Idempotency-Key: 660e8400-e29b-41d4-a716-446655440001" \
@@ -108,7 +108,7 @@ curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-out \
 Query the status of a Cash-Out by its transaction ID:
 
 ```bash
-curl -X GET https://pix-api.corpx.com.br/api/v1/pix/cash-out/txn_abc123 \
+curl -X GET https://pix-api.brzip.com.br/api/v1/pix/cash-out/txn_abc123 \
   -H "Authorization: Bearer <your-jwt>"
 ```
 

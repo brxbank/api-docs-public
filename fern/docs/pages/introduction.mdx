@@ -1,18 +1,18 @@
 ---
 title: "Introduction"
-description: "Welcome to the BRZ Public API — a complete PIX gateway with direct BACEN/JDPI integration."
+description: "Welcome to the BRZ Public API — a complete PIX gateway with direct BACEN integration."
 ---
 
 # BRZ Public API
 
-Welcome to the **BRZ Public API** documentation. This API provides a complete PIX gateway (gw-core-pix) with direct connection to **BACEN/JDPI**, without external providers.
+Welcome to the **BRZ Public API** documentation. This API provides a complete PIX gateway with direct connection to **BACEN**, without external providers.
 
 ## Base URLs
 
 | Environment | URL |
 |-------------|-----|
-| **Production** | `https://pix-api.corpx.com.br` |
-| **Staging** | `https://pix-api-staging.corpx.com.br` |
+| **Production** | `https://pix-api.brzip.com.br` |
+| **Staging** | `https://pix-api-staging.brzip.com.br` |
 | **Local** | `http://localhost:8099` |
 
 All PIX endpoints use the prefix `/api/v1/pix`.
@@ -22,10 +22,8 @@ All PIX endpoints use the prefix `/api/v1/pix`.
 - **PIX Cash-In**: Generate QR codes and receive PIX payments instantly.
 - **PIX Cash-Out**: Send PIX payments to any bank account in Brazil.
 - **PIX Keys (DICT)**: Register and manage PIX keys directly with BACEN.
-- **P2P Transfers**: Internal transfers between accounts within the same tenant.
-- **MED (Special Returns)**: Handle special return requests (Mecanismo Especial de Devolução).
+- **MED (Special Returns)**: Respond to and manage special return requests from BACEN.
 - **Webhooks**: Real-time notifications for all transaction events.
-- **Multi-Tenant Delegation**: Operate on behalf of sub-clients with the `X-Client-ID` header.
 
 ## Quick Start
 

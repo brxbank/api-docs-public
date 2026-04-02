@@ -15,7 +15,7 @@ The BRZ API uses standard HTTP status codes and returns structured JSON error re
 | `201` | Created successfully |
 | `400` | Bad Request — invalid parameters or missing fields |
 | `401` | Unauthorized — invalid or missing authentication |
-| `403` | Forbidden — insufficient permissions or delegation denied |
+| `403` | Forbidden — insufficient permissions |
 | `404` | Not Found — resource does not exist |
 | `409` | Conflict — duplicate resource or pending request |
 | `429` | Too Many Requests — rate limit exceeded |
@@ -42,7 +42,6 @@ All error responses follow this structure:
 | `UNAUTHORIZED` | Missing or invalid Bearer Token |
 | `INVALID_API_KEY` | Invalid `x-key-id` or `x-secret-key` |
 | `TOKEN_EXPIRED` | JWT token has expired |
-| `DELEGATION_DENIED` | Sub-client not found or not owned by tenant |
 
 ### Validation Errors
 
@@ -73,7 +72,7 @@ All error responses follow this structure:
 Use the `X-Idempotency-Key` header (UUID format) to prevent duplicate operations. If you send the same idempotency key twice, the API returns the original response instead of creating a duplicate.
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/api/v1/pix/cash-out \
+curl -X POST https://pix-api.brzip.com.br/api/v1/pix/cash-out \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -H "X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000" \

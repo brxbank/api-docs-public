@@ -22,7 +22,7 @@ PIX keys are registered directly with BACEN's DICT (Diretório de Identificadore
 Only `key_type` is required. Account data is auto-filled from your approved onboarding:
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/api/v1/pix/keys \
+curl -X POST https://pix-api.brzip.com.br/api/v1/pix/keys \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -70,7 +70,7 @@ If you need to override the auto-filled onboarding data, you can include any of 
 List all PIX keys registered for your account:
 
 ```bash
-curl -X GET https://pix-api.corpx.com.br/api/v1/pix/keys \
+curl -X GET https://pix-api.brzip.com.br/api/v1/pix/keys \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
@@ -79,7 +79,7 @@ curl -X GET https://pix-api.corpx.com.br/api/v1/pix/keys \
 Search for a specific PIX key by its value:
 
 ```bash
-curl -X GET https://pix-api.corpx.com.br/api/v1/pix/keys/12345678901 \
+curl -X GET https://pix-api.brzip.com.br/api/v1/pix/keys/12345678901 \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
@@ -88,7 +88,7 @@ curl -X GET https://pix-api.corpx.com.br/api/v1/pix/keys/12345678901 \
 Delete a registered PIX key:
 
 ```bash
-curl -X DELETE https://pix-api.corpx.com.br/api/v1/pix/keys/a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+curl -X DELETE https://pix-api.brzip.com.br/api/v1/pix/keys/a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -d '{

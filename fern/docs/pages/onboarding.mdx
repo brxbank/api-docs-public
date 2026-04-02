@@ -12,7 +12,7 @@ Follow this step-by-step guide to create your account, submit documents, and sta
 Create your account with `POST /v1/auth/signup`. Save the returned `keyId` and `secretKey` — you will need them later.
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/v1/auth/signup \
+curl -X POST https://pix-api.brzip.com.br/v1/auth/signup \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your@email.com",
@@ -30,7 +30,7 @@ OTP codes will be sent via email and SMS.
 Verify your email with the OTP code received:
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/v1/auth/verify-email \
+curl -X POST https://pix-api.brzip.com.br/v1/auth/verify-email \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your@email.com",
@@ -43,7 +43,7 @@ curl -X POST https://pix-api.corpx.com.br/v1/auth/verify-email \
 Verify your phone with the OTP code received via SMS:
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/v1/auth/verify-phone \
+curl -X POST https://pix-api.brzip.com.br/v1/auth/verify-phone \
   -H "Content-Type: application/json" \
   -d '{
     "phone": "+5511999998888",
@@ -56,7 +56,7 @@ curl -X POST https://pix-api.corpx.com.br/v1/auth/verify-phone \
 If needed, resend the OTP code (maximum 5 per hour):
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/v1/auth/resend-otp \
+curl -X POST https://pix-api.brzip.com.br/v1/auth/resend-otp \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your@email.com",
@@ -69,7 +69,7 @@ curl -X POST https://pix-api.corpx.com.br/v1/auth/resend-otp \
 Log in to obtain a session token:
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/v1/auth/login \
+curl -X POST https://pix-api.brzip.com.br/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "your@email.com",
@@ -84,7 +84,7 @@ Document submission involves three stages:
 ### 3a. Get Pre-signed URLs
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/v1/auth/documents/presigned-urls \
+curl -X POST https://pix-api.brzip.com.br/v1/auth/documents/presigned-urls \
   -H "Authorization: Bearer <session-token>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -105,7 +105,7 @@ curl -X PUT "<presigned-url>" \
 ### 3c. Confirm Uploads
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/v1/auth/documents/confirm \
+curl -X POST https://pix-api.brzip.com.br/v1/auth/documents/confirm \
   -H "Authorization: Bearer <session-token>" \
   -H "Content-Type: application/json"
 ```
@@ -128,7 +128,7 @@ curl -X POST https://pix-api.corpx.com.br/v1/auth/documents/confirm \
 Check your account status:
 
 ```bash
-curl -X GET https://pix-api.corpx.com.br/v1/auth/status \
+curl -X GET https://pix-api.brzip.com.br/v1/auth/status \
   -H "Authorization: Bearer <session-token>"
 ```
 
@@ -139,7 +139,7 @@ Wait for the team to approve your account.
 After approval, generate your Bearer Token:
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/v1/auth/bearer-token \
+curl -X POST https://pix-api.brzip.com.br/v1/auth/bearer-token \
   -H "Content-Type: application/json" \
   -d '{
     "key_id": "your-key-id",
@@ -152,7 +152,7 @@ curl -X POST https://pix-api.corpx.com.br/v1/auth/bearer-token \
 Register a PIX key at DICT/BACEN:
 
 ```bash
-curl -X POST https://pix-api.corpx.com.br/api/v1/pix/keys \
+curl -X POST https://pix-api.brzip.com.br/api/v1/pix/keys \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -d '{
