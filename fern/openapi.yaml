@@ -30,7 +30,7 @@ info:
     Authorization: Bearer <your-jwt-token>
     ```
 
-    Obtain a JWT by calling `POST /v1/auth/bearer-token` with your API Key
+    Obtain a JWT by calling `POST /api/v1/auth/bearer-token` with your API Key
     credentials.
 
 
@@ -75,45 +75,45 @@ info:
     ### Step 1 — Create Account
 
 
-    Create your account with `POST /v1/auth/signup`. Save the returned `keyId`
+    Create your account with `POST /api/v1/auth/signup`. Save the returned `keyId`
     and `secretKey`. OTP codes will be sent via email and SMS.
 
 
     ### Step 1b — Verify Email
 
 
-    Verify your email with `POST /v1/auth/verify-email` using the OTP code
+    Verify your email with `POST /api/v1/auth/verify-email` using the OTP code
     received.
 
 
     ### Step 1c — Verify Phone
 
 
-    Verify your phone with `POST /v1/auth/verify-phone` using the OTP code
+    Verify your phone with `POST /api/v1/auth/verify-phone` using the OTP code
     received via SMS.
 
 
     ### Step 1d — Resend OTP (optional)
 
 
-    If needed, resend the code with `POST /v1/auth/resend-otp` (max 5 per
+    If needed, resend the code with `POST /api/v1/auth/resend-otp` (max 5 per
     hour).
 
 
     ### Step 2 — Login
 
 
-    Log in with `POST /v1/auth/login` to obtain a session token.
+    Log in with `POST /api/v1/auth/login` to obtain a session token.
 
 
     ### Step 3 — Submit Documents (3 stages)
 
 
-    1. Get pre-signed URLs with `POST /v1/auth/documents/presigned-urls`
+    1. Get pre-signed URLs with `POST /api/v1/auth/documents/presigned-urls`
 
     2. `PUT` each file directly to the S3 URL (raw binary, no FormData)
 
-    3. Confirm uploads with `POST /v1/auth/documents/confirm`
+    3. Confirm uploads with `POST /api/v1/auth/documents/confirm`
 
 
     **Individual documents:** `cpf_frente`, `cpf_verso`, `selfie_com_cpf`,
@@ -126,13 +126,13 @@ info:
     ### Step 4 — Wait for Approval
 
 
-    Track your status with `GET /v1/auth/status`. Wait for team approval.
+    Track your status with `GET /api/v1/auth/status`. Wait for team approval.
 
 
     ### Step 5 — Generate Bearer Token
 
 
-    After approval, generate your Bearer Token with `POST /v1/auth/bearer-token`
+    After approval, generate your Bearer Token with `POST /api/v1/auth/bearer-token`
     using your credentials.
 
 
@@ -163,7 +163,7 @@ components:
       type: http
       scheme: bearer
       description: >-
-        JWT token obtained via `POST /v1/auth/bearer-token`. Required for all
+        JWT token obtained via `POST /api/v1/auth/bearer-token`. Required for all
         endpoints except Cash-In (which uses API Key headers).
 security:
   - bearerAuth: []
@@ -173,7 +173,7 @@ tags:
       Generate and manage authentication tokens for the BRZ API.
 
 
-      Use `POST /v1/auth/bearer-token` with your API Key credentials to obtain
+      Use `POST /api/v1/auth/bearer-token` with your API Key credentials to obtain
       a JWT token required for most API endpoints.
   - name: Service Health
     description: >-
@@ -203,7 +203,7 @@ tags:
 
       **Authentication:** Bearer Token
 
-      **Scope:** Bearer JWT obtained via `/v1/auth/bearer-token`
+      **Scope:** Bearer JWT obtained via `/api/v1/auth/bearer-token`
   - name: PIX Limits
     description: >-
       Query and manage PIX transaction limits.
@@ -224,19 +224,17 @@ tags:
       payer.
 
 
-      **Authentication:** API Key via headers `x-key-id` + `x-secret-key` (does
-      NOT use Bearer Token)
+      **Authentication:** API Key via headers `x-key-id` + `x-secret-key`,
+      OR Bearer Token.
 
 
       **Endpoints:**
 
-      - `POST /cash-in` — Create asynchronous charge
+      - `POST /api/v1/pix/cash-in/sync` — Create charge
 
-      - `POST /cash-in/sync` — Create synchronous charge
+      - `GET /api/v1/pix/cash-in/{id}` — Query status
 
-      - `GET /cash-in/{id}` — Query status
-
-      - `POST /cash-in/{id}/cancel` — Cancel charge
+      - `POST /api/v1/pix/cash-in/{id}/cancel` — Cancel charge
 
 
       **Financial fields (CobV — charge with due date):**
@@ -359,7 +357,7 @@ tags:
         "data": {
           "transaction": {
             "id": "internal-uuid",
-            "amount": 150.00,
+            "amount": "150.00",
             "status": "completed",
             "reference": "ref-001",
             "pixKey": "key@pix.com",
@@ -430,39 +428,80 @@ tags:
       ---
 
 paths:
-  /v1/auth/bearer-token:
+  /api/v1/auth/bearer-token:
     post:
       tags:
         - Authentication
       summary: Generate Bearer Token
       operationId: generateBearerToken
       description: >-
-        Generate a JWT Bearer Token using your API Key credentials. This token
-        is required for authenticating all API endpoints except Cash-In
-        (which uses API Key headers directly).
+        Generate a JWT Bearer Token using your API Key credentials.
+
+
+        **Authentication:** Pass your credentials via headers `x-key-id` and
+        `x-secret-key`.
+
+
+        **Request body:** Optionally specify the `scopes` array to limit
+        the token's permissions. If omitted, the token includes all scopes
+        available to your API Key.
 
 
         The returned token should be included in the `Authorization` header
         as `Bearer <token>` for all subsequent requests.
       security: []
+      parameters:
+        - name: x-key-id
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Your API Key ID, provided after account approval.
+          example: "key_abc123def456"
+        - name: x-secret-key
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Your API Secret Key, provided after account approval.
+          example: "sec_xyz789ghi012"
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               type: object
-              required:
-                - key_id
-                - secret_key
               properties:
-                key_id:
-                  type: string
-                  description: Your API Key ID, provided after account approval.
-                  example: "key_abc123def456"
-                secret_key:
-                  type: string
-                  description: Your API Secret Key, provided after account approval.
-                  example: "sec_xyz789ghi012"
+                scopes:
+                  type: array
+                  description: >-
+                    List of scopes to include in the token. If omitted, all
+                    scopes available to the API Key are included.
+                  items:
+                    type: string
+                    enum:
+                      - pix:keys:read
+                      - pix:keys:write
+                      - pix:balance:read
+                      - pix:cashin:read
+                      - pix:cashin:write
+                      - pix:cashout:read
+                      - pix:cashout:write
+                      - pix:limits:read
+                      - pix:limits:write
+                      - pix:med:read
+                      - pix:med:write
+                      - pix:reversals:read
+                      - pix:reversals:write
+                      - webhooks:read
+                      - webhooks:write
+                  example:
+                    - pix:keys:read
+                    - pix:keys:write
+                    - pix:balance:read
+                    - pix:cashout:write
+                    - webhooks:read
+                    - webhooks:write
       responses:
         '200':
           description: Token generated successfully
@@ -494,7 +533,7 @@ paths:
                     example: false
                   error:
                     type: string
-                    example: "Invalid key_id or secret_key"
+                    example: "Invalid x-key-id or x-secret-key"
   /health:
     get:
       tags:
@@ -1026,15 +1065,19 @@ paths:
           description: Limit request details
           content:
             application/json: {}
-  /api/v1/pix/cash-in:
+  /api/v1/pix/cash-in/sync:
     post:
       tags:
         - PIX Cash-In
-      summary: Create Charge (Async)
-      operationId: createCashInAsync
+      summary: Create Charge
+      operationId: createCashIn
       description: >-
-        Creates an asynchronous PIX charge (Cash-In). Generates a QR Code for
-        the payer.
+        Creates a PIX charge (Cash-In). Generates a QR Code for the payer
+        and waits for the complete processing result.
+
+
+        **Authentication:** API Key via headers `x-key-id` + `x-secret-key`,
+        OR Bearer Token.
 
 
         **Scope:** `pix:cashin:write`
@@ -1122,103 +1165,17 @@ paths:
       parameters:
         - name: x-key-id
           in: header
-          required: true
+          required: false
           schema:
             type: string
-          description: API Key ID
+          description: API Key ID (required if not using Bearer Token)
           example: your-api-key-id
         - name: x-secret-key
           in: header
-          required: true
+          required: false
           schema:
             type: string
-          description: API Key Secret
-          example: your-api-key-secret
-      responses:
-        '200':
-          description: Charge created successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  transaction_id:
-                    type: string
-                    example: txn_abc123
-                  status:
-                    type: string
-                    example: pending
-                  qr_code:
-                    type: string
-                    description: Base64-encoded QR code image
-                  qr_code_text:
-                    type: string
-                    description: EMV payload for copy-paste
-                  expires_at:
-                    type: string
-                    format: date-time
-        '400':
-          description: Invalid request parameters
-  /api/v1/pix/cash-in/sync:
-    post:
-      tags:
-        - PIX Cash-In
-      summary: Create Charge (Sync)
-      operationId: createCashInSync
-      description: >-
-        Creates a synchronous PIX charge. Waits for the
-        complete processing result.
-
-
-        **Fields:** Same as the asynchronous charge.
-
-
-        **Scope:** `pix:cashin:write`
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - amount
-              properties:
-                amount:
-                  type: string
-                  description: Charge amount in BRL
-                  example: "250.00"
-                reference:
-                  type: string
-                  example: order-67890
-                description:
-                  type: string
-                  example: Synchronous payment
-                payer_name:
-                  type: string
-                  example: John Doe
-                payer_document:
-                  type: string
-                  example: "11122233344"
-                expiration_time:
-                  type: integer
-                  example: 1800
-      parameters:
-        - name: x-key-id
-          in: header
-          required: true
-          schema:
-            type: string
-          description: API Key ID
-          example: your-api-key-id
-        - name: x-secret-key
-          in: header
-          required: true
-          schema:
-            type: string
-          description: API Key Secret
+          description: API Key Secret (required if not using Bearer Token)
           example: your-api-key-secret
       responses:
         '200':
@@ -1714,7 +1671,8 @@ paths:
                   pix_key:
                     type: string
                   amount:
-                    type: number
+                    type: string
+                    description: Amount in BRL (decimal string)
                   receiver_name:
                     type: string
                   receiver_ispb:
@@ -1736,11 +1694,14 @@ paths:
                   rebate:
                     type: object
                   final_amount:
-                    type: number
+                    type: string
+                    description: Final amount calculated by BACEN
                   withdraw_amount:
-                    type: number
+                    type: string
+                    description: Withdrawal amount (PIX Saque)
                   change_amount:
-                    type: number
+                    type: string
+                    description: Change amount (PIX Troco)
         '400':
           description: Invalid or unreadable QR Code
   /api/v1/pix/med/{medId}/respond:

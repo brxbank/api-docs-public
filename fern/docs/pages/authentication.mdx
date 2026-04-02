@@ -17,22 +17,40 @@ Authorization: Bearer <your-jwt-token>
 
 ### Obtaining a JWT
 
-Call `POST /v1/auth/bearer-token` with your API Key credentials to obtain a JWT:
+Call `POST /api/v1/auth/bearer-token` with your API Key credentials in the **headers** and the desired **scopes** in the request body:
 
 ```bash
-curl -X POST https://api.brzip.com.br/v1/auth/bearer-token \
+curl -X POST https://api.brzip.com.br/api/v1/auth/bearer-token \
   -H "Content-Type: application/json" \
+  -H "x-key-id: your-key-id" \
+  -H "x-secret-key: your-secret-key" \
   -d '{
-    "key_id": "your-key-id",
-    "secret_key": "your-secret-key"
+    "scopes": [
+      "pix:keys:read",
+      "pix:keys:write",
+      "pix:balance:read",
+      "pix:cashout:write",
+      "webhooks:read",
+      "webhooks:write"
+    ]
   }'
 ```
 
-The response will contain your JWT token, which should be included in the `Authorization` header for all subsequent requests.
+**Response:**
 
-## 2. API Key — Cash-In Endpoints Only
+```json
+{
+  "success": true,
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expires_in": 3600
+}
+```
 
-Cash-In endpoints (`/api/v1/pix/cash-in/*`) use API Key authentication via two headers:
+The returned JWT token should be included in the `Authorization` header as `Bearer <token>` for all subsequent requests.
+
+## 2. API Key — Cash-In Endpoints
+
+Cash-In endpoints (`/api/v1/pix/cash-in/*`) accept API Key authentication via two headers as an alternative to Bearer Token:
 
 ```bash
 x-key-id: <your-key-id>
@@ -52,9 +70,9 @@ curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in \
   }'
 ```
 
-## Scopes
+## Available Scopes
 
-The Bearer Token supports the following scopes:
+When generating a Bearer Token, you can request specific scopes to control access. If no scopes are provided, the token will include all scopes available to your API Key.
 
 | Scope | Description |
 |-------|-------------|
@@ -68,10 +86,8 @@ The Bearer Token supports the following scopes:
 | `pix:limits:read` | Query transaction limits |
 | `pix:limits:write` | Request limit changes |
 | `pix:med:read` | Query MED requests |
-| `pix:med:write` | Create MED requests |
+| `pix:med:write` | Respond to MED requests |
 | `pix:reversals:read` | Query reversals |
 | `pix:reversals:write` | Create reversals |
 | `webhooks:read` | List and search webhooks |
 | `webhooks:write` | Create, update, delete webhooks |
-
-

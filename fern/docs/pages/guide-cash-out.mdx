@@ -37,6 +37,22 @@ curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
 | `pix_key` | string | Recipient's PIX key |
 | `pix_key_type` | string | Key type: `CPF`, `CNPJ`, `EMAIL`, `PHONE`, or `EVP` |
 
+### Example: Payment via Phone Number
+
+```bash
+curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440099" \
+  -d '{
+    "amount": "75.00",
+    "pix_key": "+5531999999999",
+    "pix_key_type": "PHONE",
+    "description": "Payment via phone number",
+    "reference": "pay-phone-001"
+  }'
+```
+
 ## Flow 2 — Via Bank Details
 
 Send a payment using the recipient's bank account details directly, without needing a PIX key.
@@ -93,7 +109,7 @@ curl -X POST https://api.brzip.com.br/api/v1/pix/qrcode/decode \
   "success": true,
   "qr_code_type": "static",
   "pix_key": "26318747000186",
-  "amount": 10.00,
+  "amount": "10.00",
   "receiver_name": "John Doe",
   "receiver_ispb": "00000000",
   "receiver_participant_name": "BCO DO BRASIL S.A.",

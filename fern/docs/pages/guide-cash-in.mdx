@@ -8,20 +8,36 @@ description: "Learn how to create PIX charges and receive payments using the BRZ
 Cash-In endpoints allow you to create PIX charges and generate QR codes for payers.
 
 <Callout intent="info">
-  Cash-In endpoints use **API Key authentication** (`x-key-id` + `x-secret-key`), not Bearer Token.
+  Cash-In endpoints accept **API Key authentication** (`x-key-id` + `x-secret-key`) OR **Bearer Token**.
 </Callout>
 
 ## Creating a Charge
 
-### Asynchronous (Recommended)
+Create a PIX charge using `POST /api/v1/pix/cash-in/sync`:
 
-Create a charge asynchronously — the API returns immediately with a transaction ID and QR code:
+**Using API Key:**
 
 ```bash
-curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in \
+curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in/sync \
   -H "Content-Type: application/json" \
   -H "x-key-id: your-key-id" \
   -H "x-secret-key: your-secret-key" \
+  -d '{
+    "amount": "150.00",
+    "reference": "order-12345",
+    "description": "Payment for order #12345",
+    "payer_name": "John Doe",
+    "payer_document": "12345678901",
+    "expiration_time": 3600
+  }'
+```
+
+**Using Bearer Token:**
+
+```bash
+curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in/sync \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
   -d '{
     "amount": "150.00",
     "reference": "order-12345",
@@ -36,35 +52,14 @@ curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in \
 
 ```json
 {
-  "transactionId": "txn_f1e2d3c4-b5a6-7890-cdef-1234567890ab",
-  "status": "PENDING",
-  "amount": "150.00",
-  "currency": "BRL",
-  "pixKey": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "qrCode": "00020126580014br.gov.bcb.pix0136...",
-  "qrCodeBase64": "data:image/png;base64,iVBORw0KGgo...",
-  "expiresAt": "2026-02-23T22:10:00.000Z",
-  "createdAt": "2026-02-23T21:10:00.000Z"
+  "success": true,
+  "transaction_id": "txn_f1e2d3c4-b5a6-7890-cdef-1234567890ab",
+  "status": "pending",
+  "qr_code": "00020126580014br.gov.bcb.pix0136...",
+  "qr_code_text": "data:image/png;base64,iVBORw0KGgo...",
+  "expires_at": "2026-02-23T22:10:00.000Z",
+  "provider": "pix"
 }
-```
-
-### Synchronous
-
-Create a charge synchronously — the API waits for the full processing result before returning:
-
-```bash
-curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in/sync \
-  -H "Content-Type: application/json" \
-  -H "x-key-id: your-key-id" \
-  -H "x-secret-key: your-secret-key" \
-  -d '{
-    "amount": "250.00",
-    "reference": "order-67890",
-    "description": "Synchronous payment",
-    "payer_name": "Jane Smith",
-    "payer_document": "11122233344",
-    "expiration_time": 1800
-  }'
 ```
 
 ## Checking Charge Status
