@@ -6,8 +6,8 @@ title: BRZ API Documentation
 
 colors:
   accent-primary:
-    dark: "#00D26A"
-    light: "#006030"
+    dark: "#5EA3FF"
+    light: "#0148B5"
   background:
     dark: "#0D1117"
     light: "#FFFFFF"
