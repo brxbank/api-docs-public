@@ -50,7 +50,7 @@ The returned JWT token should be included in the `Authorization` header as `Bear
 
 ## 2. API Key — Cash-In Endpoints
 
-The Cash-In endpoint (`/api/v1/pix/cash-in/sync`) accepts API Key authentication via two headers as an alternative to Bearer Token:
+The Cash-In endpoint (`/api/v1/pix/cash-in/qrcode`) accepts API Key authentication via two headers as an alternative to Bearer Token:
 
 ```bash
 x-key-id: <your-key-id>
@@ -60,7 +60,7 @@ x-secret-key: <your-secret-key>
 ### Example
 
 ```bash
-curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in/sync \
+curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in/qrcode \
   -H "Content-Type: application/json" \
   -H "x-key-id: your-key-id" \
   -H "x-secret-key: your-secret-key" \

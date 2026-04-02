@@ -13,12 +13,12 @@ Cash-In endpoints allow you to create PIX charges and generate QR codes for paye
 
 ## Creating a Charge
 
-Create a PIX charge using `POST /api/v1/pix/cash-in/sync`:
+Create a PIX charge using `POST /api/v1/pix/cash-in/qrcode`:
 
 **Using API Key:**
 
 ```bash
-curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in/sync \
+curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in/qrcode \
   -H "Content-Type: application/json" \
   -H "x-key-id: your-key-id" \
   -H "x-secret-key: your-secret-key" \
@@ -35,7 +35,7 @@ curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in/sync \
 **Using Bearer Token:**
 
 ```bash
-curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in/sync \
+curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in/qrcode \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..." \
   -d '{

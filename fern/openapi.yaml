@@ -230,7 +230,7 @@ tags:
 
       **Endpoints:**
 
-      - `POST /api/v1/pix/cash-in/sync` — Create charge
+      - `POST /api/v1/pix/cash-in/qrcode` — Create charge
 
       - `GET /api/v1/pix/cash-in/{id}` — Query status
 
@@ -249,12 +249,6 @@ tags:
 
       - `rebate` — Rebate/abatement (`mode` + `value`)
 
-
-      **PIX Withdrawal and PIX Change:**
-
-      - `withdraw_amount` — Withdrawal amount (PIX Saque)
-
-      - `change_amount` — Change amount (PIX Troco)
   - name: PIX Reversals
     description: >-
       Manage reversals (refunds) of received PIX payments.
@@ -1065,7 +1059,7 @@ paths:
           description: Limit request details
           content:
             application/json: {}
-  /api/v1/pix/cash-in/sync:
+  /api/v1/pix/cash-in/qrcode:
     post:
       tags:
         - PIX Cash-In
@@ -1156,12 +1150,6 @@ paths:
                       type: integer
                     value:
                       type: number
-                withdraw_amount:
-                  type: string
-                  description: PIX Withdrawal amount (PIX Saque)
-                change_amount:
-                  type: string
-                  description: PIX Change amount (PIX Troco)
       parameters:
         - name: x-key-id
           in: header
@@ -1600,12 +1588,6 @@ paths:
         - `receiver_participant_name` — Recipient institution name (always
         present)
 
-        - `withdraw_participant_name` — Withdrawal agent institution (PIX Saque
-        only)
-
-        - `change_participant_name` — Change agent institution (PIX Troco only)
-
-
         **Financial fields (returned when present in CobV QR):**
 
         - `due_date` — Due date (YYYY-MM-DD)
@@ -1621,11 +1603,6 @@ paths:
 
         - `final_amount` — Final amount calculated by BACEN (with charges
         applied)
-
-        - `withdraw_amount` — Withdrawal amount (PIX Saque)
-
-        - `change_amount` — Change amount (PIX Troco)
-
 
         **Optimized flow (Two-Step — RECOMMENDED):**
 
@@ -1696,12 +1673,6 @@ paths:
                   final_amount:
                     type: string
                     description: Final amount calculated by BACEN
-                  withdraw_amount:
-                    type: string
-                    description: Withdrawal amount (PIX Saque)
-                  change_amount:
-                    type: string
-                    description: Change amount (PIX Troco)
         '400':
           description: Invalid or unreadable QR Code
   /api/v1/pix/med/{med_id}/respond:

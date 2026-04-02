@@ -6,7 +6,7 @@ paths:
             body:
               status: healthy
               service: brz-api
-  /api/v1/pix/cash-in/:cash_in_id/cancel:
+  /api/v1/pix/cash-in/{cash_in_id}/cancel:
     post:
       x-fern-examples:
         - headers:
@@ -198,7 +198,7 @@ paths:
               limit: 20
               offset: 0
               total: 2
-  /api/v1/pix/med/status/:status:
+  /api/v1/pix/med/status/{status}:
     get:
       x-fern-examples:
         - query-parameters:
@@ -342,7 +342,7 @@ paths:
               response_headers:
                 Content-Type: application/json
                 X-Request-ID: f47ac10b-58cc-4372-a567-0e02b2c3d479
-  /api/v1/pix/cash-in/:cash_in_id:
+  /api/v1/pix/cash-in/{cash_in_id}:
     get:
       x-fern-examples:
         - headers:
@@ -574,7 +574,7 @@ paths:
               page_size: 20
               total_items: 85
               total_pages: 1
-  /api/v1/pix/cash-in/cash_in_id/cancel:
+  /api/v1/pix/cash-in/{cash_in_id}/cancel:
     post:
       x-fern-examples:
         - path-parameters:
@@ -587,7 +587,7 @@ paths:
       x-fern-examples:
         - path-parameters:
             key: key
-  /api/v1/pix/cash-in/sync:
+  /api/v1/pix/cash-in/qrcode:
     post:
       x-fern-examples:
         - headers:
@@ -644,9 +644,7 @@ paths:
               discount: {}
               rebate: {}
               final_amount: '150.75'
-              withdraw_amount: '0.00'
-              change_amount: '0.00'
-  /api/v1/pix/cash-in/cash_in_id:
+  /api/v1/pix/cash-in/{cash_in_id}:
     get:
       x-fern-examples:
         - path-parameters:

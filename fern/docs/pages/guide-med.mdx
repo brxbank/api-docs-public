@@ -68,7 +68,7 @@ curl -X GET "https://api.brzip.com.br/api/v1/pix/med/status/OPEN?page=1&page_siz
 Once you have reviewed an inbound MED request, respond with `approve` or `reject`:
 
 ```bash
-curl -X POST https://api.brzip.com.br/api/v1/pix/med/<med-id>/respond \
+curl -X POST https://api.brzip.com.br/api/v1/pix/med/{med_id}/respond \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -d '{
