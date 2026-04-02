@@ -4,6 +4,14 @@ instances:
 
 title: BRZ API Documentation
 
+logo:
+  dark: ./docs/assets/brz-logo-dark.png
+  light: ./docs/assets/brz-logo-light.png
+  height: 28
+  href: https://brzip.com.br
+
+favicon: ./docs/assets/brz-icon-light.png
+
 colors:
   accent-primary:
     dark: "#5EA3FF"
