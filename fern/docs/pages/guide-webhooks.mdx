@@ -1,13 +1,28 @@
 ---
 title: "Webhooks Integration"
-description: "Set up real-time notifications for PIX events using webhooks."
+description: "Learn how to configure and manage webhooks to receive real-time notifications from the BRZ API."
 ---
 
 # Webhooks Integration
 
-Webhooks allow you to receive real-time HTTP POST notifications when events occur in your account (PIX received, transfer confirmed, etc.).
+Webhooks allow your system to receive real-time HTTP notifications whenever events occur in your BRZ account — such as incoming PIX payments, completed cash-outs, limit approvals, and more.
 
-## Creating a Webhook
+Instead of polling the API for status changes, you register a URL and the BRZ platform pushes event data to your server as soon as it happens.
+
+<Callout intent="info">
+  Webhook endpoints require **Bearer Token** or **API Key** authentication with `webhooks:read` and/or `webhooks:write` scopes.
+</Callout>
+
+## How It Works
+
+1. You register a webhook URL in the BRZ API
+2. When an event occurs (e.g., a PIX payment is received), the system sends an HTTP POST to your URL
+3. Your server processes the notification and returns HTTP 200
+4. If delivery fails, the system retries automatically with exponential backoff
+
+## Step 1 — Create a Webhook
+
+Register a new webhook to start receiving notifications:
 
 ```bash
 curl -X POST https://pix-api.brzip.com.br/api/v1/webhooks \
@@ -18,25 +33,32 @@ curl -X POST https://pix-api.brzip.com.br/api/v1/webhooks \
     "events": [
       "pix.cash_in.confirmed",
       "pix.cash_in.received",
-      "pix.cash_out.completed"
+      "pix.cash_out.completed",
+      "onboarding.status_changed",
+      "limits.request_approved",
+      "limits.request_rejected"
     ]
   }'
 ```
 
-**Response (201 Created):**
+**Request fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `url` | Yes | HTTPS URL that will receive the notifications |
+| `events` | No | List of events to subscribe to. If empty or `["*"]`, receives **all** events |
+
+**Response:**
 
 ```json
 {
   "success": true,
   "data": {
-    "webhook": {
-      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "url": "https://your-system.com/webhooks/pix",
-      "events": ["pix.cash_in.confirmed", "pix.cash_in.received", "pix.cash_out.completed"],
-      "secret": "whsec_a1b2c3d4e5f67890abcdef1234567890",
-      "status": "active",
-      "created_at": "2025-01-15T10:00:00Z"
-    }
+    "id": "wh_abc123-def456-ghi789",
+    "url": "https://your-system.com/webhooks/pix",
+    "events": ["pix.cash_in.confirmed", "pix.cash_in.received", "pix.cash_out.completed"],
+    "status": "active",
+    "secret": "whsec_a1b2c3d4e5f6g7h8i9j0..."
   }
 }
 ```
@@ -45,24 +67,67 @@ curl -X POST https://pix-api.brzip.com.br/api/v1/webhooks \
   The `secret` is returned **only at creation time**. Store it securely — you will need it to validate webhook signatures.
 </Callout>
 
+## Step 2 — Validate Signatures
+
+Every webhook delivery includes a signature header that you should verify to ensure the request is authentic and has not been tampered with.
+
+Use the `secret` returned during webhook creation to validate the HMAC-SHA256 signature:
+
+```javascript
+const crypto = require('crypto');
+
+function validateWebhookSignature(payload, signature, secret) {
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(JSON.stringify(payload))
+    .digest('hex');
+
+  return crypto.timingSafeEqual(
+    Buffer.from(signature),
+    Buffer.from(expectedSignature)
+  );
+}
+```
+
+```python
+import hmac
+import hashlib
+import json
+
+def validate_webhook_signature(payload: dict, signature: str, secret: str) -> bool:
+    expected = hmac.new(
+        secret.encode(),
+        json.dumps(payload).encode(),
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(signature, expected)
+```
+
 ## Supported Events
+
+### PIX Cash-In Events
 
 | Event | Description |
 |-------|-------------|
-| `*` | All events |
-| `pix.cash_in.received` | Cash-in PIX received |
-| `pix.cash_in.confirmed` | Cash-in PIX confirmed |
-| `pix.cash_in.expired` | Cash-in PIX expired |
-| `pix.cash_in.refunded` | Cash-in PIX refunded |
-| `pix.cash_out.created` | Cash-out PIX created |
-| `pix.cash_out.completed` | Cash-out PIX completed |
-| `pix.cash_out.failed` | Cash-out PIX failed |
-| `pix.cash_out.returned` | Cash-out PIX returned |
-| `pix.reversal.created` | PIX reversal created |
-| `pix.reversal.completed` | PIX reversal completed |
-| `pix.reversal.failed` | PIX reversal failed |
-| `pix.inbound.received` | Inbound PIX received (direct) |
-| `onboarding.status_changed` | Onboarding status changed |
+| `pix.cash_in.confirmed` | Charge confirmed — QR Code generated and ready for payment |
+| `pix.cash_in.received` | Payment received — funds credited to account |
+| `pix.cash_in.expired` | Charge expired without payment |
+| `pix.cash_in.cancelled` | Charge was cancelled |
+| `pix.cash_in.refunded` | Payment was refunded to the payer |
+
+### PIX Cash-Out Events
+
+| Event | Description |
+|-------|-------------|
+| `pix.cash_out.completed` | Payment sent successfully |
+| `pix.cash_out.failed` | Payment failed |
+| `pix.cash_out.returned` | Payment was returned by the recipient's bank |
+
+### Other Events
+
+| Event | Description |
+|-------|-------------|
+| `onboarding.status_changed` | Account onboarding status changed |
 | `limits.request_approved` | Limit change request approved |
 | `limits.request_rejected` | Limit change request rejected |
 | `pix.infraction.received` | PIX infraction notification received |
@@ -70,53 +135,46 @@ curl -X POST https://pix-api.brzip.com.br/api/v1/webhooks \
 | `payment_link.paid` | Payment link paid |
 | `payment_link.expired` | Payment link expired |
 
+Use `["*"]` in the `events` field to subscribe to all events at once.
+
 ## Notification Payload
 
-Each notification sent to your URL follows this format:
+Every webhook delivery sends an HTTP POST to your URL with a JSON payload:
 
 ```json
 {
-  "id": "uuid-of-transaction",
-  "source": "pixgw",
-  "event": "pix.cash_in.confirmed",
-  "timestamp": "2025-01-15T10:30:00Z",
-  "correlationId": "uuid-of-transaction",
+  "event": "pix.cash_in.received",
+  "timestamp": "2026-03-15T14:30:00.000Z",
   "data": {
-    "transaction": {
-      "id": "internal-uuid",
-      "amount": 150.00,
-      "status": "completed",
-      "reference": "ref-001",
-      "pixKey": "key@pix.com",
-      "pixKeyType": "EMAIL",
-      "payer": {
-        "name": "João Silva",
-        "document": "123.456.789-00"
-      }
-    }
+    "id": "txn_abc123",
+    "external_id": "order-12345",
+    "type": "cash_in",
+    "status": "completed",
+    "amount": "150.00",
+    "payer_name": "John Doe",
+    "payer_document": "123.456.789-00",
+    "created_at": "2026-03-15T14:28:00.000Z",
+    "completed_at": "2026-03-15T14:30:00.000Z"
   }
 }
 ```
 
-## Signature Validation
+### Transaction Statuses in Payloads
 
-Each notification includes an `X-Webhook-Signature` header with an HMAC-SHA256 signature using the webhook `secret`:
+| Status | Description |
+|--------|-------------|
+| `pending` | Pending processing |
+| `processing` | Being processed |
+| `completed` | Successfully completed |
+| `failed` | Failed |
+| `expired` | Expired |
+| `cancelled` | Cancelled |
+| `refunded` | Refunded (cash-in) |
+| `returned` | Returned (cash-out) |
 
-```javascript
-const crypto = require('crypto');
+## Automatic Retries
 
-function validateWebhook(payload, signature, secret) {
-  const expected = crypto
-    .createHmac('sha256', secret)
-    .update(JSON.stringify(payload))
-    .digest('hex');
-  return signature === expected;
-}
-```
-
-## Retry Policy
-
-If your URL returns an error (status >= 400 or timeout), the system retries automatically with exponential backoff:
+If your URL returns an error (HTTP status >= 400 or timeout), the system automatically retries with exponential backoff:
 
 | Attempt | Delay |
 |---------|-------|
@@ -126,16 +184,38 @@ If your URL returns an error (status >= 400 or timeout), the system retries auto
 | 4th retry | 1 hour |
 | 5th retry | Sent to DLQ (Dead Letter Queue) |
 
+After all retries are exhausted, the delivery is marked as `failed`. You can manually resend it later.
+
 ## Managing Webhooks
 
 ### List Webhooks
+
+Retrieve all registered webhooks:
 
 ```bash
 curl -X GET "https://pix-api.brzip.com.br/api/v1/webhooks?limit=20&offset=0" \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
-### Update a Webhook
+**Query parameters:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `limit` | 20 | Items per page (max 100) |
+| `offset` | 0 | Pagination offset |
+
+### Get Webhook by ID
+
+Retrieve details of a specific webhook, including status and last activity timestamps:
+
+```bash
+curl -X GET https://pix-api.brzip.com.br/api/v1/webhooks/<webhook-id> \
+  -H "Authorization: Bearer <your-jwt>"
+```
+
+### Update Webhook
+
+Update an existing webhook. All fields are optional — send only what you want to change:
 
 ```bash
 curl -X PUT https://pix-api.brzip.com.br/api/v1/webhooks/<webhook-id> \
@@ -148,24 +228,89 @@ curl -X PUT https://pix-api.brzip.com.br/api/v1/webhooks/<webhook-id> \
   }'
 ```
 
-### Delete a Webhook
+**Updatable fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `url` | string | New destination URL |
+| `events` | array | New list of events (use `["*"]` for all) |
+| `status` | string | `"active"` or `"inactive"` |
+
+### Delete Webhook
+
+Permanently remove a webhook. Pending deliveries for this webhook will be cancelled.
 
 ```bash
 curl -X DELETE https://pix-api.brzip.com.br/api/v1/webhooks/<webhook-id> \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
+<Callout intent="warning">
+  This action is irreversible. All pending deliveries for this webhook will be cancelled.
+</Callout>
+
+## Monitoring Deliveries
+
 ### List Deliveries
+
+View the delivery history for your webhooks. Each delivery shows the event, status, payload sent, response received, attempt count, and timestamps.
 
 ```bash
 curl -X GET "https://pix-api.brzip.com.br/api/v1/webhooks/deliveries?webhookId=<webhook-id>&limit=20&page=1" \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
+**Available filters:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `webhookId` | Filter by webhook ID (UUID) |
+| `transactionId` | Filter by transaction ID (UUID) |
+| `eventType` | Filter by event type (e.g., `pix.cash_in.confirmed`) |
+| `status` | Filter by status: `delivered`, `pending`, `failed` |
+| `start_date` | Filter by start date (YYYY-MM-DD) |
+| `end_date` | Filter by end date (YYYY-MM-DD) |
+
+**Pagination:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `page` | 1 | Page number (1-based) |
+| `limit` | 50 | Items per page (max 100) |
+| `offset` | — | Alternative to page-based pagination (0-based) |
+
+**Response includes:** `page`, `totalPages`, `total`, `limit`, `offset`, and an array of deliveries with `payload` and `response_body`.
+
+### Get Delivery by ID
+
+Retrieve details of a specific delivery, including the payload sent, HTTP response status, and number of attempts:
+
+```bash
+curl -X GET https://pix-api.brzip.com.br/api/v1/webhooks/deliveries/<delivery-id> \
+  -H "Authorization: Bearer <your-jwt>"
+```
+
 ### Resend a Failed Delivery
+
+Manually resend a delivery that failed or was not delivered. Useful when:
+
+- Your URL was down and is now back online
+- You missed a notification and need to reprocess it
+- You want to test your integration with real data
 
 ```bash
 curl -X POST https://pix-api.brzip.com.br/api/v1/webhooks/deliveries/<delivery-id>/resend \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
+The delivery will be re-queued and delivered on the next worker execution cycle.
+
+## Best Practices
+
+1. **Always validate signatures** — Use the `secret` from webhook creation to verify that requests are authentic.
+2. **Return HTTP 200 quickly** — Process the webhook asynchronously if needed. The system considers any non-2xx response as a failure and will retry.
+3. **Handle duplicates** — Use the `transaction_id` or `delivery_id` to deduplicate notifications, as retries may deliver the same event more than once.
+4. **Use event filtering** — Subscribe only to the events you need instead of `["*"]` to reduce noise and processing overhead.
+5. **Monitor delivery status** — Regularly check the deliveries endpoint to identify and troubleshoot failed deliveries.
+6. **Store the secret securely** — The webhook secret is only shown once at creation. If lost, you must delete and recreate the webhook.
+7. **Use HTTPS** — Webhook URLs must use HTTPS to ensure data is encrypted in transit.

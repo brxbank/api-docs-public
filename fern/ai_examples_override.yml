@@ -683,3 +683,24 @@ paths:
               payer:
                 name: João Silva
                 cpfCnpj: 123.456.789-09
+  /api/v1/pix/cash-out/cashOutId:
+    get:
+      x-fern-examples:
+        - path-parameters:
+            cashOutId: cashOutId
+          response:
+            body:
+              cashOutId: a3f47b9e-8c2d-4f1a-bb3e-9d7e2c5f1a2b
+              status: completed
+              amount: 1500.75
+              currency: BRL
+              requestedAt: '2024-06-10T15:45:30Z'
+              completedAt: '2024-06-10T15:47:10Z'
+              recipient:
+                name: João Silva
+                pixKey: joao.silva@email.com
+                bank: Banco do Brasil
+                accountType: checking
+                accountNumber: 12345-6
+                branchNumber: '001'
+              failureReason: null
