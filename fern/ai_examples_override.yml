@@ -1,173 +1,126 @@
 paths:
-  /health:
-    get:
-      x-fern-examples:
-        - response:
-            body:
-              status: healthy
-              service: brz-api
-  /api/v1/pix/cash-in/{cash_in_id}/cancel:
-    post:
-      x-fern-examples:
-        - headers:
-            x-key-id: your-api-key-id
-            x-secret-key: your-api-key-secret
-  /api/v1/pix/keys/:key:
-    delete:
-      x-fern-examples:
-        - request:
-            reason: USER_REQUESTED
-    get:
-      x-fern-examples:
-        - response:
-            body:
-              key: user@example.com
-              key_type: EMAIL
-              account_type: CONTA_CORRENTE
-              account_holder:
-                name: John Doe
-                tax_id_number: '12345678909'
-              bank_account:
-                participant: '001'
-                branch: '1234'
-                account_number: 56789-0
-                account_type: CACC
-              created_at: '2024-04-20T15:45:00Z'
-  /api/v1/pix/limits/requests/limit_request_id:
-    get:
-      x-fern-examples:
-        - path-parameters:
-            limit_request_id: a3f47b9e-8c2d-4f1a-9b7e-2d5f3c6a1e4b
-          response:
-            body:
-              id: a3f47b9e-8c2d-4f1a-9b7e-2d5f3c6a1e4b
-              requested_by: user_123456
-              requested_at: '2024-06-10T15:45:30Z'
-              limit_type: daily
-              requested_amount: '50000.00'
-              approved_amount: '45000.00'
-              currency: BRL
-              status: approved
-              status_updated_at: '2024-06-11T10:00:00Z'
-              reason: Increase due to business volume growth
-  /ready:
-    get:
-      x-fern-examples:
-        - response:
-            body:
-              status: ready
-              service: brz-api
   /api/v1/webhooks/webhook_id:
-    delete:
-      x-fern-examples:
-        - path-parameters:
-            webhook_id: a3f47b9e-8c2d-4f1a-9b7e-2d5f6c8e9a12
     get:
       x-fern-examples:
         - path-parameters:
             webhook_id: webhook_id
           response:
             body:
-              id: a3f1c9e2-7b4d-4f6a-9d2e-8b7c3f1a2d4e
-              url: https://clientapp.com/webhook/receive
-              events:
+              id: a3f1c9d2-7b4e-4f8a-9d3e-2b5c6f7a8e9d
+              url: https://client.example.com/webhook/pix-events
+              status: active
+              createdAt: '2024-05-10T09:15:00Z'
+              lastDeliveredAt: '2024-06-01T14:22:30Z'
+              lastFailedAt: '2024-05-30T11:05:45Z'
+              eventTypes:
                 - pix.cash_in.received
                 - pix.cash_in.confirmed
                 - pix.cash_out.completed
-              status: active
-              created_at: '2024-05-10T09:15:30Z'
-              last_triggered_at: '2024-06-01T14:22:10Z'
-              secret: b7f8e9d3c4a1b2e5f6d7c8a9e0b1c2d3
+                - payment_link.paid
+              secret: s3cr3tK3yForHMACValidation
     put:
       x-fern-examples:
         - path-parameters:
             webhook_id: webhook_id
+    delete:
+      x-fern-examples:
+        - path-parameters:
+            webhook_id: webhook_id
+  /api/v1/pix/reversals/reversal_id:
+    get:
+      x-fern-examples:
+        - path-parameters:
+            reversal_id: reversal_id
+          response:
+            body:
+              reversal_id: a3f1c9d2-7b4e-4f8a-9d3e-2b5f6c7d8e9f
+              status: completed
+              original_payment_id: b7e2d4f1-3c5a-4d6b-8e9f-1a2b3c4d5e6f
+              amount: 150.75
+              currency: BRL
+              requested_at: '2024-06-10T15:22:30Z'
+              completed_at: '2024-06-10T15:25:45Z'
+              reason: Customer requested refund due to duplicate payment
+              initiated_by: merchant_12345
+              refund_account:
+                bank_code: '001'
+                branch: '1234'
+                account_number: 56789-0
+                account_type: checking
+  /api/v1/pix/keys/user%40example.com:
+    get:
+      x-fern-examples:
+        - path-parameters:
+            key: user@example.com
+          response:
+            body:
+              key: user@example.com
+              keyType: EMAIL
+              owner:
+                type: NATURAL_PERSON
+                name: João da Silva
+                taxIdNumber: '12345678909'
+              bankAccount:
+                participant: '001'
+                branch: '1234'
+                accountNumber: '567890'
+                accountType: CACC
+              createdAt: '2024-04-20T10:15:30Z'
   /api/v1/webhooks/deliveries/delivery_id/resend:
     post:
       x-fern-examples:
         - path-parameters:
             delivery_id: delivery_id
-  /api/v1/pix/reversals:
-    get:
+  /api/v1/pix/qrcode/decode:
+    post:
       x-fern-examples:
-        - query-parameters:
-            limit: 20
-            after: '2024-04-01T00:00:00Z'
-            before: '2024-04-30T23:59:59Z'
-            status: success
-            cursor: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
-            end_to_end_ids: E2E1234567890
-            external_ids: EXT987654321
+        - request:
+            br_code: 00020126580014br.gov.bcb.pix0136a1b2c3d4e5f601865204000053039865405000.005802BR5909Joao Silva6009Sao Paulo61080540900062070503***63041D3D
           response:
             body:
-              reversals:
-                - id: rev-123e4567-e89b-12d3-a456-426614174000
-                  created_at: '2024-04-15T10:20:30Z'
-                  status: success
-                  amount: '1500.00'
-                  currency: BRL
-                  end_to_end_id: E2E1234567890
-                  external_id: EXT987654321
-                  reason: Duplicate payment
-                - id: rev-223e4567-e89b-12d3-a456-426614174001
-                  created_at: '2024-04-16T11:25:40Z'
-                  status: processing
-                  amount: '500.00'
-                  currency: BRL
-                  end_to_end_id: E2E0987654321
-                  external_id: EXT123456789
-                  reason: Incorrect amount
-              cursor: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.next
-  /api/v1/pix/balance:
-    get:
-      x-fern-examples:
-        - query-parameters:
-            account_id: a3f47e2b-9c4d-4f1a-bb2e-8d7f9c6e1234
-          response:
-            body:
-              account_id: a3f47e2b-9c4d-4f1a-bb2e-8d7f9c6e1234
-              available_balance: '15230.75'
-              blocked_balance: '1200.00'
-              total_balance: '16430.75'
-              currency: BRL
-              updated_at: '2024-06-10T14:45:00Z'
-  /api/v1/pix/cash-out/:cash_out_id:
-    get:
-      x-fern-examples:
-        - response:
-            body:
-              cash_out_id: a3f1c9e2-7b4d-4f8a-9c2e-1d2b3f4a5e6c
-              status: completed
-              amount: '1500.75'
-              currency: BRL
-              created_at: '2024-06-10T15:45:30Z'
-              completed_at: '2024-06-10T15:47:00Z'
-              recipient:
-                name: John Doe
-                pix_key: john.doe@email.com
-                bank: Banco do Brasil
-                account_type: checking
-                account_number: 12345-6
-                branch_number: '001'
-              message: PIX payment completed successfully
-  /api/v1/pix/reversals/5632510516002816:
-    get:
-      x-fern-examples:
-        - response:
-            body:
-              id: '5632510516002816'
-              status: completed
-              created_at: '2024-06-10T15:22:30Z'
-              updated_at: '2024-06-10T15:45:00Z'
-              original_payment_id: '7896541230001122'
+              success: true
+              qr_code_type: static
+              pix_key: a1b2c3d4-e5f6-1234-5678-9abcdef01234
               amount: '150.75'
-              currency: BRL
-              reason: Customer requested refund due to duplicate payment
-              reversal_details:
-                initiated_by: merchant
-                processed_by: BRZ Gateway
-                processed_at: '2024-06-10T15:44:50Z'
-                confirmation_code: REV20240610152230BRZ
+              receiver_name: Joao Silva
+              receiver_ispb: '12345678'
+              receiver_participant_name: Banco do Brasil S.A.
+              end_to_end_id: E2E20240615XYZ1234567890
+              due_date: '2024-07-01'
+              penalty: {}
+              interest: {}
+              discount: {}
+              rebate: {}
+              final_amount: '150.75'
+  /api/v1/pix/limits/requests:
+    get:
+      x-fern-examples:
+        - response:
+            body:
+              - requestId: a3f1c9d2-4b7e-4f8a-9c3d-2e5b7f1a9d8c
+                requestedAt: '2024-06-10T09:15:00Z'
+                requestedBy: user12345
+                limitType: daily_transfer
+                currentLimit: 5000
+                requestedLimit: 10000
+                status: pending
+                reason: Increase daily transfer limit for upcoming business needs
+              - requestId: b7d2e4f9-8c3a-4e1b-9f7d-5a6c8e2b1f3d
+                requestedAt: '2024-06-12T14:45:30Z'
+                requestedBy: user12345
+                limitType: monthly_receipt
+                currentLimit: 20000
+                requestedLimit: 35000
+                status: pending
+                reason: Requesting higher monthly receipt limit due to increased sales volume
+  /api/v1/pix/cash-in/cash_in_id/cancel:
+    post:
+      x-fern-examples:
+        - path-parameters:
+            cash_in_id: cash_in_id
+          headers:
+            x-key-id: your-api-key-id
+            x-secret-key: your-api-key-secret
   /api/v1/webhooks:
     get:
       x-fern-examples:
@@ -177,339 +130,95 @@ paths:
           response:
             body:
               webhooks:
-                - id: a3f1c9e2-7b4d-4f8a-9d2e-1b2c3d4e5f6a
-                  url: https://client.example.com/webhook/pix
+                - id: a3f1c9e2-7b4d-4f8a-9d2e-1c2b3a4d5e6f
+                  url: https://client.example.com/webhook/pix-events
                   events:
                     - pix.cash_in.received
                     - pix.cash_in.confirmed
                     - pix.cash_out.completed
+                  secret: s3cr3tK3yForHMACValidation
+                  createdAt: '2024-05-10T14:22:30Z'
                   active: true
-                  created_at: '2024-05-10T14:22:30Z'
-                  last_delivery_status: completed
-                  last_delivery_at: '2024-06-01T09:15:00Z'
-                - id: b7d2e3f4-8c5a-4e9b-8f3d-2c4e5f6a7b8c
-                  url: https://anotherclient.example.com/hooks/pix-events
+                - id: b7d2e4f5-8c6a-4b9f-9e3d-2f4a5b6c7d8e
+                  url: https://anotherclient.com/hooks/pix
                   events:
                     - '*'
+                  secret: anotherSecretKey123
+                  createdAt: '2024-04-01T09:15:00Z'
                   active: false
-                  created_at: '2024-04-20T11:05:45Z'
-                  last_delivery_status: failed
-                  last_delivery_at: '2024-05-30T16:40:00Z'
               limit: 20
               offset: 0
               total: 2
-  /api/v1/pix/med/status/{status}:
-    get:
-      x-fern-examples:
-        - query-parameters:
-            page: 1
-            page_size: 20
-          response:
-            body:
-              med_requests:
-                - id: med-8a7f3c2d-4b9e-4f1a-9c3e-2d5f7a1b6e4c
-                  status: OPEN
-                  created_at: '2024-06-10T09:15:00Z'
-                  requester_name: John Doe
-                  amount: '1500.75'
-                  currency: BRL
-                  description: Refund due to duplicate payment
-                - id: med-3b2d1f4a-7c8e-4d9b-8f2a-1e3c5d7b9a0f
-                  status: OPEN
-                  created_at: '2024-06-09T16:45:00Z'
-                  requester_name: Jane Smith
-                  amount: '320.00'
-                  currency: BRL
-                  description: Incorrect charge amount
-              page: 1
-              page_size: 20
-              total_pages: 5
-              total_items: 85
-  /api/v1/pix/limits/requests:
-    get:
-      x-fern-examples:
-        - response:
-            body:
-              requests:
-                - id: a3f1c9d2-4b7e-4f9a-9c3d-2e5b7f8a1d23
-                  requested_limit: '5000.00'
-                  current_limit: '2000.00'
-                  status: pending
-                  requested_at: '2024-06-10T09:15:00Z'
-                  reason: Increase daily transfer limit for business operations
-                - id: b7d2e4f9-8c3a-4d1b-9f7e-5a6c8d9e0f12
-                  requested_limit: '10000.00'
-                  current_limit: '5000.00'
-                  status: pending
-                  requested_at: '2024-06-12T14:45:30Z'
-                  reason: Temporary limit increase for upcoming payroll processing
-  /api/v1/pix/keys:
-    get:
-      x-fern-examples:
-        - response:
-            body:
-              keys:
-                - key: user.email@example.com
-                  key_type: EMAIL
-                  account_type: CONTA_CORRENTE
-                  bank_code: '001'
-                  branch: '1234'
-                  account_number: 567890-1
-                  created_at: '2024-05-10T14:22:30Z'
-                  status: ACTIVE
-                - key: '+5511998765432'
-                  key_type: PHONE
-                  account_type: CONTA_POUPANCA
-                  bank_code: '033'
-                  branch: '4321'
-                  account_number: 123456-7
-                  created_at: '2023-11-20T09:15:00Z'
-                  status: ACTIVE
-                - key: 123e4567-e89b-12d3-a456-426614174000
-                  key_type: EVP
-                  account_type: CONTA_CORRENTE
-                  bank_code: '104'
-                  branch: '5678'
-                  account_number: 987654-3
-                  created_at: '2024-01-05T18:45:10Z'
-                  status: INACTIVE
-  /api/v1/transactions:
-    get:
-      x-fern-examples:
-        - query-parameters:
-            limit: 20
-            offset: 0
-            type: cash_out
-          response:
-            body:
-              success: true
-              data:
-                transactions:
-                  - id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
-                    external_id: TXN20260326001
-                    client_id: 9b2d7f4e-8c3a-4f1a-9d2e-5a7b8c9d1234
-                    type: cash_out
-                    status: completed
-                    amount: '1500.00'
-                    gross_amount: '1500.00'
-                    net_amount: '1492.50'
-                    tax_amount: '7.50'
-                    currency: BRL
-                    pix_key: maria.santos@banco.com.br
-                    pix_key_type: email
-                    e2e: E20260326ABC123XYZ
-                    payer_name: John Doe
-                    payer_document: '12345678909'
-                    receiver_name: Jane Smith
-                    receiver_document: '98765432100'
-                    created_at: '2026-03-26T19:45:00Z'
-                    updated_at: '2026-03-26T19:46:00Z'
-                    processed_at: '2026-03-26T19:46:00Z'
-                total: 1
-                limit: 20
-                offset: 0
-  /api/v1/webhooks/deliveries/delivery_id:
-    get:
-      x-fern-examples:
-        - path-parameters:
-            delivery_id: delivery_id
-          response:
-            body:
-              delivery_id: a3f1c9e2-7b4d-4f8a-9c2e-1d2f3b4a5c6d
-              webhook_id: 7e9d8c3b-2a1f-4e5d-9b7c-8f6a5d4e3c2b
-              event: pix.cash_in.confirmed
-              payload:
-                id: d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f90
-                source: brz-api
-                event: pix.cash_in.confirmed
-                timestamp: '2024-06-10T14:22:35Z'
-                correlation_id: d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f90
-                data:
-                  transaction:
-                    id: 9f8e7d6c-5b4a-3c2d-1e0f-9a8b7c6d5e4f
-                    amount: '250.75'
-                    status: completed
-                    reference: ref-20240610-001
-                    pix_key: client@example.com
-                    pix_key_type: EMAIL
-                    payer:
-                      name: John Doe
-                      document: '12345678900'
-              http_status: 200
-              attempts: 1
-              last_attempt_at: '2024-06-10T14:22:36Z'
-              response_body: '{"status":"ok","message":"Notification received"}'
-              response_headers:
-                Content-Type: application/json
-                X-Request-ID: f47ac10b-58cc-4372-a567-0e02b2c3d479
-  /api/v1/pix/cash-in/{cash_in_id}:
-    get:
+  /api/v1/auth/bearer-token:
+    post:
       x-fern-examples:
         - headers:
-            x-key-id: your-api-key-id
-            x-secret-key: your-api-key-secret
+            x-key-id: key_abc123def456
+            x-secret-key: sec_xyz789ghi012
           response:
-            body:
-              cash_in_id: a3f1c9d2-7b4e-4f8a-9d3e-2b5f6c7d8e9f
-              status: paid
-              amount: '150.75'
-              currency: BRL
-              created_at: '2024-06-10T14:22:35Z'
-              paid_at: '2024-06-10T14:25:10Z'
-              payer:
-                name: John Doe
-                tax_id: '12345678900'
-                email: john.doe@example.com
-              payment_method: PIX
-              qr_code: 00020126580014br.gov.bcb.pix0136a3f1c9d2-7b4e-4f8a-9d3e-2b5f6c7d8e9f520400005303986540415075802BR5925John Doe6009Sao Paulo61080540900062070503***6304B14F
-  /api/v1/pix/limits:
-    get:
-      x-fern-examples:
-        - query-parameters:
-            account_id: acc-123e4567-e89b-12d3-a456-426614174000
-          response:
-            body:
-              limits:
-                pix_out:
-                  daytime:
-                    per_transaction: '45000.00'
-                    daily: '180000.00'
-                    used: '35000.00'
-                  nighttime:
-                    per_transaction: '4000.00'
-                    daily: '16000.00'
-                    used: '2000.00'
-                pix_in:
-                  daytime:
-                    per_transaction: '90000.00'
-                    daily: '450000.00'
-                    used: '120000.00'
-                  nighttime:
-                    per_transaction: '9000.00'
-                    daily: '45000.00'
-                    used: '5000.00'
-              period:
-                daytime: 06:00-20:00
-                nighttime: 20:00-06:00
-              currency: BRL
-  /api/v1/transactions/:id:
-    get:
-      x-fern-examples:
-        - response:
             body:
               success: true
-              data:
-                id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
-                external_id: TXN-20260326-0001
-                client_id: 9b2d7f4e-8c3a-4f1a-9d2e-1a2b3c4d5e6f
-                type: cash_out
-                status: completed
-                amount: '1500.00'
-                gross_amount: '1500.00'
-                net_amount: '1492.50'
-                tax_amount: '7.50'
-                currency: BRL
-                pix_key: maria.santos@banco.com.br
-                pix_key_type: email
-                e2e: E20260326ABC123XYZ
-                payer_name: John Doe
-                receiver_name: Jane Smith
-                created_at: '2026-03-26T20:00:00Z'
-                updated_at: '2026-03-26T20:01:00Z'
-                processed_at: '2026-03-26T20:01:00Z'
-  /api/v1/webhooks/deliveries:
+              token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJrZXlfYWJjMTIzZGVmNDU2Iiwic2NvcGVzIjpbInBpeDprZXlzOnJlYWQiLCJwaXg6a2V5czp3cml0ZSIsInBpeDpiYWxhbmNlOnJlYWQiLCJ3ZWJob29rczpyZWFkIl0sImlhdCI6MTY4NjQ4MDAwMCw
+              expires_in: 3600
+  /api/v1/pix/keys/key:
+    delete:
+      x-fern-examples:
+        - path-parameters:
+            key: key
+  /api/v1/pix/reversals:
     get:
       x-fern-examples:
         - query-parameters:
-            webhook_id: a3f1c2d4-5b6e-7f89-0123-456789abcdef
             limit: 20
-            page: 1
-            offset: 0
-            transaction_id: d9e8f7a6-b5c4-3d2e-1f0a-9b8c7d6e5f4a
-            event_type: pix.cash_in.confirmed
-            status: delivered
-            start_date: '2024-05-01'
-            end_date: '2024-05-15'
+            after: '2024-04-01'
+            before: '2024-04-30'
+            status: success
+            cursor: eyJwYWdlIjoxLCJpZCI6IjY1ZjYxY2YxLTQ3YjktNDYxYS1hYjYxLTI3YjYxY2YxMjM0NSJ9
+            end_to_end_ids: E2E1234567890,E2E0987654321
+            external_ids: EXT12345,EXT67890
           response:
             body:
-              page: 1
-              total_pages: 3
-              total: 45
-              limit: 20
-              offset: 0
-              payload:
-                - id: whd-123e4567-e89b-12d3-a456-426614174000
-                  event: pix.cash_in.confirmed
-                  status: delivered
-                  payload:
-                    id: txn-987e6543-b21a-34c5-d678-123456789abc
-                    source: brz-api
-                    event: pix.cash_in.confirmed
-                    timestamp: '2024-05-10T14:22:30Z'
-                    correlation_id: txn-987e6543-b21a-34c5-d678-123456789abc
-                    data:
-                      transaction:
-                        id: txn-987e6543-b21a-34c5-d678-123456789abc
-                        amount: '250.75'
-                        status: completed
-                        reference: ref-20240510-001
-                        pix_key: client@example.com
-                        pix_key_type: EMAIL
-                        payer:
-                          name: Jane Smith
-                          document: '98765432100'
-                  response_body:
-                    status: 200 OK
-                    message: Webhook received successfully
-                  attempts: 1
-                  created_at: '2024-05-10T14:22:31Z'
-                  updated_at: '2024-05-10T14:22:32Z'
-                - id: whd-223e4567-e89b-12d3-a456-426614174001
-                  event: pix.cash_in.confirmed
-                  status: failed
-                  payload:
-                    id: txn-123e4567-e89b-12d3-a456-426614174002
-                    source: brz-api
-                    event: pix.cash_in.confirmed
-                    timestamp: '2024-05-09T09:15:00Z'
-                    correlation_id: txn-123e4567-e89b-12d3-a456-426614174002
-                    data:
-                      transaction:
-                        id: txn-123e4567-e89b-12d3-a456-426614174002
-                        amount: '100.00'
-                        status: completed
-                        reference: ref-20240509-002
-                        pix_key: user@pix.com
-                        pix_key_type: EMAIL
-                        payer:
-                          name: Bob Smith
-                          document: '12345678999'
-                  response_body:
-                    status: 500 Internal Server Error
-                    message: Timeout on client server
-                  attempts: 3
-                  created_at: '2024-05-09T09:15:01Z'
-                  updated_at: '2024-05-09T09:50:00Z'
-  /api/v1/pix/keys/user%40example.com:
+              reversals:
+                - id: rev-8a7f6c3d-1234-4b56-9f78-1a2b3c4d5e6f
+                  created_at: '2024-04-15T10:20:30Z'
+                  status: success
+                  amount: 1500.75
+                  currency: BRL
+                  end_to_end_id: E2E1234567890
+                  external_id: EXT12345
+                  reason: Customer refund
+                - id: rev-9b8e7d4c-2345-5c67-0g89-2b3c4d5e6f7a
+                  created_at: '2024-04-20T14:45:00Z'
+                  status: success
+                  amount: 320
+                  currency: BRL
+                  end_to_end_id: E2E0987654321
+                  external_id: EXT67890
+                  reason: Duplicate payment reversal
+              pagination:
+                next_cursor: eyJwYWdlIjoyLCJpZCI6Ijg3ZjYxY2YxLTQ3YjktNDYxYS1hYjYxLTI3YjYxY2YxMjM0NiJ9
+                limit: 20
+                total: 45
+  /api/v1/pix/cash-in/cash_in_id:
     get:
       x-fern-examples:
         - path-parameters:
-            key: user@example.com
+            cash_in_id: a3f9b2d7-4c1e-4f8a-9b2d-7e3f1a2c9b8d
+          headers:
+            x-key-id: 123e4567-e89b-12d3-a456-426614174000
+            x-secret-key: s3cr3tK3yXmpl3f0rAP1Acc3ss
           response:
             body:
-              key: user@example.com
-              key_type: EMAIL
-              account_type: CHECKING
-              account_holder:
-                name: John Doe
-                tax_id_number: '12345678909'
-              bank:
-                ispb: '60701190'
-                name: Banco do Brasil S.A.
-                branch: '1234'
-                account_number: 56789-0
-              created_at: '2024-04-20T15:45:00Z'
-              status: ACTIVE
+              id: a3f9b2d7-4c1e-4f8a-9b2d-7e3f1a2c9b8d
+              status: paid
+              amount: 150.75
+              currency: BRL
+              created_at: '2024-06-10T15:45:30Z'
+              paid_at: '2024-06-10T16:00:00Z'
+              payer:
+                name: João Silva
+                cpf: 123.456.789-00
+              description: Pagamento de serviço de consultoria
   /api/v1/transactions/id:
     get:
       x-fern-examples:
@@ -517,18 +226,86 @@ paths:
             id: id
           response:
             body:
-              id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
-              amount: '1500.75'
-              currency: BRL
+              transactionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
               status: completed
-              created_at: '2024-06-10T09:45:00Z'
-              sender:
-                name: John Doe
-                pix_key: john.doe@example.com
-              receiver:
-                name: Jane Smith
-                pix_key: '+5511999998888'
+              amount: 1500.75
+              currency: BRL
+              timestamp: '2024-06-10T15:45:30Z'
+              payer:
+                name: João Silva
+                pixKey: joao.silva@email.com
+              payee:
+                name: Maria Oliveira
+                pixKey: '+5511999998888'
               description: 'Payment for invoice #12345'
+              type: transfer
+  /api/v1/webhooks/deliveries:
+    get:
+      x-fern-examples:
+        - query-parameters:
+            page: 1
+            limit: 20
+            offset: 0
+          response:
+            body:
+              deliveries:
+                - id: a3f1c9d2-4b7e-4f9a-8c2d-1e2f3a4b5c6d
+                  webhook_id: d9f8e7c6-b5a4-4321-9f8e-7d6c5b4a3f2e
+                  event: pix.cash_in.confirmed
+                  status: delivered
+                  payload_sent:
+                    id: e7d8c9b0-a1f2-4e3d-9c8b-7a6f5e4d3c2b
+                    source: pixgw
+                    event: pix.cash_in.confirmed
+                    timestamp: '2024-06-10T14:22:30Z'
+                    correlation_id: e7d8c9b0-a1f2-4e3d-9c8b-7a6f5e4d3c2b
+                    data:
+                      transaction:
+                        id: f1e2d3c4-b5a6-7890-1234-56789abcdef0
+                        amount: '250.00'
+                        status: completed
+                        reference: order-12345
+                        pix_key: customer@example.com
+                        pix_key_type: EMAIL
+                        payer:
+                          name: Alice Johnson
+                          document: 987.654.321-00
+                  response_received:
+                    status_code: 200
+                    body: '{"success":true,"message":"Notification received"}'
+                  attempt_count: 1
+                  created_at: '2024-06-10T14:22:31Z'
+                  updated_at: '2024-06-10T14:22:32Z'
+                - id: b4e5f6a7-c8d9-4e0f-9a1b-2c3d4e5f6a7b
+                  webhook_id: d9f8e7c6-b5a4-4321-9f8e-7d6c5b4a3f2e
+                  event: pix.cash_out.failed
+                  status: failed
+                  payload_sent:
+                    id: c1d2e3f4-a5b6-7c8d-9e0f-1a2b3c4d5e6f
+                    source: pixgw
+                    event: pix.cash_out.failed
+                    timestamp: '2024-06-09T09:15:00Z'
+                    correlation_id: c1d2e3f4-a5b6-7c8d-9e0f-1a2b3c4d5e6f
+                    data:
+                      transaction:
+                        id: 123e4567-e89b-12d3-a456-426614174000
+                        amount: '500.00'
+                        status: failed
+                        reference: withdrawal-67890
+                        pix_key: account-holder@bank.com
+                        pix_key_type: EMAIL
+                        payer:
+                          name: Bob Smith
+                          document: 123.456.789-99
+                  response_received:
+                    status_code: 500
+                    body: '{"error":"Internal Server Error"}'
+                  attempt_count: 3
+                  created_at: '2024-06-09T09:15:01Z'
+                  updated_at: '2024-06-09T09:45:01Z'
+              page: 1
+              limit: 2
+              total: 2
   /api/v1/pix/med/status/OPEN:
     get:
       x-fern-examples:
@@ -540,53 +317,45 @@ paths:
           response:
             body:
               med_requests:
-                - id: med-8a7f3c2d-4b9e-4f1a-9c3e-2d5f7a1b6e4c
+                - id: a3f1c9d2-4b7e-4f8a-9c2d-1e2f3a4b5c6d
                   status: OPEN
                   created_at: '2024-06-10T09:15:00Z'
+                  pix_key: 123e4567-e89b-12d3-a456-426614174000
+                  amount: 1500.75
                   requester:
-                    name: John Doe
-                    cpf: '12345678900'
-                    bank_account:
-                      bank_code: '001'
-                      branch: '1234'
-                      account_number: 56789-0
-                      account_type: checking
-                  amount: '1500.75'
-                  currency: BRL
-                  reason: Suspected fraud transaction
-                  last_updated: '2024-06-11T14:20:00Z'
-                - id: med-3b2d1f4a-7c8e-4d9b-8f2a-1e3c5d7b9a0f
+                    name: João Silva
+                    cpf: 123.456.789-00
+                  reason: Suspected fraud on transaction
+                - id: b4d2e3f4-5a6b-7c8d-9e0f-1a2b3c4d5e6f
                   status: OPEN
-                  created_at: '2024-06-09T16:45:00Z'
+                  created_at: '2024-06-11T14:45:30Z'
+                  pix_key: 987e6543-b21a-43c5-d678-123456789abc
+                  amount: 320
                   requester:
-                    name: Jane Smith
-                    cpf: '98765432199'
-                    bank_account:
-                      bank_code: '033'
-                      branch: '4321'
-                      account_number: 12345-6
-                      account_type: savings
-                  amount: '320.00'
-                  currency: BRL
-                  reason: Operational error in transfer
-                  last_updated: '2024-06-10T10:05:00Z'
+                    name: Maria Oliveira
+                    cpf: 987.654.321-99
+                  reason: Operational error in payment
               page: 1
               page_size: 20
-              total_items: 85
+              total_items: 2
               total_pages: 1
-  /api/v1/pix/cash-in/{cash_in_id}/cancel:
-    post:
+  /api/v1/pix/limits/requests/limit_request_id:
+    get:
       x-fern-examples:
         - path-parameters:
-            cash_in_id: cash_in_id
-          headers:
-            x-key-id: your-api-key-id
-            x-secret-key: your-api-key-secret
-  /api/v1/pix/keys/key:
-    delete:
-      x-fern-examples:
-        - path-parameters:
-            key: key
+            limit_request_id: limit_request_id
+          response:
+            body:
+              limit_request_id: a3f47b9e-8c2d-4f1a-9b7e-2d5f3c6a1e4b
+              requested_by: user_123456
+              requested_at: '2024-06-10T15:45:30Z'
+              current_limit: 5000
+              requested_limit: 10000
+              currency: BRL
+              status: approved
+              status_updated_at: '2024-06-11T10:00:00Z'
+              reason: Increase due to higher transaction volume expected next quarter
+              review_comments: Approved after verification of business growth projections
   /api/v1/pix/cash-in/qrcode:
     post:
       x-fern-examples:
@@ -594,75 +363,46 @@ paths:
             x-key-id: your-api-key-id
             x-secret-key: your-api-key-secret
           request:
-            amount: '250.00'
+            amount: '150.00'
           response:
             body:
               success: true
               transaction_id: txn_9f8b7c6d5e4a3b2c1d0e
               status: pending
-              qr_code: 00020126580014BR.GOV.BCB.PIX0136a1b2c3d4e5f6789012345678901234520400005303986540610.005802BR5925John Doe6009Sao Paulo62070503***63041D3D
-              qr_code_text: 00020126580014BR.GOV.BCB.PIX0136a1b2c3d4e5f6789012345678901234520400005303986540610.005802BR5925John Doe6009Sao Paulo62070503***63041D3D
+              qr_code: 00020126580014BR.GOV.BCB.PIX0136a1b2c3d4e5f67890123456789012345204000053039865405802BR5925João da Silva6009Sao Paulo61080540900062070503***63041D3D
+              qr_code_text: 00020126580014BR.GOV.BCB.PIX0136a1b2c3d4e5f67890123456789012345204000053039865405802BR5925João da Silva6009Sao Paulo61080540900062070503***63041D3D
               expires_at: '2024-01-15T09:30:00Z'
               provider: pix
-  /api/v1/pix/reversals/reversal_id:
+  /api/v1/pix/keys:
     get:
       x-fern-examples:
-        - path-parameters:
-            reversal_id: reversal_id
-          response:
+        - response:
             body:
-              reversal_id: a3f1c9d2-7b4e-4f8a-9c3d-2e5b7f6a1d9e
-              status: completed
-              original_transaction_id: b7d9e3f4-5a6c-4d8e-9f1b-3c2d7e8a9f0b
-              requested_at: '2024-06-10T15:45:30Z'
-              completed_at: '2024-06-10T16:00:00Z'
-              amount: '150.75'
-              currency: BRL
-              reason: Customer requested refund due to duplicate payment
-              initiator:
-                name: John Doe
-                account_number: 12345-6
-                bank_code: '001'
-  /api/v1/pix/qrcode/decode:
-    post:
-      x-fern-examples:
-        - request:
-            br_code: 00020126580014br.gov.bcb.pix0136a1b2c3d4e5f678901865204000053039854045802BR5925Joao Silva Santos6009Sao Paulo61080540900062070503***63041D3D
-          response:
-            body:
-              success: true
-              qr_code_type: static
-              pix_key: a1b2c3d4-e5f6-7890-1234-56789abcdef0
-              amount: '150.75'
-              receiver_name: Joao Silva Santos
-              receiver_ispb: '12345678'
-              receiver_participant_name: Banco do Brasil S.A.
-              end_to_end_id: E2E20240615XYZ1234567890
-              due_date: '2024-07-01'
-              penalty: {}
-              interest: {}
-              discount: {}
-              rebate: {}
-              final_amount: '150.75'
-  /api/v1/pix/cash-in/{cash_in_id}:
-    get:
-      x-fern-examples:
-        - path-parameters:
-            cash_in_id: a3f1c9e2-7b4d-4f8a-9c2e-1d2b3f4a5e6f
-          headers:
-            x-key-id: 123e4567-e89b-12d3-a456-426614174000
-            x-secret-key: 9f8e7d6c-5b4a-3c2d-1e0f-123456789abc
-          response:
-            body:
-              id: a3f1c9e2-7b4d-4f8a-9c2e-1d2b3f4a5e6f
-              status: paid
-              amount: '150.75'
-              currency: BRL
-              created_at: '2024-06-10T15:45:00Z'
-              paid_at: '2024-06-10T16:00:00Z'
-              payer:
-                name: John Doe
-                cpf_cnpj: '12345678909'
+              keys:
+                - key: '+5511998765432'
+                  key_type: PHONE
+                  account_type: CHECKING
+                  bank_code: '001'
+                  branch: '1234'
+                  account_number: 567890-1
+                  created_at: '2024-05-20T10:15:30Z'
+                  status: ACTIVE
+                - key: user@example.com
+                  key_type: EMAIL
+                  account_type: SAVINGS
+                  bank_code: '237'
+                  branch: '4321'
+                  account_number: 123456-7
+                  created_at: '2023-11-10T08:45:00Z'
+                  status: ACTIVE
+                - key: 3f2504e0-4f89-11d3-9a0c-0305e82c3301
+                  key_type: EVP
+                  account_type: CHECKING
+                  bank_code: '104'
+                  branch: '5678'
+                  account_number: 987654-3
+                  created_at: '2024-01-15T14:00:00Z'
+                  status: INACTIVE
   /api/v1/pix/cash-out/cash_out_id:
     get:
       x-fern-examples:
@@ -670,28 +410,79 @@ paths:
             cash_out_id: cash_out_id
           response:
             body:
-              cash_out_id: a3f47b9e-8c2d-4f1a-bb3e-9d7e2c5f1a2b
+              cash_out_id: a3f9c8d2-7b4e-4f1a-9c3d-2e5b7f8a9d12
               status: completed
-              amount: '1500.75'
+              amount: 1500.75
               currency: BRL
-              requested_at: '2024-06-10T15:45:30Z'
+              created_at: '2024-06-10T15:45:30Z'
               completed_at: '2024-06-10T15:47:10Z'
               recipient:
-                name: John Doe
-                pix_key: john.doe@email.com
-                bank: Banco do Brasil
+                name: João Silva
+                pix_key: joao.silva@email.com
+                bank_code: '001'
                 account_type: checking
                 account_number: 12345-6
-                branch_number: '001'
-              failure_reason: null
-  /api/v1/auth/bearer-token:
-    post:
+                branch_number: '1234'
+              message: PIX payment completed successfully
+  /api/v1/transactions:
+    get:
       x-fern-examples:
-        - headers:
-            x-key-id: key_abc123def456
-            x-secret-key: sec_xyz789ghi012
+        - query-parameters:
+            limit: 20
+            offset: 0
+            type: cash_in
           response:
             body:
               success: true
-              token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyX2tleV8xMjM0NTYiLCJzY29wZXMiOlsicGl4OmtleXM6cmVhZCIsInBpeDprZXlzOndyaXRlIiwicGl4OmJhbGFuY2U6cmVhZCIsInBpeDpjYXNob3V0OndyaXRlIiwid2ViaG9va3M6cmVhZCIsIndlYmhvb2tzOndyaXRlIl0sImlhdCI6MTY4NjQ4MDAwMCwiZXhwIjoxNjg2NDgzNjAwfQ.4f7X9vJq2X9QvYx7Z8kL5mN3Pq1R6TzW8YvJ9X0aB1c
-              expires_in: 3600
+              data:
+                transactions:
+                  - id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                    external_id: TXN202401150930001
+                    client_id: 9b2d7f4e-3c1a-4f8b-9d2e-5a7f8c9e1234
+                    type: cash_in
+                    status: completed
+                    amount: '1500.00'
+                    gross_amount: '1500.00'
+                    net_amount: '1492.50'
+                    tax_amount: '7.50'
+                    currency: BRL
+                    pix_key: user@example.com
+                    pix_key_type: email
+                    e2e: E2E2024011509300001BRZ
+                    payer_name: Carlos Silva
+                    payer_document: 123.456.789-00
+                    receiver_name: Empresa XYZ Ltda
+                    receiver_document: 12.345.678/0001-99
+                    created_at: '2024-01-15T09:30:00Z'
+                    updated_at: '2024-01-15T09:45:00Z'
+                    processed_at: '2024-01-15T09:44:30Z'
+                total: 1
+                limit: 20
+                offset: 0
+  /api/v1/webhooks/deliveries/delivery_id:
+    get:
+      x-fern-examples:
+        - path-parameters:
+            delivery_id: delivery_id
+          response:
+            body:
+              delivery_id: d4f8a9b2-3c7e-4f1a-9b6d-2e5f7a8c9d01
+              payload:
+                id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+                source: pixgw
+                event: pix.cash_in.confirmed
+                timestamp: '2024-06-10T15:45:30Z'
+                correlation_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+                data:
+                  transaction:
+                    id: tx-9876543210
+                    amount: '250.00'
+                    status: completed
+                    reference: invoice-20240610-001
+                    pix_key: customer@example.com
+                    pix_key_type: EMAIL
+                    payer:
+                      name: Alice Johnson
+                      document: 123.456.789-00
+              http_status: 200
+              attempts: 3

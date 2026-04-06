@@ -109,8 +109,8 @@ def validate_webhook_signature(payload: dict, signature: str, secret: str) -> bo
 
 | Event | Description |
 |-------|-------------|
-| `pix.cash_in.confirmed` | Charge confirmed — QR Code generated and ready for payment |
-| `pix.cash_in.received` | Payment received — funds credited to account |
+| `pix.cash_in.confirmed` | Payment received — funds credited to account |
+| `pix.cash_in.received` | Charge confirmed — QR Code generated and ready for payment |
 | `pix.cash_in.expired` | Charge expired without payment |
 | `pix.cash_in.cancelled` | Charge was cancelled |
 | `pix.cash_in.refunded` | Payment was refunded to the payer |

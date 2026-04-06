@@ -314,8 +314,8 @@ tags:
       | Event | Description |
       |-------|-------------|
       | `*` | All events |
-      | `pix.cash_in.received` | PIX Cash-In received |
-      | `pix.cash_in.confirmed` | PIX Cash-In confirmed |
+      | `pix.cash_in.received` | Charge confirmed — QR Code generated and ready for payment |
+      | `pix.cash_in.confirmed` | Payment received — funds credited to account |
       | `pix.cash_in.expired` | PIX Cash-In expired |
       | `pix.cash_in.refunded` | PIX Cash-In refunded |
       | `pix.cash_out.created` | PIX Cash-Out created |
