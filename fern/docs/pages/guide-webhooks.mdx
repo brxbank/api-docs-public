@@ -69,22 +69,48 @@ curl -X POST https://api.brzip.com.br/api/v1/webhooks \
 
 ## Step 2 — Validate Signatures
 
-Every webhook delivery includes a signature header that you should verify to ensure the request is authentic and has not been tampered with.
+Every webhook delivery includes two headers for signature verification:
 
-Use the `secret` returned during webhook creation to validate the HMAC-SHA256 signature:
+| Header | Description |
+|--------|-------------|
+| `x-webhook-timestamp` | Unix timestamp of when the webhook was sent |
+| `x-webhook-signature` | HMAC-SHA256 signature of the payload |
+
+The signing process works as follows:
+
+1. Remove the `whsec_` prefix from the signing key (the `secret` returned at creation time)
+2. Concatenate the timestamp header value + `"."` + raw request body
+3. Compute HMAC-SHA256 of the concatenated string using the secret
+4. Compare the result with the `x-webhook-signature` header
+
+<Callout intent="info">
+  Always use the **raw request body** (not a parsed/re-serialized JSON) to compute the signature. Re-serializing may change field ordering and break validation.
+</Callout>
 
 ```javascript
 const crypto = require('crypto');
 
-function validateWebhookSignature(payload, signature, secret) {
-  const expectedSignature = crypto
+function verifyWebhookSignature(rawBody, signingKey, headers) {
+  // 1. Remove "whsec_" prefix from the key
+  const secret = signingKey.replace('whsec_', '');
+
+  // 2. Get timestamp from header
+  const timestamp = headers['x-webhook-timestamp'];
+
+  // 3. Concatenate timestamp + "." + raw body
+  const signedPayload = timestamp + '.' + rawBody;
+
+  // 4. Compute HMAC-SHA256
+  const expected = 'sha256=' + crypto
     .createHmac('sha256', secret)
-    .update(JSON.stringify(payload))
+    .update(signedPayload)
     .digest('hex');
 
+  // 5. Compare with the received header
+  const received = headers['x-webhook-signature'];
   return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
+    Buffer.from(expected),
+    Buffer.from(received)
   );
 }
 ```
@@ -92,15 +118,27 @@ function validateWebhookSignature(payload, signature, secret) {
 ```python
 import hmac
 import hashlib
-import json
 
-def validate_webhook_signature(payload: dict, signature: str, secret: str) -> bool:
-    expected = hmac.new(
+def verify_webhook_signature(raw_body: str, signing_key: str, headers: dict) -> bool:
+    # 1. Remove "whsec_" prefix from the key
+    secret = signing_key.replace('whsec_', '')
+
+    # 2. Get timestamp from header
+    timestamp = headers['x-webhook-timestamp']
+
+    # 3. Concatenate timestamp + "." + raw body
+    signed_payload = timestamp + '.' + raw_body
+
+    # 4. Compute HMAC-SHA256
+    expected = 'sha256=' + hmac.new(
         secret.encode(),
-        json.dumps(payload).encode(),
+        signed_payload.encode(),
         hashlib.sha256
     ).hexdigest()
-    return hmac.compare_digest(signature, expected)
+
+    # 5. Compare with the received header
+    received = headers['x-webhook-signature']
+    return hmac.compare_digest(expected, received)
 ```
 
 ## Supported Events
