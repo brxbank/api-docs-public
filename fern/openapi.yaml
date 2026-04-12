@@ -158,6 +158,195 @@ servers:
     description: Production
     x-fern-server-name: Production
 components:
+  schemas:
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique transaction identifier
+          example: "43b715d7-cc3d-4593-a0af-1e248d9953b0"
+        external_id:
+          type: string
+          format: uuid
+          description: External reference ID
+          example: "01000000-dda7-55d6-6ed1-08de96d692af"
+        reference:
+          type: string
+          description: Transaction reference code
+          example: "pag-s1s22ssss2s"
+        client_id:
+          type: string
+          format: uuid
+          description: Client identifier
+          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+        type:
+          type: string
+          enum: [cash_in, cash_out, cash_out_return]
+          description: Transaction type
+          example: "cash_out"
+        amount:
+          type: string
+          description: Transaction amount
+          example: "0.10"
+        gross_amount:
+          type: string
+          description: Gross amount before taxes
+          example: "0.14"
+        net_amount:
+          type: string
+          description: Net amount after taxes
+          example: "0.10"
+        tax_amount:
+          type: string
+          description: Tax amount charged
+          example: "0.04"
+        currency:
+          type: string
+          description: Currency code (ISO 4217)
+          example: "BRL"
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, expired, cancelled, refunded, returned]
+          description: Current transaction status
+          example: "completed"
+        pix_key:
+          type: string
+          description: PIX key used in the transaction
+          example: "+5551995241555"
+        pix_key_type:
+          type: string
+          enum: [cpf, cnpj, phone, email, evp]
+          description: Type of PIX key
+          example: "phone"
+        e2e:
+          type: string
+          description: End-to-end ID assigned by the Central Bank
+          example: "E24722685202604100755GNZ5DGMBWZK"
+        payer_name:
+          type: string
+          description: Payer full name
+          example: "deivid mickael farias linhares"
+        payer_document:
+          type: string
+          description: Payer CPF or CNPJ
+          example: "86241915053"
+        receiver_name:
+          type: string
+          description: Receiver full name
+          example: "VITORIA URBANO VIEGAS"
+        receiver_document:
+          type: string
+          description: Receiver CPF or CNPJ
+          example: "2375358074"
+        payer:
+          type: object
+          description: Payer details
+          properties:
+            name:
+              type: string
+              example: "deivid mickael farias linhares"
+            document:
+              type: string
+              example: "86241915053"
+        receiver:
+          type: object
+          description: Receiver details including bank information
+          properties:
+            name:
+              type: string
+              example: "VITORIA URBANO VIEGAS"
+            document:
+              type: string
+              example: "2375358074"
+            bank:
+              type: object
+              description: Receiver bank details
+              properties:
+                ispb:
+                  type: string
+                  description: Bank ISPB code
+                  example: "22896431"
+                participant_name:
+                  type: string
+                  description: Bank/participant name
+                  example: "PICPAY"
+                agency:
+                  type: string
+                  description: Bank agency number
+                  example: "0001"
+                account:
+                  type: string
+                  description: Bank account number
+                  example: "898130557"
+                account_type:
+                  type: string
+                  description: Account type (checking, savings, etc.)
+                  example: ""
+        description:
+          type: string
+          description: Transaction description/memo
+          example: "Pagamento fornecedor"
+        channel:
+          type: string
+          description: Channel through which the transaction was initiated
+          example: "api"
+        processed_at:
+          type: string
+          format: date-time
+          description: Timestamp when the transaction was processed
+          example: "2026-04-10T07:55:51Z"
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the transaction was created
+          example: "2026-04-10T07:55:45Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp of the last update
+          example: "2026-04-10T07:55:51Z"
+        ledger_entries:
+          type: array
+          description: Ledger entries showing balance movements for this transaction
+          items:
+            type: object
+            properties:
+              operation_type:
+                type: string
+                enum: [hold, capture, release]
+                description: Type of ledger operation
+                example: "hold"
+              amount:
+                type: string
+                description: Amount of the ledger entry
+                example: "0.140000"
+              status:
+                type: string
+                description: Status of the ledger entry
+                example: "completed"
+              available_before:
+                type: string
+                description: Available balance before this entry
+                example: "5.590000"
+              available_after:
+                type: string
+                description: Available balance after this entry
+                example: "5.450000"
+              blocked_before:
+                type: string
+                description: Blocked balance before this entry
+                example: "20.000000"
+              blocked_after:
+                type: string
+                description: Blocked balance after this entry
+                example: "20.140000"
+              created_at:
+                type: string
+                format: date-time
+                description: Timestamp of the ledger entry
+                example: "2026-04-10T07:55:45Z"
   securitySchemes:
     bearerAuth:
       type: http
@@ -198,12 +387,18 @@ tags:
       **Scope:** `pix:balance:read`
   - name: Transactions
     description: >-
-      Query PIX transactions for the authenticated client.
+      Query and retrieve PIX transaction details for the authenticated client.
+      Supports filtering by type, status, end-to-end ID, reference, and date range.
 
 
       **Authentication:** Bearer Token
 
+
       **Scope:** Bearer JWT obtained via `/api/v1/auth/bearer-token`
+
+
+      **Date Range Filtering:** Use `date_from` and `date_to` parameters (RFC 3339 format).
+      The range cannot exceed 30 days — the API returns HTTP 400 if exceeded.
   - name: PIX Limits
     description: >-
       Query and manage PIX transaction limits.
@@ -789,10 +984,14 @@ paths:
       operationId: listTransactions
       description: >-
         Lists all transactions for the authenticated client with pagination and
-        type filtering.
+        filtering by type, status, end-to-end ID, reference, and date range.
 
 
         **Scope:** Bearer JWT
+
+
+        **Date Range:** When using `date_from` and `date_to`, the range cannot exceed 30 days.
+        Returns HTTP 400 if exceeded.
       parameters:
         - name: limit
           in: query
@@ -802,7 +1001,7 @@ paths:
             maximum: 100
             default: 20
           description: Number of records per page (1-100, default 20)
-          example: 20
+          example: 50
         - name: offset
           in: query
           schema:
@@ -814,9 +1013,42 @@ paths:
           in: query
           schema:
             type: string
-            enum: [cash_in, cash_out]
-          description: Filter by transaction type (optional)
+            enum: [cash_in, cash_out, cash_out_return]
+          description: Filter by transaction type
           example: cash_in
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed, expired, cancelled, refunded, returned]
+          description: Filter by transaction status
+          example: completed
+        - name: e2e
+          in: query
+          schema:
+            type: string
+          description: Filter by end-to-end ID (exact match)
+          example: "E12345678920260411"
+        - name: reference
+          in: query
+          schema:
+            type: string
+          description: Filter by transaction reference (exact match)
+          example: "T2604112031qzolgrk"
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Start of date range filter (RFC 3339 format). Must be used together with `date_to`. Range cannot exceed 30 days.
+          example: "2026-04-01T00:00:00Z"
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: End of date range filter (RFC 3339 format). Must be used together with `date_from`. Range cannot exceed 30 days.
+          example: "2026-04-30T23:59:59Z"
       responses:
         '200':
           description: Paginated list of transactions
@@ -834,67 +1066,15 @@ paths:
                       transactions:
                         type: array
                         items:
-                          type: object
-                          properties:
-                            id:
-                              type: string
-                              format: uuid
-                            external_id:
-                              type: string
-                            client_id:
-                              type: string
-                              format: uuid
-                            type:
-                              type: string
-                              enum: [cash_in, cash_out]
-                            status:
-                              type: string
-                              enum: [pending, processing, completed, failed, expired, cancelled, refunded, returned]
-                            amount:
-                              type: string
-                              example: "100.00"
-                            gross_amount:
-                              type: string
-                              example: "100.00"
-                            net_amount:
-                              type: string
-                              example: "99.50"
-                            tax_amount:
-                              type: string
-                              example: "0.50"
-                            currency:
-                              type: string
-                              example: BRL
-                            pix_key:
-                              type: string
-                            pix_key_type:
-                              type: string
-                            e2e:
-                              type: string
-                              description: End-to-end ID
-                            payer_name:
-                              type: string
-                            payer_document:
-                              type: string
-                            receiver_name:
-                              type: string
-                            receiver_document:
-                              type: string
-                            created_at:
-                              type: string
-                              format: date-time
-                            updated_at:
-                              type: string
-                              format: date-time
-                            processed_at:
-                              type: string
-                              format: date-time
+                          $ref: '#/components/schemas/Transaction'
                       total:
                         type: integer
                       limit:
                         type: integer
                       offset:
                         type: integer
+        '400':
+          description: Bad request — e.g., date range exceeds 30 days
   /api/v1/transactions/{id}:
     get:
       tags:
@@ -902,7 +1082,8 @@ paths:
       summary: Get Transaction by ID
       operationId: getTransaction
       description: >-
-        Retrieves details of a specific transaction by ID. Returns 404 if the
+        Retrieves full details of a specific transaction by ID, including payer/receiver
+        information, bank details, and ledger entries. Returns 404 if the
         transaction does not belong to the authenticated client.
 
 
@@ -915,11 +1096,20 @@ paths:
             type: string
             format: uuid
           description: Transaction ID
+          example: "43b715d7-cc3d-4593-a0af-1e248d9953b0"
       responses:
         '200':
           description: Transaction details
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Transaction'
         '404':
           description: Transaction not found
   /api/v1/pix/limits:
