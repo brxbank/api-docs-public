@@ -1118,25 +1118,31 @@ paths:
               schema:
                 type: object
                 properties:
-                  account_id:
-                    type: string
-                    example: acc-550e8400-e29b-41d4
-                  available_balance:
-                    type: string
-                    example: "10000.00"
-                  blocked_balance:
-                    type: string
-                    example: "500.00"
-                  total_balance:
-                    type: string
-                    example: "10500.00"
-                  currency:
-                    type: string
-                    example: BRL
-                  updated_at:
-                    type: string
-                    format: date-time
-                    example: "2025-01-15T10:00:00Z"
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      account_id:
+                        type: string
+                        example: acc-550e8400-e29b-41d4
+                      available_balance:
+                        type: string
+                        example: "10000.00"
+                      blocked_balance:
+                        type: string
+                        example: "500.00"
+                      total_balance:
+                        type: string
+                        example: "10500.00"
+                      currency:
+                        type: string
+                        example: BRL
+                      updated_at:
+                        type: string
+                        format: date-time
+                        example: "2025-01-15T10:00:00Z"
   /api/v1/transactions:
     get:
       tags:
