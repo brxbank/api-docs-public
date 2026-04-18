@@ -214,12 +214,12 @@ components:
         pix_key:
           type: string
           description: PIX key used in the transaction
-          example: "+5551995241555"
+          example: "6b631786-29c2-4f8b-b1ed-2b88a53cf8a4"
         pix_key_type:
           type: string
           enum: [cpf, cnpj, phone, email, evp]
           description: Type of PIX key
-          example: "phone"
+          example: "evp"
         e2e:
           type: string
           description: End-to-end ID assigned by the Central Bank
@@ -227,39 +227,39 @@ components:
         payer_name:
           type: string
           description: Payer full name
-          example: "deivid mickael farias linhares"
+          example: "Joao Silveira da Silva"
         payer_document:
           type: string
           description: Payer CPF or CNPJ
-          example: "86241915053"
+          example: "12345678901"
         receiver_name:
           type: string
           description: Receiver full name
-          example: "VITORIA URBANO VIEGAS"
+          example: "Alice Silveira da Silva"
         receiver_document:
           type: string
           description: Receiver CPF or CNPJ
-          example: "2375358074"
+          example: "98765432100"
         payer:
           type: object
           description: Payer details
           properties:
             name:
               type: string
-              example: "deivid mickael farias linhares"
+              example: "Joao Silveira da Silva"
             document:
               type: string
-              example: "86241915053"
+              example: "12345678901"
         receiver:
           type: object
           description: Receiver details including bank information
           properties:
             name:
               type: string
-              example: "VITORIA URBANO VIEGAS"
+              example: "Alice Silveira da Silva"
             document:
               type: string
-              example: "2375358074"
+              example: "98765432100"
             bank:
               type: object
               description: Receiver bank details
