@@ -144,7 +144,7 @@ curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
 
 | Header | Description |
 |--------|-------------|
-| `X-Pix-Lookup-E2E` | `end_to_end_id` obtained from `POST /api/v1/pix/qrcode/decode` |
+| `X-Pix-Lookup-E2E` | `end_to_end_id` obtained from [`POST /api/v1/pix/qrcode/decode`](api:POST/api/v1/pix/qrcode/decode) |
 
 ## Optional Fields (All Flows)
 
@@ -184,6 +184,6 @@ curl -X GET https://api.brzip.com.br/api/v1/pix/cash-out/<cash-out-id> \
 
 1. **Always use idempotency keys** to prevent duplicate payments in case of network issues.
 2. **Use the two-step flow** for QR Code payments — it allows you to show recipient details before confirming the payment.
-3. **Check your balance** before initiating large payments using `GET /api/v1/pix/balance`.
+3. **Check your balance** before initiating large payments using [`GET /api/v1/pix/balance`](api:GET/api/v1/pix/balance).
 4. **Monitor webhooks** for real-time status updates on your payments.
-5. **Verify limits** — ensure the payment amount is within your configured limits using `GET /api/v1/pix/limits`.
+5. **Verify limits** — ensure the payment amount is within your configured limits using [`GET /api/v1/pix/limits`](api:GET/api/v1/pix/limits).

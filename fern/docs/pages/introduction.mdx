@@ -33,10 +33,10 @@ Follow these steps to get started:
   After approval, log in to the [Web Banking](https://ib.brzip.com.br) portal. Inside the platform, you can generate your API credentials (`key_id` and `secret_key`) by navigating to [Settings > Security > API Keys](https://ib.brzip.com.br/settings/security).
 
   ### Step 3 — Generate Bearer Token
-  With your credentials, generate your Bearer Token with `POST /api/v1/auth/bearer-token`.
+  With your credentials, generate your Bearer Token with [`POST /api/v1/auth/bearer-token`](api:POST/api/v1/auth/bearer-token) — see [Authentication](/getting-started/authentication) for details.
 
   ### Step 4 — Register a PIX Key
-  Register a PIX key with `POST /api/v1/pix/keys`. Just send `{"key_type": "EVP"}` — account data is auto-filled from onboarding.
+  Register a PIX key with [`POST /api/v1/pix/keys`](api:POST/api/v1/pix/keys). Just send `{"key_type": "EVP"}` — account data is auto-filled from onboarding.
 
   ### Step 5 — Start Operating!
   You are now ready to create charges (Cash-In), make transfers, and check balances.
