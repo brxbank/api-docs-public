@@ -809,17 +809,24 @@ paths:
               schema:
                 type: object
                 properties:
-                  success:
-                    type: boolean
-                    example: true
                   token:
                     type: string
                     description: JWT Bearer Token to use in the Authorization header.
                     example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  expires_in:
+                  expiresIn:
                     type: integer
                     description: Token expiration time in seconds.
                     example: 3600
+                  scopes:
+                    type: array
+                    description: List of scopes included in the token.
+                    items:
+                      type: string
+                      example: pix:keys:read
+                  refreshToken:
+                    type: string
+                    description: Token to refresh the Bearer Token when it expires.
+                    example: "365d1f9d-ba6f-4643-8759-6654fa0ec947..."
         '401':
           description: Invalid credentials
           content:
