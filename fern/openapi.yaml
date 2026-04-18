@@ -347,7 +347,117 @@ components:
                 format: date-time
                 description: Timestamp of the ledger entry
                 example: "2026-04-10T07:55:45Z"
-  securitySchemes:
+    PixKeyReadResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: PIX key identifier 
+          example: 4a9c64d5-2499-411c-93de-c134845fdb41
+        client_id:
+          type: string
+          description: Client identifier
+          example: a9376f19-ac76-49fe-9a0a-4d566660ebf8
+        account_id:
+          type: string
+          description: Account identifier
+          example: ""
+        key_type:
+          type: string
+          enum: [CPF, CNPJ, EMAIL, PHONE, EVP]
+          description: Type of PIX key
+          example: EVP
+        key_value:
+          type: string
+          description: Registered PIX key value
+          example: c9b8d38f-cc40-4531-844e-16055448bf59
+        ispb:
+          type: string
+          description: Bank ISPB code
+          example: "12345678"
+        branch_number:
+          type: string
+          description: Branch number
+          example: "0001"
+        account_type:
+          type: string
+          description: Account type
+          example: CACC
+        account_number:
+          type: string
+          description: Account number
+          example: 12345-6
+        person_type:
+          type: string
+          description: Person type
+          example: NATURAL_PERSON
+        tax_id:
+          type: string
+          description: Tax identifier
+          example: "12345678901"
+        holder_name:
+          type: string
+          description: Account holder name
+          example: "Fulano da Silva"
+        dict_key_id:
+          type: string
+          description: DICT key identifier
+          example: ""
+        dict_status:
+          type: string
+          description: DICT registration status
+          example: active
+        created_at:
+          type: string
+          description: Creation timestamp
+          example: "2026-04-18T12:04:59-03:00"
+        updated_at:
+          type: string
+          description: Last update timestamp
+          example: "2026-04-18T12:05:00-03:00"
+    PixKeyWriteResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            registered:
+              type: boolean
+              description: Indicates if the key was successfully registered
+              example: true
+            key:
+              type: string
+              description: Registered PIX key value
+              example: c4501bd5-884b-4bd7-ae63-0f22fb889b7d
+            type:
+              type: string
+              enum: [CPF, CNPJ, EMAIL, PHONE, EVP]
+              description: Type of PIX key
+              example: EVP
+            keyStatus:
+              type: string
+              description: Status of the key in DICT
+              example: ACTIVE
+            createdAt:
+              type: string
+              description: Registration timestamp
+              example: "2026-04-18T18:53:14-03:00"
+            dictTransactionId:
+              type: string
+              description: DICT transaction identifier
+              example: ""
+      securitySchemes:
+    PixKeyDeleteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the key was successfully deleted
+          example: true
+        message:
+          type: string
+          description: Deletion result message
+          example: "PIX key deleted successfully"
     bearerAuth:
       type: http
       scheme: bearer
@@ -843,7 +953,13 @@ paths:
         '200':
           description: PIX key registered successfully
           content:
-            application/json: {}
+            application/json:
+              schema:
+                success:
+                  type: boolean
+                  description: Indicates if the operation was successful
+                  example: true
+                $ref: '#/components/schemas/PixKeyWriteResponse'
         '400':
           description: Invalid request parameters
         '409':
@@ -862,7 +978,29 @@ paths:
         '200':
           description: List of PIX keys
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PixKeyReadResponse'
+                      total:
+                        type: integer
+                        example: 1
+                      page:
+                        type: integer
+                        example: 1
+                      page_size:
+                        type: integer
+                        example: 20
   /api/v1/pix/keys/{key}:
     get:
       tags:
@@ -886,7 +1024,15 @@ paths:
         '200':
           description: PIX key details
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PixKeyReadResponse'
         '404':
           description: Key not found
     delete:
@@ -927,7 +1073,15 @@ paths:
         '200':
           description: PIX key deleted successfully
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PixKeyDeleteResponse'
         '404':
           description: Key not found
   /api/v1/pix/balance:
