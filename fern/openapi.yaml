@@ -214,12 +214,12 @@ components:
         pix_key:
           type: string
           description: PIX key used in the transaction
-          example: "+5551995241555"
+          example: "6b631786-29c2-4f8b-b1ed-2b88a53cf8a4"
         pix_key_type:
           type: string
           enum: [cpf, cnpj, phone, email, evp]
           description: Type of PIX key
-          example: "phone"
+          example: "evp"
         e2e:
           type: string
           description: End-to-end ID assigned by the Central Bank
@@ -227,39 +227,39 @@ components:
         payer_name:
           type: string
           description: Payer full name
-          example: "deivid mickael farias linhares"
+          example: "Joao Silveira da Silva"
         payer_document:
           type: string
           description: Payer CPF or CNPJ
-          example: "86241915053"
+          example: "12345678901"
         receiver_name:
           type: string
           description: Receiver full name
-          example: "VITORIA URBANO VIEGAS"
+          example: "Alice Silveira da Silva"
         receiver_document:
           type: string
           description: Receiver CPF or CNPJ
-          example: "2375358074"
+          example: "98765432100"
         payer:
           type: object
           description: Payer details
           properties:
             name:
               type: string
-              example: "deivid mickael farias linhares"
+              example: "Joao Silveira da Silva"
             document:
               type: string
-              example: "86241915053"
+              example: "12345678901"
         receiver:
           type: object
           description: Receiver details including bank information
           properties:
             name:
               type: string
-              example: "VITORIA URBANO VIEGAS"
+              example: "Alice Silveira da Silva"
             document:
               type: string
-              example: "2375358074"
+              example: "98765432100"
             bank:
               type: object
               description: Receiver bank details
@@ -347,7 +347,170 @@ components:
                 format: date-time
                 description: Timestamp of the ledger entry
                 example: "2026-04-10T07:55:45Z"
-  securitySchemes:
+    PixKeyReadResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          description: PIX key identifier 
+          example: 4a9c64d5-2499-411c-93de-c134845fdb41
+        client_id:
+          type: string
+          description: Client identifier
+          example: a9376f19-ac76-49fe-9a0a-4d566660ebf8
+        account_id:
+          type: string
+          description: Account identifier
+          example: ""
+        key_type:
+          type: string
+          enum: [CPF, CNPJ, EMAIL, PHONE, EVP]
+          description: Type of PIX key
+          example: EVP
+        key_value:
+          type: string
+          description: Registered PIX key value
+          example: c9b8d38f-cc40-4531-844e-16055448bf59
+        ispb:
+          type: string
+          description: Bank ISPB code
+          example: "12345678"
+        branch_number:
+          type: string
+          description: Branch number
+          example: "0001"
+        account_type:
+          type: string
+          description: Account type
+          example: CACC
+        account_number:
+          type: string
+          description: Account number
+          example: 12345-6
+        person_type:
+          type: string
+          description: Person type
+          example: NATURAL_PERSON
+        tax_id:
+          type: string
+          description: Tax identifier
+          example: "12345678901"
+        holder_name:
+          type: string
+          description: Account holder name
+          example: "Fulano da Silva"
+        dict_key_id:
+          type: string
+          description: DICT key identifier
+          example: ""
+        dict_status:
+          type: string
+          description: DICT registration status
+          example: active
+        created_at:
+          type: string
+          description: Creation timestamp
+          example: "2026-04-18T12:04:59-03:00"
+        updated_at:
+          type: string
+          description: Last update timestamp
+          example: "2026-04-18T12:05:00-03:00"
+    PixKeyWriteResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            registered:
+              type: boolean
+              description: Indicates if the key was successfully registered
+              example: true
+            key:
+              type: string
+              description: Registered PIX key value
+              example: c4501bd5-884b-4bd7-ae63-0f22fb889b7d
+            type:
+              type: string
+              enum: [CPF, CNPJ, EMAIL, PHONE, EVP]
+              description: Type of PIX key
+              example: EVP
+            keyStatus:
+              type: string
+              description: Status of the key in DICT
+              example: ACTIVE
+            createdAt:
+              type: string
+              description: Registration timestamp
+              example: "2026-04-18T18:53:14-03:00"
+            dictTransactionId:
+              type: string
+              description: DICT transaction identifier
+              example: ""
+    LimitRequestResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Limit request ID
+          example: 25fc934e-bee7-4ac9-a4c8-1bbfd99fbccc
+        account_id:
+          type: string
+          description: Account ID
+          example: cc630098-dcee-4bd0-b0de-4e00bbeef4d6
+        type:
+          type: string
+          enum: [pix_in, pix_out, ted, boleto, total]
+          description: Limit type
+          example: pix_in
+        period:
+          type: string
+          enum: [daily, nightly, monthly]
+          description: Time period
+          example: daily
+        current_amount:
+          type: string
+          description: Current limit amount
+          example: "0"
+        requested_amount:
+          type: string
+          description: Requested limit amount
+          example: "10"
+        reason:
+          type: string
+          description: Reason for the request
+          example: ""
+        status:
+          type: string
+          description: Request status
+          example: pending
+        expires_at:
+          type: string
+          format: date-time
+          description: Request expiration timestamp
+          example: "2026-04-21T23:00:20.434052014Z"
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2026-04-18T23:00:20.434052425Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2026-04-18T23:00:20.434052575Z"
+      securitySchemes:
+    PixKeyDeleteResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Indicates if the key was successfully deleted
+          example: true
+        message:
+          type: string
+          description: Deletion result message
+          example: "PIX key deleted successfully"
     bearerAuth:
       type: http
       scheme: bearer
@@ -699,17 +862,24 @@ paths:
               schema:
                 type: object
                 properties:
-                  success:
-                    type: boolean
-                    example: true
                   token:
                     type: string
                     description: JWT Bearer Token to use in the Authorization header.
                     example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  expires_in:
+                  expiresIn:
                     type: integer
                     description: Token expiration time in seconds.
                     example: 3600
+                  scopes:
+                    type: array
+                    description: List of scopes included in the token.
+                    items:
+                      type: string
+                      example: pix:keys:read
+                  refreshToken:
+                    type: string
+                    description: Token to refresh the Bearer Token when it expires.
+                    example: "365d1f9d-ba6f-4643-8759-6654fa0ec947..."
         '401':
           description: Invalid credentials
           content:
@@ -843,7 +1013,13 @@ paths:
         '200':
           description: PIX key registered successfully
           content:
-            application/json: {}
+            application/json:
+              schema:
+                success:
+                  type: boolean
+                  description: Indicates if the operation was successful
+                  example: true
+                $ref: '#/components/schemas/PixKeyWriteResponse'
         '400':
           description: Invalid request parameters
         '409':
@@ -862,7 +1038,29 @@ paths:
         '200':
           description: List of PIX keys
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PixKeyReadResponse'
+                      total:
+                        type: integer
+                        example: 1
+                      page:
+                        type: integer
+                        example: 1
+                      page_size:
+                        type: integer
+                        example: 20
   /api/v1/pix/keys/{key}:
     get:
       tags:
@@ -886,7 +1084,15 @@ paths:
         '200':
           description: PIX key details
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PixKeyReadResponse'
         '404':
           description: Key not found
     delete:
@@ -927,7 +1133,15 @@ paths:
         '200':
           description: PIX key deleted successfully
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/PixKeyDeleteResponse'
         '404':
           description: Key not found
   /api/v1/pix/balance:
@@ -957,25 +1171,31 @@ paths:
               schema:
                 type: object
                 properties:
-                  account_id:
-                    type: string
-                    example: acc-550e8400-e29b-41d4
-                  available_balance:
-                    type: string
-                    example: "10000.00"
-                  blocked_balance:
-                    type: string
-                    example: "500.00"
-                  total_balance:
-                    type: string
-                    example: "10500.00"
-                  currency:
-                    type: string
-                    example: BRL
-                  updated_at:
-                    type: string
-                    format: date-time
-                    example: "2025-01-15T10:00:00Z"
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      account_id:
+                        type: string
+                        example: acc-550e8400-e29b-41d4
+                      available_balance:
+                        type: string
+                        example: "10000.00"
+                      blocked_balance:
+                        type: string
+                        example: "500.00"
+                      total_balance:
+                        type: string
+                        example: "10500.00"
+                      currency:
+                        type: string
+                        example: BRL
+                      updated_at:
+                        type: string
+                        format: date-time
+                        example: "2025-01-15T10:00:00Z"
   /api/v1/transactions:
     get:
       tags:
@@ -1206,7 +1426,15 @@ paths:
         '200':
           description: Limit change request created
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/LimitRequestResponse'
         '409':
           description: A pending request already exists for this type/period
     get:
@@ -1224,7 +1452,17 @@ paths:
         '200':
           description: List of pending limit requests
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LimitRequestResponse'
   /api/v1/pix/limits/requests/{limit_request_id}:
     get:
       tags:
@@ -1248,7 +1486,15 @@ paths:
         '200':
           description: Limit request details
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/LimitRequestResponse'
   /api/v1/pix/cash-in/qrcode:
     post:
       tags:

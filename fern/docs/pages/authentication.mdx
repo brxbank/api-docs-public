@@ -17,7 +17,7 @@ Authorization: Bearer <your-jwt-token>
 
 ### Obtaining a JWT
 
-Call `POST /api/v1/auth/bearer-token` with your API Key credentials in the **headers** and the desired **scopes** in the request body:
+Call [`POST /api/v1/auth/bearer-token`](api:POST/api/v1/auth/bearer-token) with your API Key credentials in the **headers** and the desired **scopes** in the request body:
 
 ```bash
 curl -X POST https://api.brzip.com.br/api/v1/auth/bearer-token \
@@ -50,7 +50,7 @@ The returned JWT token should be included in the `Authorization` header as `Bear
 
 ## 2. API Key — Cash-In Endpoints
 
-The Cash-In endpoint (`/api/v1/pix/cash-in/qrcode`) accepts API Key authentication via two headers as an alternative to Bearer Token:
+The Cash-In endpoint ([`POST /api/v1/pix/cash-in/qrcode`](api:POST/api/v1/pix/cash-in/qrcode)) accepts API Key authentication via two headers as an alternative to Bearer Token:
 
 ```bash
 x-key-id: <your-key-id>
