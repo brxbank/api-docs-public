@@ -511,6 +511,166 @@ components:
           type: string
           description: Deletion result message
           example: "PIX key deleted successfully"
+    ReversalResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: rev_123
+        external_id:
+          type: string
+          example: a39778df-1c0b-4e37-8d35-dcfa623b66f2
+        original_end_to_end_id:
+          type: string
+          example: E35547753202201201450u34sDGd19l2
+        refund_end_to_end_id:
+          type: string
+          example: E24722685202604100755GNZ5DGMBWZK
+        amount:
+          type: string
+          example: 2.50
+        currency:
+          type: string
+          example: BRL
+        status:
+          type: string 
+          example: completed
+        refund_code:
+          type: string
+          example: MD06
+        created_at:
+          type: string
+          example: 2026-04-21T23:05:43Z
+    CashOutStatus:
+      type: object
+      properties:
+        transaction_id:
+          type: string
+          example: ed9964df-4b36-40fd-8d03-707631c8db7c
+        external_id:
+          type: string
+          example: 10f2ff67-c1f5-47a2-a855-7958fe3a3474
+        amount:
+          type: string
+          example: 50.00
+        currency:
+          type: string
+          example: BRL
+        status:
+          type: string
+          example: completed
+        pix_key:
+          type: string
+          example: a9570e91-ba2c-461a-9523-0371b9ab9177
+        pix_key_type:
+          type: string
+          example: evp
+        receiver_name:
+          type: string
+          example: John Doe
+        receiver_document:
+          type: string
+          example: 48414628990
+        payer: 
+          type: object
+          properties:
+            name:
+              type: string
+              example: John Doe
+            document:
+              type: string
+              example: 48414628990
+            bank:
+              type: object
+              properties:
+                ispb:
+                  type: string
+                  example: 24722685
+                participant_name:
+                  type: string
+                  example: BRX
+                agency:
+                  type: string
+                  example: "0001"
+                account:
+                  type: string
+                  example: 12345678
+                account_type:
+                  type: string
+                  example: payment
+        receiver:
+          type: object
+          properties: 
+            name:
+              type: string
+              example: Jane Doe
+            document:
+              type: string
+              example: 42090392339
+            bank:
+              type: object
+              properties:
+                ispb:
+                  type: string
+                  example: "00000000"
+                participant_name:
+                  type: string
+                  example: BCO DO BRASIL S.A
+                agency:
+                  type: string
+                  example: "0001"
+                account:
+                  type: string
+                  example: 87654321
+                account_type:
+                  type: string
+                  example: payment
+        end_to_end_id:
+          type: string
+          example: E24722685202604220043OFIJMVJTD9T
+        error_code:
+          type: string
+        error_message:
+          type: string
+        completed_at:
+          type: string
+          example: 2026-04-22T00:45:49Z
+        created_at:
+          type: string
+          example: 2026-04-22T00:45:47Z
+    P2PLookup:
+      type: object
+      properties:
+        account_id:
+          type: string
+          example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+        client_id:
+          type: string
+          example: c1d2e3f4-5678-90ab-cdef-1234567890ab
+        name:
+          type: string
+          example: "Maria Silva"
+        masked_document:
+          type: string
+          example: "123.***.***-01"
+        person_type:
+          type: string
+          example: "individual"
+        branch_number:
+          type: string
+          example: "0001"
+        account_number:
+          type: string
+          example: "987654"
+        account_type:
+          type: string
+          example: "payment"
+        pix_key_type:
+          type: string
+          example: "email"
+        pix_key_value:
+          type: string
+          example: "maria@exemplo.com"
     bearerAuth:
       type: http
       scheme: bearer
@@ -778,7 +938,13 @@ tags:
 
 
       ---
+  - name: P2P
+    description: >-
+      Look up internal accounts and execute peer to peer (P2P) transfers.
 
+      **Authentication:** Bearer token
+
+      **Scope:** `pix:p2p:read` / `pix:p2p:write`
 paths:
   /api/v1/auth/bearer-token:
     post:
@@ -1519,6 +1685,7 @@ paths:
               type: object
               required:
                 - amount
+                - reference
               properties:
                 amount:
                   type: string
@@ -1544,10 +1711,22 @@ paths:
                   type: integer
                   description: Expiration time in seconds (default 3600)
                   example: 3600
+                metadata:
+                  type: object
+                  description: Metadata for the charge
                 due_date:
                   type: string
                   format: date
                   description: Due date for CobV charges (YYYY-MM-DD)
+                receiver_address:
+                  type: string
+                  description: Address of the receiver
+                receiver_state:
+                  type: string
+                  description: State of the receiver
+                receiver_postal_code:
+                  type: string
+                  description: Postal Code of the receiver
                 penalty:
                   type: object
                   description: Late fee configuration (CobV only)
@@ -1586,6 +1765,18 @@ paths:
                       type: integer
                     value:
                       type: number
+                withdraw_amount:
+                  type: string
+                  description: Number indicating the withdraw amount
+                  example: "123.45"
+                withdraw_agent_mode:
+                  type: integer
+                change_amount:
+                  type: string
+                  description: Number indicating the change amount
+                  example: "123.45"
+                change_agent_mode:
+                  type: string
       parameters:
         - name: x-key-id
           in: header
@@ -1609,6 +1800,9 @@ paths:
               schema:
                 type: object
                 properties:
+                  conciliation_id:
+                    type: string
+                    example: e7ab3h05237141509d5c52a280b68b53
                   success:
                     type: boolean
                     example: true
@@ -1625,6 +1819,14 @@ paths:
                   expires_at:
                     type: string
                     format: date-time
+                  jdpi_document_id:
+                    type: string
+                    example: 29535ed9-cc6a-4d87-994f-634f830362f1
+                  message:
+                    type: string
+                    example: "Cash-in validated successfully"
+                  metadata:
+                    type: object
                   provider:
                     type: string
                     example: pix
@@ -1666,7 +1868,43 @@ paths:
         '200':
           description: Cash-In status
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      transaction_id:
+                        type: string
+                        example: 425cf5d3-4981-4aa6-b207-407f2e3a02c0
+                      external_id:
+                        type: string
+                        example: aa8091df-3939-4071-b6d2-7ffca2f9fbb0
+                      amount:
+                        type: string
+                        example: 0.01
+                      currency:
+                        type: string
+                        example: BRL
+                      status:
+                        type: string
+                        example: expired
+                      payer_name:
+                        type: string
+                        example: Carlos Lima
+                      payer_document:
+                        type: string
+                        example: 11122233344
+                      expires_at:
+                        type: string
+                        example: 2026-04-21T20:10:43-03:00
+                      created_at:
+                        type: string
+                        example: 2026-04-21T23:05:43Z
         '404':
           description: Cash-In not found
   /api/v1/pix/cash-in/{cash_in_id}/cancel:
@@ -1704,7 +1942,16 @@ paths:
         '200':
           description: Cash-In cancelled successfully
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Cash-in cancelled successfully
+                  success:
+                    type: boolean
+                    example: true
         '400':
           description: Cash-In cannot be cancelled (not in pending status)
   /api/v1/pix/reversals:
@@ -1745,6 +1992,14 @@ paths:
                   type: string
                   description: Reason for the reversal (optional)
                   example: Customer requested refund
+                refund_code:
+                  type: string
+                  description: Code identifying the refund motive
+                  example: MD06
+                customer_message:
+                  type: string
+                user_metadata:
+                  type: object
                 tags:
                   type: array
                   description: Tags for categorization (optional)
@@ -1763,7 +2018,9 @@ paths:
         '200':
           description: Reversal created successfully
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReversalResponse'
         '400':
           description: Invalid request parameters
         '409':
@@ -1775,6 +2032,7 @@ paths:
       operationId: listReversals
       description: >-
         Lists all PIX reversals with pagination and filter support.
+        This endpoint is not implemented as of yet. Use [GET /reversals/:reversal_id](api:GET/api/v1/pix/reversals/{reversal_id}) to retrieve a specific reversal.
 
 
         **Scope:** `pix:reversals:read`
@@ -1823,10 +2081,12 @@ paths:
             type: string
           description: Filter by external ID(s)
       responses:
-        '200':
-          description: List of reversals
-          content:
-            application/json: {}
+        # '200':
+        #   description: List of reversals
+        #   content:
+        #     application/json: {}
+        '501':
+          description: Not Implemented
   /api/v1/pix/reversals/{reversal_id}:
     get:
       tags:
@@ -1849,7 +2109,9 @@ paths:
         '200':
           description: Reversal details
           content:
-            application/json: {}
+            application/json:
+              schema:
+                  $ref: '#/components/schemas/ReversalResponse'
         '404':
           description: Reversal not found
   /api/v1/pix/cash-out:
@@ -1868,7 +2130,7 @@ paths:
 
         Send a payment directly using the recipient's PIX key.
 
-        **Required fields:** `amount`, `pix_key`, `pix_key_type`
+        **Required fields:** `amount`, `pix_key`, `pix_key_type`, `external_id`
 
 
         ## Flow 2 — Via Bank Details
@@ -1879,7 +2141,7 @@ paths:
 
         **Required fields:** `amount`, `receiver_name`, `receiver_document`,
         `receiver_ispb`, `receiver_branch`, `receiver_account`,
-        `receiver_account_type`
+        `receiver_account_type`, `external_id`
 
 
         ## Flow 3 — Via QR Code (Two-Step)
@@ -1945,6 +2207,10 @@ paths:
                   enum: [checking, savings, salary, payment]
                   description: Recipient account type (required for Flow 2)
                   example: checking
+                external_id:
+                  type: string
+                  description: Cash-out ID in your system
+                  example: ext_123
                 description:
                   type: string
                   description: Payment description (optional)
@@ -1975,7 +2241,25 @@ paths:
         '200':
           description: Cash-Out initiated
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  transaction_id:
+                    type: string
+                    example: 1c1331ce-a9ff-43c5-8ed2-31a98e61a1ab
+                  status:
+                    type: string
+                    example: queued
+                  amount:
+                    type: string
+                    example: 50.00
+                  message:
+                    type: string
+                    example: Cash-out queued for processing
         '400':
           description: Invalid request parameters
   /api/v1/pix/cash-out/{cash_out_id}:
@@ -2003,7 +2287,15 @@ paths:
         '200':
           description: Cash-Out status
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/CashOutStatus'
         '404':
           description: Cash-Out not found
   /api/v1/pix/qrcode/decode:
@@ -2496,3 +2788,156 @@ paths:
             application/json: {}
         '404':
           description: Delivery not found
+  /api/v1/pix/p2p:
+    post:
+      tags:
+        - P2P
+      summary: Transfer
+      operationId: p2pTransfer
+      description: >-
+        Create a P2P transfer
+
+        **Scope:** `pix:p2p:write`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - external_id
+                - amount
+              properties:
+                external_id:
+                  type: string
+                  description: External reference ID
+                  example: a9ae38b8-bdfc-4637-909e-af1495f62a4b
+                amount:
+                  type: string
+                  description: Decimal amount to be transfered
+                  example: "123.45"
+                receiver_account_id:
+                  type: string
+                  description: Account id of the receiver. Obtained from field `account_id` of the [lookup](api:POST/api/v1/pix/p2p/lookup) flow
+                  example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+                description:
+                  type: string
+                  description: Description of the transfer
+                  example: Paying back lunch
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction_id:
+                    type: string
+                    example: "f1e2d3c4-b5a6-7890-1234-567890abcdef"
+                  external_id:
+                    type: string
+                    example: "p2p-transfer-001"
+                  status:
+                    type: string
+                    example: "pending"
+                  amount:
+                    type: string
+                    example: "150.00"
+                  currency:
+                    type: string
+                    example: "BRL"
+                  created_at:
+                    type: string
+                    example: "2026-03-23T14:30:00Z"
+        '404':
+          description: Receiver not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: Receiver PIX key not found internally
+                  code:
+                    type: string
+                    example: receiver_not_found
+        '409':
+          description: Conflict, duplicate external_id
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: Duplicate external_id for this client
+                  code:
+                    type: string
+                    example: DUPLICATE_EXTERNAL_ID
+  /api/v1/pix/p2p/lookup:
+    post:
+      tags:
+        - P2P
+      summary: Lookup
+      operationId: p2pLookup
+      description: >-
+        Looks up a user's account by their PIX key or account number
+
+        **Scope:** `pix:p2p:read`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - search_type
+                - search_value
+              properties:
+                search_type:
+                  type: string
+                  enum: [email, phone, document, account]
+                  description: Type of lookup value
+                  example: email
+                search_value:
+                  type: string
+                  example: maria@example.com
+      responses:
+        '200':
+          description: Lookup successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/P2PLookup'
+        '400':
+          description: Invalid search type
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "search_type must be one of: email, phone, document, account"
+                  code:
+                    type: string
+                    example: "VALIDATION_ERROR"
