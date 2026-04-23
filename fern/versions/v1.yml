@@ -22,3 +22,19 @@ navigation:
       - page: MED (Special Returns)
         path: ../docs/pages/guide-med.mdx
   - api: API Reference
+    layout:
+      - Authentication
+      - Service Health
+      - PIX Keys
+      - PIX Balance
+      - Transactions
+      - PIX Limits
+      - PIX Cash-In
+      - PIX Reversals
+      - PIX Cash-Out
+      - MED
+      - Webhooks
+      - section: P2P # Override name to fix casing issue
+        referenced-packages:
+          - p2p
+        contents: []
