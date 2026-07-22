@@ -1,0 +1,4691 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "BRZ API",
+    "description": "Complete PIX gateway API by BRZ. Direct integration with BACEN — no external providers.\n\n## Base URLs\n\n**Base URL:** `https://api.brzip.com.br`\n\nAll endpoints use the base path `/api/v1/`.\n\n## Authentication\n\nThe API uses two authentication methods:\n\n### 1. Bearer Token (JWT) — Most endpoints\n\nAll endpoints **except Cash-In** use a Bearer Token:\n``` Authorization: Bearer <your-jwt-token> ```\nObtain a JWT by calling `POST /api/v1/auth/bearer-token` with your API Key credentials.\n\n### 2. API Key — Cash-In endpoints only\n\nCash-In endpoints (`/api/v1/pix/cash-in/*`) use two headers:\n``` x-key-id: <your-key-id> x-secret-key: <your-secret-key> ```\n\n\n## Rate Limits\n\n- Default: 50 req/s per client, burst up to 100.\n- When exceeded, returns HTTP 429 with `Retry-After` header.\n\n## Common Headers\n\n| Header | Required | Description | |--------|----------|-------------| | `Authorization` | Yes (Bearer) | `Bearer <jwt>` for PIX endpoints | | `x-key-id` | Yes (Cash-In) | API Key ID | | `x-secret-key` | Yes (Cash-In) | API Key Secret | | `X-Idempotency-Key` | Recommended | Prevents duplicate operations (UUID) | | `Content-Type` | Yes (POST/PUT) | Always `application/json` |\n\n---\n\n## Onboarding Flow (Step by Step)\n\n### Step 1 — Create Account\n\nCreate your account with `POST /api/v1/auth/signup`. Save the returned `keyId` and `secretKey`. OTP codes will be sent via email and SMS.\n\n### Step 1b — Verify Email\n\nVerify your email with `POST /api/v1/auth/verify-email` using the OTP code received.\n\n### Step 1c — Verify Phone\n\nVerify your phone with `POST /api/v1/auth/verify-phone` using the OTP code received via SMS.\n\n### Step 1d — Resend OTP (optional)\n\nIf needed, resend the code with `POST /api/v1/auth/resend-otp` (max 5 per hour).\n\n### Step 2 — Login\n\nLog in with `POST /api/v1/auth/login` to obtain a session token.\n\n### Step 3 — Submit Documents (3 stages)\n\n1. Get pre-signed URLs with `POST /api/v1/auth/documents/presigned-urls`\n2. `PUT` each file directly to the S3 URL (raw binary, no FormData)\n3. Confirm uploads with `POST /api/v1/auth/documents/confirm`\n\n**Individual documents:** `cpf_frente`, `cpf_verso`, `selfie_com_cpf`, `comprovante_residencia`\n**Business documents:** `cnpj`, `contrato_social`, `comprovante_residencia_empresa`\n\n### Step 4 — Wait for Approval\n\nTrack your status with `GET /api/v1/auth/status`. Wait for team approval.\n\n### Step 5 — Generate Bearer Token\n\nAfter approval, generate your Bearer Token with `POST /api/v1/auth/bearer-token` using your credentials.\n\n### Step 6 — Register PIX Key\n\nRegister a PIX key in DICT/BACEN with `POST /api/v1/pix/keys`. Just send `{\"key_type\": \"EVP\"}` — account data is automatically populated from your onboarding!\n\n### Step 7 — Ready to Operate!\n\nNow you can create charges (Cash-In), make transfers, and check your balance.\n\n---",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.brzip.com.br",
+      "description": "Production",
+      "x-fern-server-name": "Production"
+    },
+    {
+      "url": "https://api.stg.brzip.com.br",
+      "description": "Staging",
+      "x-fern-server-name": "Staging"
+    },
+    {
+      "url": "https://qrcode.brzip.com.br",
+      "description": "PIX QR Code Server (public, no auth)",
+      "x-fern-server-name": "QrCodeServer"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "Transaction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique transaction identifier",
+            "example": "43b715d7-cc3d-4593-a0af-1e248d9953b0"
+          },
+          "external_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "External reference ID",
+            "example": "01000000-dda7-55d6-6ed1-08de96d692af"
+          },
+          "reference": {
+            "type": "string",
+            "description": "Transaction reference code",
+            "example": "pag-s1s22ssss2s"
+          },
+          "client_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client identifier",
+            "example": "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "cash_in",
+              "cash_out",
+              "cash_out_return"
+            ],
+            "description": "Transaction type",
+            "example": "cash_out"
+          },
+          "amount": {
+            "type": "string",
+            "description": "Transaction amount",
+            "example": "0.10"
+          },
+          "gross_amount": {
+            "type": "string",
+            "description": "Gross amount before taxes",
+            "example": "0.14"
+          },
+          "net_amount": {
+            "type": "string",
+            "description": "Net amount after taxes",
+            "example": "0.10"
+          },
+          "tax_amount": {
+            "type": "string",
+            "description": "Tax amount charged",
+            "example": "0.04"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency code (ISO 4217)",
+            "example": "BRL"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "completed",
+              "failed",
+              "expired",
+              "cancelled",
+              "refunded",
+              "returned"
+            ],
+            "description": "Current transaction status",
+            "example": "completed"
+          },
+          "pix_key": {
+            "type": "string",
+            "description": "PIX key used in the transaction",
+            "example": "6b631786-29c2-4f8b-b1ed-2b88a53cf8a4"
+          },
+          "pix_key_type": {
+            "type": "string",
+            "enum": [
+              "cpf",
+              "cnpj",
+              "phone",
+              "email",
+              "evp"
+            ],
+            "description": "Type of PIX key",
+            "example": "evp"
+          },
+          "e2e": {
+            "type": "string",
+            "description": "End-to-end ID assigned by the Central Bank",
+            "example": "E24722685202604100755GNZ5DGMBWZK"
+          },
+          "payer_name": {
+            "type": "string",
+            "description": "Payer full name",
+            "example": "Joao Silveira da Silva"
+          },
+          "payer_document": {
+            "type": "string",
+            "description": "Payer CPF or CNPJ",
+            "example": "12345678901"
+          },
+          "receiver_name": {
+            "type": "string",
+            "description": "Receiver full name",
+            "example": "Alice Silveira da Silva"
+          },
+          "receiver_document": {
+            "type": "string",
+            "description": "Receiver CPF or CNPJ",
+            "example": "98765432100"
+          },
+          "payer": {
+            "type": "object",
+            "description": "Payer details",
+            "properties": {
+              "name": {
+                "type": "string",
+                "example": "Joao Silveira da Silva"
+              },
+              "document": {
+                "type": "string",
+                "example": "12345678901"
+              }
+            }
+          },
+          "receiver": {
+            "type": "object",
+            "description": "Receiver details including bank information",
+            "properties": {
+              "name": {
+                "type": "string",
+                "example": "Alice Silveira da Silva"
+              },
+              "document": {
+                "type": "string",
+                "example": "98765432100"
+              },
+              "bank": {
+                "type": "object",
+                "description": "Receiver bank details",
+                "properties": {
+                  "ispb": {
+                    "type": "string",
+                    "description": "Bank ISPB code",
+                    "example": "22896431"
+                  },
+                  "participant_name": {
+                    "type": "string",
+                    "description": "Bank/participant name",
+                    "example": "PICPAY"
+                  },
+                  "agency": {
+                    "type": "string",
+                    "description": "Bank agency number",
+                    "example": "0001"
+                  },
+                  "account": {
+                    "type": "string",
+                    "description": "Bank account number",
+                    "example": "898130557"
+                  },
+                  "account_type": {
+                    "type": "string",
+                    "description": "Account type (checking, savings, etc.)",
+                    "example": ""
+                  }
+                }
+              }
+            }
+          },
+          "description": {
+            "type": "string",
+            "description": "Transaction description/memo",
+            "example": "Pagamento fornecedor"
+          },
+          "channel": {
+            "type": "string",
+            "description": "Channel through which the transaction was initiated",
+            "example": "api"
+          },
+          "processed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the transaction was processed",
+            "example": "2026-04-10T07:55:51Z"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the transaction was created",
+            "example": "2026-04-10T07:55:45Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of the last update",
+            "example": "2026-04-10T07:55:51Z"
+          },
+          "ledger_entries": {
+            "type": "array",
+            "description": "Ledger entries showing balance movements for this transaction",
+            "items": {
+              "type": "object",
+              "properties": {
+                "operation_type": {
+                  "type": "string",
+                  "enum": [
+                    "hold",
+                    "capture",
+                    "release"
+                  ],
+                  "description": "Type of ledger operation",
+                  "example": "hold"
+                },
+                "amount": {
+                  "type": "string",
+                  "description": "Amount of the ledger entry",
+                  "example": "0.140000"
+                },
+                "status": {
+                  "type": "string",
+                  "description": "Status of the ledger entry",
+                  "example": "completed"
+                },
+                "available_before": {
+                  "type": "string",
+                  "description": "Available balance before this entry",
+                  "example": "5.590000"
+                },
+                "available_after": {
+                  "type": "string",
+                  "description": "Available balance after this entry",
+                  "example": "5.450000"
+                },
+                "blocked_before": {
+                  "type": "string",
+                  "description": "Blocked balance before this entry",
+                  "example": "20.000000"
+                },
+                "blocked_after": {
+                  "type": "string",
+                  "description": "Blocked balance after this entry",
+                  "example": "20.140000"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Timestamp of the ledger entry",
+                  "example": "2026-04-10T07:55:45Z"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PixKeyReadResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "PIX key identifier",
+            "example": "4a9c64d5-2499-411c-93de-c134845fdb41"
+          },
+          "client_id": {
+            "type": "string",
+            "description": "Client identifier",
+            "example": "a9376f19-ac76-49fe-9a0a-4d566660ebf8"
+          },
+          "account_id": {
+            "type": "string",
+            "description": "Account identifier",
+            "example": ""
+          },
+          "key_type": {
+            "type": "string",
+            "enum": [
+              "CPF",
+              "CNPJ",
+              "EMAIL",
+              "PHONE",
+              "EVP"
+            ],
+            "description": "Type of PIX key",
+            "example": "EVP"
+          },
+          "key_value": {
+            "type": "string",
+            "description": "Registered PIX key value",
+            "example": "c9b8d38f-cc40-4531-844e-16055448bf59"
+          },
+          "ispb": {
+            "type": "string",
+            "description": "Bank ISPB code",
+            "example": "12345678"
+          },
+          "branch_number": {
+            "type": "string",
+            "description": "Branch number",
+            "example": "0001"
+          },
+          "account_type": {
+            "type": "string",
+            "description": "Account type",
+            "example": "CACC"
+          },
+          "account_number": {
+            "type": "string",
+            "description": "Account number",
+            "example": "12345-6"
+          },
+          "person_type": {
+            "type": "string",
+            "description": "Person type",
+            "example": "NATURAL_PERSON"
+          },
+          "tax_id": {
+            "type": "string",
+            "description": "Tax identifier",
+            "example": "12345678901"
+          },
+          "holder_name": {
+            "type": "string",
+            "description": "Account holder name",
+            "example": "Fulano da Silva"
+          },
+          "dict_key_id": {
+            "type": "string",
+            "description": "DICT key identifier",
+            "example": ""
+          },
+          "dict_status": {
+            "type": "string",
+            "description": "DICT registration status",
+            "example": "active"
+          },
+          "created_at": {
+            "type": "string",
+            "description": "Creation timestamp",
+            "example": "2026-04-18T12:04:59-03:00"
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "Last update timestamp",
+            "example": "2026-04-18T12:05:00-03:00"
+          }
+        }
+      },
+      "PixKeyWriteResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "registered": {
+                "type": "boolean",
+                "description": "Indicates if the key was successfully registered",
+                "example": true
+              },
+              "key": {
+                "type": "string",
+                "description": "Registered PIX key value",
+                "example": "c4501bd5-884b-4bd7-ae63-0f22fb889b7d"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "CPF",
+                  "CNPJ",
+                  "EMAIL",
+                  "PHONE",
+                  "EVP"
+                ],
+                "description": "Type of PIX key",
+                "example": "EVP"
+              },
+              "keyStatus": {
+                "type": "string",
+                "description": "Status of the key in DICT",
+                "example": "ACTIVE"
+              },
+              "createdAt": {
+                "type": "string",
+                "description": "Registration timestamp",
+                "example": "2026-04-18T18:53:14-03:00"
+              },
+              "dictTransactionId": {
+                "type": "string",
+                "description": "DICT transaction identifier",
+                "example": ""
+              }
+            }
+          }
+        }
+      },
+      "LimitRequestResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Limit request ID",
+            "example": "25fc934e-bee7-4ac9-a4c8-1bbfd99fbccc"
+          },
+          "account_id": {
+            "type": "string",
+            "description": "Account ID",
+            "example": "cc630098-dcee-4bd0-b0de-4e00bbeef4d6"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "pix_in",
+              "pix_out",
+              "ted",
+              "boleto",
+              "total"
+            ],
+            "description": "Limit type",
+            "example": "pix_in"
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "daily",
+              "nightly",
+              "monthly"
+            ],
+            "description": "Time period",
+            "example": "daily"
+          },
+          "current_amount": {
+            "type": "string",
+            "description": "Current limit amount",
+            "example": "0"
+          },
+          "requested_amount": {
+            "type": "string",
+            "description": "Requested limit amount",
+            "example": "10"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Reason for the request",
+            "example": ""
+          },
+          "status": {
+            "type": "string",
+            "description": "Request status",
+            "example": "pending"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Request expiration timestamp",
+            "example": "2026-04-21T23:00:20.434052014Z"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp",
+            "example": "2026-04-18T23:00:20.434052425Z"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp",
+            "example": "2026-04-18T23:00:20.434052575Z"
+          }
+        },
+        "securitySchemes": null
+      },
+      "PixKeyDeleteResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Indicates if the key was successfully deleted",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "description": "Deletion result message",
+            "example": "PIX key deleted successfully"
+          }
+        }
+      },
+      "ReversalResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "rev_123"
+          },
+          "external_id": {
+            "type": "string",
+            "example": "a39778df-1c0b-4e37-8d35-dcfa623b66f2"
+          },
+          "original_end_to_end_id": {
+            "type": "string",
+            "example": "E35547753202201201450u34sDGd19l2"
+          },
+          "refund_end_to_end_id": {
+            "type": "string",
+            "example": "E24722685202604100755GNZ5DGMBWZK"
+          },
+          "amount": {
+            "type": "string",
+            "example": 2.5
+          },
+          "currency": {
+            "type": "string",
+            "example": "BRL"
+          },
+          "status": {
+            "type": "string",
+            "example": "completed"
+          },
+          "refund_code": {
+            "type": "string",
+            "example": "MD06"
+          },
+          "created_at": {
+            "type": "string",
+            "example": "2026-04-21 23:05:43+00:00"
+          }
+        }
+      },
+      "CashOutStatus": {
+        "type": "object",
+        "properties": {
+          "transaction_id": {
+            "type": "string",
+            "example": "ed9964df-4b36-40fd-8d03-707631c8db7c"
+          },
+          "external_id": {
+            "type": "string",
+            "example": "10f2ff67-c1f5-47a2-a855-7958fe3a3474"
+          },
+          "amount": {
+            "type": "string",
+            "example": 50.0
+          },
+          "currency": {
+            "type": "string",
+            "example": "BRL"
+          },
+          "status": {
+            "type": "string",
+            "example": "completed"
+          },
+          "pix_key": {
+            "type": "string",
+            "example": "a9570e91-ba2c-461a-9523-0371b9ab9177"
+          },
+          "pix_key_type": {
+            "type": "string",
+            "example": "evp"
+          },
+          "receiver_name": {
+            "type": "string",
+            "example": "John Doe"
+          },
+          "receiver_document": {
+            "type": "string",
+            "example": 48414628990
+          },
+          "payer": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "example": "John Doe"
+              },
+              "document": {
+                "type": "string",
+                "example": 48414628990
+              },
+              "bank": {
+                "type": "object",
+                "properties": {
+                  "ispb": {
+                    "type": "string",
+                    "example": 24722685
+                  },
+                  "participant_name": {
+                    "type": "string",
+                    "example": "BRX"
+                  },
+                  "agency": {
+                    "type": "string",
+                    "example": "0001"
+                  },
+                  "account": {
+                    "type": "string",
+                    "example": 12345678
+                  },
+                  "account_type": {
+                    "type": "string",
+                    "example": "payment"
+                  }
+                }
+              }
+            }
+          },
+          "receiver": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "example": "Jane Doe"
+              },
+              "document": {
+                "type": "string",
+                "example": 42090392339
+              },
+              "bank": {
+                "type": "object",
+                "properties": {
+                  "ispb": {
+                    "type": "string",
+                    "example": "00000000"
+                  },
+                  "participant_name": {
+                    "type": "string",
+                    "example": "BCO DO BRASIL S.A"
+                  },
+                  "agency": {
+                    "type": "string",
+                    "example": "0001"
+                  },
+                  "account": {
+                    "type": "string",
+                    "example": 87654321
+                  },
+                  "account_type": {
+                    "type": "string",
+                    "example": "payment"
+                  }
+                }
+              }
+            }
+          },
+          "end_to_end_id": {
+            "type": "string",
+            "example": "E24722685202604220043OFIJMVJTD9T"
+          },
+          "error_code": {
+            "type": "string"
+          },
+          "error_message": {
+            "type": "string"
+          },
+          "completed_at": {
+            "type": "string",
+            "example": "2026-04-22 00:45:49+00:00"
+          },
+          "created_at": {
+            "type": "string",
+            "example": "2026-04-22 00:45:47+00:00"
+          }
+        }
+      },
+      "P2PLookup": {
+        "type": "object",
+        "properties": {
+          "account_id": {
+            "type": "string",
+            "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+          },
+          "client_id": {
+            "type": "string",
+            "example": "c1d2e3f4-5678-90ab-cdef-1234567890ab"
+          },
+          "name": {
+            "type": "string",
+            "example": "Maria Silva"
+          },
+          "masked_document": {
+            "type": "string",
+            "example": "123.***.***-01"
+          },
+          "person_type": {
+            "type": "string",
+            "example": "individual"
+          },
+          "branch_number": {
+            "type": "string",
+            "example": "0001"
+          },
+          "account_number": {
+            "type": "string",
+            "example": "987654"
+          },
+          "account_type": {
+            "type": "string",
+            "example": "payment"
+          },
+          "pix_key_type": {
+            "type": "string",
+            "example": "email"
+          },
+          "pix_key_value": {
+            "type": "string",
+            "example": "maria@exemplo.com"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message",
+            "example": "Account not found"
+          },
+          "code": {
+            "type": "string",
+            "description": "Machine-readable error code",
+            "example": "ACCOUNT_NOT_FOUND"
+          },
+          "correlation_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Request correlation ID for support tracing",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        }
+      },
+      "WalletBalance": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client identifier",
+            "example": "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+          },
+          "available": {
+            "type": "string",
+            "description": "Available balance (6 decimal places)",
+            "example": "1250.500000"
+          },
+          "blocked": {
+            "type": "string",
+            "description": "Blocked/held balance",
+            "example": "50.000000"
+          },
+          "overdraft": {
+            "type": "string",
+            "description": "Overdraft amount (usually zero)",
+            "example": "0.000000"
+          },
+          "total": {
+            "type": "string",
+            "description": "Total balance (available + blocked)",
+            "example": "1300.500000"
+          },
+          "currency": {
+            "type": "string",
+            "example": "BRL"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive",
+              "suspended",
+              "blocked"
+            ],
+            "description": "Wallet status",
+            "example": "active"
+          },
+          "from_cache": {
+            "type": "boolean",
+            "description": "Indicates if the balance was served from cache",
+            "example": true
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last balance update timestamp (RFC3339)",
+            "example": "2026-07-22T10:30:00Z"
+          },
+          "wallet_breakdown": {
+            "type": "array",
+            "description": "Per-wallet breakdown (present when client holds multiple wallets)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "wallet_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "example": "w1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c"
+                },
+                "wallet_type": {
+                  "type": "string",
+                  "description": "Wallet type identifier",
+                  "example": "primary"
+                },
+                "available": {
+                  "type": "string",
+                  "example": "1250.500000"
+                },
+                "blocked": {
+                  "type": "string",
+                  "example": "50.000000"
+                },
+                "currency": {
+                  "type": "string",
+                  "example": "BRL"
+                }
+              }
+            }
+          }
+        }
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "JWT token obtained via `POST /api/v1/auth/bearer-token`. Required for all endpoints except Cash-In (which uses API Key headers)."
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "Generate and manage authentication tokens for the BRZ API.\n\nUse `POST /api/v1/auth/bearer-token` with your API Key credentials to obtain a JWT token required for most API endpoints."
+    },
+    {
+      "name": "Service Health",
+      "description": "Health check endpoints to verify service availability. No authentication required."
+    },
+    {
+      "name": "PIX Keys",
+      "description": "Manage PIX keys registered in the BACEN DICT (Directory of Transactional Account Identifiers).\n\n**Authentication:** Bearer Token\n**Required scopes:** `pix:keys:read` and/or `pix:keys:write`"
+    },
+    {
+      "name": "PIX Balance",
+      "description": "Query account balance information.\n\n**Authentication:** Bearer Token\n**Scope:** `pix:balance:read`"
+    },
+    {
+      "name": "Transactions",
+      "description": "Query and retrieve PIX transaction details for the authenticated client. Supports filtering by type, status, end-to-end ID, reference, and date range.\n\n**Authentication:** Bearer Token\n\n**Scope:** Bearer JWT obtained via `/api/v1/auth/bearer-token`\n\n**Date Range Filtering:** Use `date_from` and `date_to` parameters (RFC 3339 format). The range cannot exceed 30 days — the API returns HTTP 400 if exceeded."
+    },
+    {
+      "name": "PIX Limits",
+      "description": "Query and manage PIX transaction limits.\n\n**Authentication:** Bearer Token\n\n**Scope:** `pix:limits:read` / `pix:limits:write`\n\n**Important:** Approved limits that are not consistently used will be automatically downgraded. If your limit is reduced due to inactivity, you will need to submit a new limit increase request."
+    },
+    {
+      "name": "PIX Cash-In",
+      "description": "Create and manage PIX charges (Cash-In). Generates a QR Code for the payer.\n\n**Authentication:** API Key via headers `x-key-id` + `x-secret-key`, OR Bearer Token.\n\n**Endpoints:**\n- `POST /api/v1/pix/cash-in/qrcode` — Create charge\n- `GET /api/v1/pix/cash-in/{id}` — Query status\n- `POST /api/v1/pix/cash-in/{id}/cancel` — Cancel charge\n\n**Financial fields (CobV — charge with due date):**\n- `due_date` — Due date (YYYY-MM-DD)\n- `penalty` — Late fee after due date (`mode` + `value`)\n- `interest` — Daily interest (`mode` + `value`)\n- `discount` — Early payment discount (`mode` + `value` + `fixed_dates[]`)\n- `rebate` — Rebate/abatement (`mode` + `value`)"
+    },
+    {
+      "name": "PIX Reversals",
+      "description": "Manage reversals (refunds) of received PIX payments.\n\n**Authentication:** Bearer Token\n\n**Required scopes:**\n- `pix:reversals:write` to create reversals\n- `pix:reversals:read` to query reversals"
+    },
+    {
+      "name": "PIX Cash-Out",
+      "description": "Send PIX payments (Cash-Out) via Temporal workflows.\n\n**Authentication:** Bearer Token\n**Scope:** `pix:cashout:write` / `pix:cashout:read`"
+    },
+    {
+      "name": "MED",
+      "description": "Respond to inbound MED (Special Return Mechanism) requests and list them by status. MED is a BACEN mechanism for returning PIX funds in cases of fraud or operational errors.\n\n**Authentication:** Bearer Token\n**Scope:** `pix:med:read` / `pix:med:write`"
+    },
+    {
+      "name": "Webhooks",
+      "description": "Manage webhook notification endpoints. Allows clients to register URLs to receive real-time notifications about PIX events.\n\n## Overview\n\nThe webhook system sends HTTP POST notifications to URLs registered by the client when events occur (PIX received, transfer confirmed, etc.).\n\n## Authentication\n\nAll endpoints use Bearer Token JWT with the following scopes:\n- `webhooks:read` — List, search webhooks and deliveries\n- `webhooks:write` — Create, update, delete webhooks and resend deliveries\n\n**IMPORTANT:** Tokens must explicitly include `webhooks:read` and/or `webhooks:write` in the scopes requested during token generation. API Keys created by the system include these scopes by default.\n\n## Supported Events\n\n| Event | Description | |-------|-------------| | `*` | All events | | `pix.cash_in.received` | Charge confirmed — QR Code generated and ready for payment | | `pix.cash_in.confirmed` | Payment received — funds credited to account | | `pix.cash_in.expired` | PIX Cash-In expired | | `pix.cash_in.refunded` | PIX Cash-In refunded | | `pix.cash_out.created` | PIX Cash-Out created | | `pix.cash_out.completed` | PIX Cash-Out completed | | `pix.cash_out.failed` | PIX Cash-Out failed | | `pix.cash_out.returned` | PIX Cash-Out returned | | `pix.reversal.created` | PIX Reversal created | | `pix.reversal.completed` | PIX Reversal completed | | `pix.reversal.failed` | PIX Reversal failed | | `pix.inbound.received` | PIX inbound received (direct) | | `onboarding.status_changed` | Onboarding status changed (approved/rejected) | | `limits.request_approved` | Limit change request approved | | `limits.request_rejected` | Limit change request rejected | | `pix.infraction.received` | PIX infraction notification received | | `pix.med_refund.received` | MED refund request received | | `balance.updated` | Balance updated | | `payment_link.paid` | Payment link paid | | `payment_link.expired` | Payment link expired |\n\n## Notification Payload\n\nEach notification sent to your URL uses the legacy-compatible format:\n```json {\n  \"id\": \"transaction-uuid\",\n  \"source\": \"pixgw\",\n  \"event\": \"pix.cash_in.confirmed\",\n  \"timestamp\": \"2025-01-15T10:30:00Z\",\n  \"correlation_id\": \"transaction-uuid\",\n  \"data\": {\n    \"transaction\": {\n      \"id\": \"internal-uuid\",\n      \"amount\": \"150.00\",\n      \"status\": \"completed\",\n      \"reference\": \"ref-001\",\n      \"pix_key\": \"key@pix.com\",\n      \"pix_key_type\": \"EMAIL\",\n      \"payer\": {\n        \"name\": \"John Doe\",\n        \"document\": \"123.456.789-00\"\n      }\n    }\n  }\n} ```\n\nThe notification includes an `X-Webhook-Signature` header with HMAC-SHA256 using the webhook `secret` for validation.\n\n### Internal Payload Statuses\n\n| Status | Meaning | |--------|---------| | `pending` | Received, awaiting processing | | `processing` | Being processed | | `completed` | Successfully completed | | `failed` | Failed | | `expired` | Expired | | `cancelled` | Cancelled | | `refunded` | Refunded | | `returned` | Returned (cash-out) |\n\n## Retries\n\nIf your URL returns an error (status >= 400 or timeout), the system automatically retries with exponential backoff:\n- 1st retry: 1 minute\n- 2nd retry: 5 minutes\n- 3rd retry: 30 minutes\n- 4th retry: 1 hour\n- 5th retry: sent to DLQ (Dead Letter Queue)\n\n## Temporal Workflow\n\nCash-in events with `completed` status and cash-out events with final status are processed by the Temporal Workflow before webhook delivery. The workflow manages:\n- Ledger capture (balance)\n- Retention check (cash-in)\n- Webhook delivery to client\n\nThis ensures consistency between balance and notification.\n\n---"
+    },
+    {
+      "name": "P2P",
+      "description": "Look up internal accounts and execute peer to peer (P2P) transfers.\n**Authentication:** Bearer token\n**Scope:** `pix:p2p:read` / `pix:p2p:write`"
+    },
+    {
+      "name": "Accounts",
+      "description": "Manage account state transitions — activate, block, or reserve accounts.\n\nThese endpoints are used to manage the lifecycle of a payment account after it has been created through the onboarding flow. Accounts start in `pending_kyc` state and must be activated before they can transact.\n\n**Account states:** `pending_kyc → active → suspended | blocked | closed`\n\n**Authentication:** Bearer token"
+    },
+    {
+      "name": "Boleto",
+      "description": "Decode barcode data and make boleto payments using the BRZ API.\n\nBoleto processing is handled through the payment orchestrator and settled via the Celcoin integration. Supports both boleto payments (paying a third-party bill) and boleto issuance (charging your customers).\n\n**Authentication:** Bearer token\n\n**Idempotency:** Always include `X-Idempotency-Key` when creating payments."
+    },
+    {
+      "name": "Wallets",
+      "description": "Query wallet balances and validate funds availability.\n\nThe Wallet API (`v1-1-beta`) provides real-time balance information with cache invalidation driven by ledger events. The `wallet_breakdown` field shows a per-wallet breakdown when a client holds multiple wallets.\n\n> **Note:** The `v1-1-beta` path prefix indicates this contract is stable but may evolve. Plan for a future migration to `/api/v1/wallet/*`.\n\n**Authentication:** Bearer token"
+    },
+    {
+      "name": "Participants",
+      "description": "Query the list of financial institutions participating in the PIX network (STR/COMPE directory).\n\nUseful for validating ISPBs, looking up bank names, and checking PIX participation status before initiating transfers.\n\n**Authentication:** Bearer token"
+    },
+    {
+      "name": "PIX QR Code Server",
+      "description": "Public endpoints served by the BRZ QR Code server at `qrcode.brzip.com.br`.\n\nThese endpoints resolve PIX QR code access tokens to signed JWS payloads (RFC 7515) containing the full EMV QRCODE data. No authentication is required — security is enforced through opaque access tokens and expiration.\n\n**Base URL:** `https://qrcode.brzip.com.br`\n**Authentication:** None (public endpoints)\n\nThe response is a compact JWS (`application/jose`) with three base64url-encoded parts (`header.payload.signature`). The payload contains PIX-standard fields: `chave`, `valor`, `devedor`, `recebedor`, `calendario`, and `solicitacaoPagador`.\n\nThe JWKS endpoint (`/pix/jwks`) exposes the public key for signature verification, compliant with BACEN PIX spec."
+    }
+  ],
+  "paths": {
+    "/api/v1/auth/bearer-token": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Generate Bearer Token",
+        "operationId": "generateBearerToken",
+        "description": "Generate a JWT Bearer Token using your API Key credentials.\n\n**Authentication:** Pass your credentials via headers `x-key-id` and `x-secret-key`.\n\n**Request body:** Optionally specify the `scopes` array to limit the token's permissions. If omitted, the token includes all scopes available to your API Key.\n\nThe returned token should be included in the `Authorization` header as `Bearer <token>` for all subsequent requests.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "x-key-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your API Key ID, provided after account approval.",
+            "example": "key_abc123def456"
+          },
+          {
+            "name": "x-secret-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Your API Secret Key, provided after account approval.",
+            "example": "sec_xyz789ghi012"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "scopes": {
+                    "type": "array",
+                    "description": "List of scopes to include in the token. If omitted, all scopes available to the API Key are included.",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "pix:keys:read",
+                        "pix:keys:write",
+                        "pix:balance:read",
+                        "pix:cashin:read",
+                        "pix:cashin:write",
+                        "pix:cashout:read",
+                        "pix:cashout:write",
+                        "pix:limits:read",
+                        "pix:limits:write",
+                        "pix:med:read",
+                        "pix:med:write",
+                        "pix:reversals:read",
+                        "pix:reversals:write",
+                        "webhooks:read",
+                        "webhooks:write"
+                      ]
+                    },
+                    "example": [
+                      "pix:keys:read",
+                      "pix:keys:write",
+                      "pix:balance:read",
+                      "pix:cashout:write",
+                      "webhooks:read",
+                      "webhooks:write"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "description": "JWT Bearer Token to use in the Authorization header.",
+                      "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    },
+                    "expiresIn": {
+                      "type": "integer",
+                      "description": "Token expiration time in seconds.",
+                      "example": 3600
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "description": "List of scopes included in the token.",
+                      "items": {
+                        "type": "string",
+                        "example": "pix:keys:read"
+                      }
+                    },
+                    "refreshToken": {
+                      "type": "string",
+                      "description": "Token to refresh the Bearer Token when it expires.",
+                      "example": "365d1f9d-ba6f-4643-8759-6654fa0ec947..."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Invalid x-key-id or x-secret-key"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Service Health"
+        ],
+        "summary": "Health Check",
+        "operationId": "healthCheck",
+        "description": "Basic service health check. Returns HTTP 200 if the service is running.\n\n**Response:** `{\"status\":\"healthy\",\"service\":\"brz-api\"}`",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "healthy"
+                    },
+                    "service": {
+                      "type": "string",
+                      "example": "brz-api"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "Service Health"
+        ],
+        "summary": "Readiness Check",
+        "operationId": "readinessCheck",
+        "description": "Checks if the service is ready to accept requests. Returns HTTP 200 when ready.\n\n**Response:** `{\"status\":\"ready\",\"service\":\"brz-api\"}`",
+        "responses": {
+          "200": {
+            "description": "Service is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ready"
+                    },
+                    "service": {
+                      "type": "string",
+                      "example": "brz-api"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pix/keys": {
+      "post": {
+        "tags": [
+          "PIX Keys"
+        ],
+        "summary": "Register PIX Key",
+        "operationId": "registerPixKey",
+        "description": "Registers a new PIX key in DICT/BACEN.\n\n**Simplified!** Only `key_type` is required. Account data (account_type, account_number, branch_number, person_type, tax_id, name, trade_name, account_open_date) is automatically populated from the approved onboarding data.\n\n**Key types (`key_type`):**\n- `CPF` — Individual taxpayer ID (11 digits)\n- `CNPJ` — Business taxpayer ID (14 digits)\n- `EMAIL` — Email address\n- `PHONE` — Phone number (+55...)\n- `EVP` — Random key (generated by BACEN, send empty `key`)\n\n**Required field:** `key_type`\n**Optional field:** `key` (required for CPF, CNPJ, EMAIL, PHONE; empty for EVP)\n\n**Optional override fields:** To override onboarding data, send any of: `account_type`, `account_number`, `branch_number`, `person_type`, `tax_id`, `name`, `trade_name`, `account_open_date`\n\n**Tip:** For EVP (random key), just send `{\"key_type\": \"EVP\"}`. BACEN generates the key automatically.\n\n**Scope:** `pix:keys:write`",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "key_type"
+                ],
+                "properties": {
+                  "key_type": {
+                    "type": "string",
+                    "enum": [
+                      "CPF",
+                      "CNPJ",
+                      "EMAIL",
+                      "PHONE",
+                      "EVP"
+                    ],
+                    "description": "Type of PIX key to register",
+                    "example": "EVP"
+                  },
+                  "key": {
+                    "type": "string",
+                    "description": "Key value. Required for CPF, CNPJ, EMAIL, PHONE. Leave empty for EVP.",
+                    "example": ""
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "PIX key registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "success": {
+                    "type": "boolean",
+                    "description": "Indicates if the operation was successful",
+                    "example": true
+                  },
+                  "$ref": "#/components/schemas/PixKeyWriteResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters"
+          },
+          "409": {
+            "description": "Key already registered"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "PIX Keys"
+        ],
+        "summary": "List PIX Keys",
+        "operationId": "listPixKeys",
+        "description": "Lists all PIX keys registered for the authenticated client.\n\n**Scope:** `pix:keys:read`",
+        "responses": {
+          "200": {
+            "description": "List of PIX keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/PixKeyReadResponse"
+                          }
+                        },
+                        "total": {
+                          "type": "integer",
+                          "example": 1
+                        },
+                        "page": {
+                          "type": "integer",
+                          "example": 1
+                        },
+                        "page_size": {
+                          "type": "integer",
+                          "example": 20
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pix/keys/{key}": {
+      "get": {
+        "tags": [
+          "PIX Keys"
+        ],
+        "summary": "Get PIX Key by Value",
+        "operationId": "getPixKey",
+        "description": "Looks up a specific PIX key by its value (CPF, email, EVP UUID, etc.).\n\n**Scope:** `pix:keys:read`",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The PIX key value to look up",
+            "example": "user@example.com"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PIX key details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PixKeyReadResponse"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Key not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "PIX Keys"
+        ],
+        "summary": "Delete PIX Key",
+        "operationId": "deletePixKey",
+        "description": "Removes a PIX key from DICT/BACEN.\n\n**URL parameter:** `key` — the PIX key value\n**Body:** `reason` (optional, defaults to `USER_REQUESTED`)\n\n**Scope:** `pix:keys:write`",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The PIX key value to delete"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "description": "Reason for deletion",
+                    "enum": [
+                      "USER_REQUESTED",
+                      "ACCOUNT_CLOSURE",
+                      "BRANCH_TRANSFER",
+                      "FRAUD"
+                    ],
+                    "default": "USER_REQUESTED",
+                    "example": "USER_REQUESTED"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "PIX key deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/PixKeyDeleteResponse"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Key not found"
+          }
+        }
+      }
+    },
+    "/api/v1/pix/balance": {
+      "get": {
+        "tags": [
+          "PIX Balance"
+        ],
+        "summary": "Get Balance",
+        "operationId": "getBalance",
+        "description": "Queries the account balance. If `account_id` is omitted, uses the client's default account.\n\n**Scope:** `pix:balance:read`",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Account ID (optional, uses default account if omitted)",
+            "example": "acc-550e8400-e29b-41d4"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account balance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "account_id": {
+                          "type": "string",
+                          "example": "acc-550e8400-e29b-41d4"
+                        },
+                        "available_balance": {
+                          "type": "string",
+                          "example": "10000.00"
+                        },
+                        "blocked_balance": {
+                          "type": "string",
+                          "example": "500.00"
+                        },
+                        "total_balance": {
+                          "type": "string",
+                          "example": "10500.00"
+                        },
+                        "currency": {
+                          "type": "string",
+                          "example": "BRL"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "example": "2025-01-15T10:00:00Z"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/transactions": {
+      "get": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "List Transactions",
+        "operationId": "listTransactions",
+        "description": "Lists all transactions for the authenticated client with pagination and filtering by type, status, end-to-end ID, reference, and date range.\n\n**Scope:** Bearer JWT\n\n**Date Range:** When using `date_from` and `date_to`, the range cannot exceed 30 days. Returns HTTP 400 if exceeded.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": "Number of records per page (1-100, default 20)",
+            "example": 50
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            },
+            "description": "Offset for pagination (default 0)",
+            "example": 0
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "cash_in",
+                "cash_out",
+                "cash_out_return"
+              ]
+            },
+            "description": "Filter by transaction type",
+            "example": "cash_in"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "processing",
+                "completed",
+                "failed",
+                "expired",
+                "cancelled",
+                "refunded",
+                "returned"
+              ]
+            },
+            "description": "Filter by transaction status",
+            "example": "completed"
+          },
+          {
+            "name": "e2e",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by end-to-end ID (exact match)",
+            "example": "E12345678920260411"
+          },
+          {
+            "name": "reference",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by transaction reference (exact match)",
+            "example": "T2604112031qzolgrk"
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Start of date range filter (RFC 3339 format). Must be used together with `date_to`. Range cannot exceed 30 days.",
+            "example": "2026-04-01T00:00:00Z"
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "End of date range filter (RFC 3339 format). Must be used together with `date_from`. Range cannot exceed 30 days.",
+            "example": "2026-04-30T23:59:59Z"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of transactions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "transactions": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Transaction"
+                          }
+                        },
+                        "total": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "offset": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request — e.g., date range exceeds 30 days"
+          }
+        }
+      }
+    },
+    "/api/v1/transactions/{id}": {
+      "get": {
+        "tags": [
+          "Transactions"
+        ],
+        "summary": "Get Transaction by ID",
+        "operationId": "getTransaction",
+        "description": "Retrieves full details of a specific transaction by ID, including payer/receiver information, bank details, and ledger entries. Returns 404 if the transaction does not belong to the authenticated client.\n\n**Scope:** Bearer JWT",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Transaction ID",
+            "example": "43b715d7-cc3d-4593-a0af-1e248d9953b0"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transaction details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Transaction"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transaction not found"
+          }
+        }
+      }
+    },
+    "/api/v1/pix/limits": {
+      "get": {
+        "tags": [
+          "PIX Limits"
+        ],
+        "summary": "Get Limits",
+        "operationId": "getLimits",
+        "description": "Queries PIX transaction limits for the account, grouped by type (pix_out, pix_in, ted, boleto) and period (daytime/nighttime).\n\n**Scope:** `pix:limits:read`",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Account ID (optional, uses default account if omitted)",
+            "example": "acc-550e8400-e29b-41d4"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "limits": {
+                      "type": "object",
+                      "description": "Limits grouped by type and period"
+                    },
+                    "period": {
+                      "type": "object",
+                      "properties": {
+                        "daytime": {
+                          "type": "string",
+                          "example": "06:00-20:00"
+                        },
+                        "nighttime": {
+                          "type": "string",
+                          "example": "20:00-06:00"
+                        }
+                      }
+                    },
+                    "currency": {
+                      "type": "string",
+                      "example": "BRL"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pix/limits/requests": {
+      "post": {
+        "tags": [
+          "PIX Limits"
+        ],
+        "summary": "Request Limit Change",
+        "operationId": "requestLimitChange",
+        "description": "Creates a request to change a PIX transaction limit. The request remains pending until approved or rejected by an administrator.\n\n**Rules:**\n- Only one pending request per type/period is allowed\n- If one already exists, returns HTTP 409\n\n**Scope:** `pix:limits:write`",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "type",
+                  "period",
+                  "requested_amount"
+                ],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "pix_in",
+                      "pix_out",
+                      "ted",
+                      "boleto",
+                      "total"
+                    ],
+                    "description": "Limit type",
+                    "example": "pix_in"
+                  },
+                  "period": {
+                    "type": "string",
+                    "enum": [
+                      "daily",
+                      "nightly",
+                      "monthly"
+                    ],
+                    "description": "Time period",
+                    "example": "daily"
+                  },
+                  "requested_amount": {
+                    "type": "string",
+                    "description": "Requested amount (decimal string)",
+                    "example": "500000.00"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "Justification for the request (optional)",
+                    "example": "Increased e-commerce sales volume"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Limit change request created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LimitRequestResponse"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A pending request already exists for this type/period"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "PIX Limits"
+        ],
+        "summary": "List Pending Limit Requests",
+        "operationId": "listLimitRequests",
+        "description": "Lists all pending limit change requests for the authenticated account. Returns only requests with `pending` status.\n\n**Scope:** `pix:limits:read`",
+        "responses": {
+          "200": {
+            "description": "List of pending limit requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LimitRequestResponse"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pix/limits/requests/{limit_request_id}": {
+      "get": {
+        "tags": [
+          "PIX Limits"
+        ],
+        "summary": "Get Limit Request by ID",
+        "operationId": "getLimitRequest",
+        "description": "Retrieves details of a specific limit change request. Returns full data including current status (pending, approved, rejected, expired).\n\n**Scope:** `pix:limits:read`",
+        "parameters": [
+          {
+            "name": "limit_request_id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Limit request ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Limit request details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/LimitRequestResponse"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pix/cash-in/qrcode": {
+      "post": {
+        "tags": [
+          "PIX Cash-In"
+        ],
+        "summary": "Create Charge",
+        "operationId": "createCashIn",
+        "description": "Creates a PIX charge (Cash-In). Generates a QR Code for the payer and waits for the complete processing result.\n\n**Authentication:** API Key via headers `x-key-id` + `x-secret-key`, OR Bearer Token.\n\n**Scope:** `pix:cashin:write`",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amount",
+                  "reference"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "string",
+                    "description": "Charge amount in BRL (decimal string)",
+                    "example": "150.00"
+                  },
+                  "reference": {
+                    "type": "string",
+                    "description": "Your internal reference ID",
+                    "example": "order-12345"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Charge description shown to payer",
+                    "example": "Monthly subscription payment"
+                  },
+                  "payer_name": {
+                    "type": "string",
+                    "description": "Expected payer name (optional)",
+                    "example": "John Doe"
+                  },
+                  "payer_document": {
+                    "type": "string",
+                    "description": "Expected payer document/CPF (optional)",
+                    "example": "12345678901"
+                  },
+                  "expiration_time": {
+                    "type": "integer",
+                    "description": "Expiration time in seconds (default 3600)",
+                    "example": 3600
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "description": "Metadata for the charge"
+                  },
+                  "due_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Due date for CobV charges (YYYY-MM-DD)"
+                  },
+                  "receiver_address": {
+                    "type": "string",
+                    "description": "Address of the receiver"
+                  },
+                  "receiver_state": {
+                    "type": "string",
+                    "description": "State of the receiver"
+                  },
+                  "receiver_postal_code": {
+                    "type": "string",
+                    "description": "Postal Code of the receiver"
+                  },
+                  "penalty": {
+                    "type": "object",
+                    "description": "Late fee configuration (CobV only)",
+                    "properties": {
+                      "mode": {
+                        "type": "integer",
+                        "description": "1 = fixed amount, 2 = percentage"
+                      },
+                      "value": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "interest": {
+                    "type": "object",
+                    "description": "Daily interest configuration (CobV only)",
+                    "properties": {
+                      "mode": {
+                        "type": "integer",
+                        "description": "1 = BRL/day, 2 = %/day, 3 = %/month, 4 = %/year"
+                      },
+                      "value": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "discount": {
+                    "type": "object",
+                    "description": "Early payment discount (CobV only)",
+                    "properties": {
+                      "mode": {
+                        "type": "integer"
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "fixed_dates": {
+                        "type": "array",
+                        "items": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  },
+                  "rebate": {
+                    "type": "object",
+                    "description": "Rebate/abatement (CobV only)",
+                    "properties": {
+                      "mode": {
+                        "type": "integer"
+                      },
+                      "value": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "withdraw_amount": {
+                    "type": "string",
+                    "description": "Number indicating the withdraw amount",
+                    "example": "123.45"
+                  },
+                  "withdraw_agent_mode": {
+                    "type": "integer"
+                  },
+                  "change_amount": {
+                    "type": "string",
+                    "description": "Number indicating the change amount",
+                    "example": "123.45"
+                  },
+                  "change_agent_mode": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "x-key-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "API Key ID (required if not using Bearer Token)",
+            "example": "your-api-key-id"
+          },
+          {
+            "name": "x-secret-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "API Key Secret (required if not using Bearer Token)",
+            "example": "your-api-key-secret"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Charge created and processed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "conciliation_id": {
+                      "type": "string",
+                      "example": "e7ab3h05237141509d5c52a280b68b53"
+                    },
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "transaction_id": {
+                      "type": "string",
+                      "example": "txn_abc123"
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "pending"
+                    },
+                    "qr_code": {
+                      "type": "string"
+                    },
+                    "qr_code_text": {
+                      "type": "string"
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "jdpi_document_id": {
+                      "type": "string",
+                      "example": "29535ed9-cc6a-4d87-994f-634f830362f1"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Cash-in validated successfully"
+                    },
+                    "metadata": {
+                      "type": "object"
+                    },
+                    "provider": {
+                      "type": "string",
+                      "example": "pix"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pix/cash-in/{cash_in_id}": {
+      "get": {
+        "tags": [
+          "PIX Cash-In"
+        ],
+        "summary": "Get Cash-In Status",
+        "operationId": "getCashInStatus",
+        "description": "Queries the status of a PIX charge.\n\n**Possible statuses:** `pending`, `paid`, `expired`, `cancelled`, `failed`\n\n**Scope:** `pix:cashin:read`",
+        "parameters": [
+          {
+            "name": "cash_in_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Cash-In transaction ID"
+          },
+          {
+            "name": "x-key-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "your-api-key-id"
+          },
+          {
+            "name": "x-secret-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "your-api-key-secret"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cash-In status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "transaction_id": {
+                          "type": "string",
+                          "example": "425cf5d3-4981-4aa6-b207-407f2e3a02c0"
+                        },
+                        "external_id": {
+                          "type": "string",
+                          "example": "aa8091df-3939-4071-b6d2-7ffca2f9fbb0"
+                        },
+                        "amount": {
+                          "type": "string",
+                          "example": 0.01
+                        },
+                        "currency": {
+                          "type": "string",
+                          "example": "BRL"
+                        },
+                        "status": {
+                          "type": "string",
+                          "example": "expired"
+                        },
+                        "payer_name": {
+                          "type": "string",
+                          "example": "Carlos Lima"
+                        },
+                        "payer_document": {
+                          "type": "string",
+                          "example": 11122233344
+                        },
+                        "expires_at": {
+                          "type": "string",
+                          "example": "2026-04-21 20:10:43-03:00"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "example": "2026-04-21 23:05:43+00:00"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cash-In not found"
+          }
+        }
+      }
+    },
+    "/api/v1/pix/cash-in/{cash_in_id}/cancel": {
+      "post": {
+        "tags": [
+          "PIX Cash-In"
+        ],
+        "summary": "Cancel Cash-In",
+        "operationId": "cancelCashIn",
+        "description": "Cancels a pending PIX charge. Only works for charges with `pending` status.\n\n**Scope:** `pix:cashin:write`",
+        "parameters": [
+          {
+            "name": "cash_in_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Cash-In transaction ID"
+          },
+          {
+            "name": "x-key-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "your-api-key-id"
+          },
+          {
+            "name": "x-secret-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "your-api-key-secret"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cash-In cancelled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Cash-in cancelled successfully"
+                    },
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cash-In cannot be cancelled (not in pending status)"
+          }
+        }
+      }
+    },
+    "/api/v1/pix/reversals": {
+      "post": {
+        "tags": [
+          "PIX Reversals"
+        ],
+        "summary": "Create Reversal",
+        "operationId": "createReversal",
+        "description": "Creates a reversal (refund) of a received PIX payment.\n\n**Scope:** `pix:reversals:write`",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amount",
+                  "external_id",
+                  "end_to_end_id"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "string",
+                    "description": "Amount in BRL to refund (e.g. \"10.00\" = R$10.00)",
+                    "example": "10.00"
+                  },
+                  "external_id": {
+                    "type": "string",
+                    "description": "Unique reversal ID in your system",
+                    "example": "rev-unique-id-001"
+                  },
+                  "end_to_end_id": {
+                    "type": "string",
+                    "description": "EndToEndID of the original received PIX payment",
+                    "example": "E35547753202201201450u34sDGd19l2"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "Reason for the reversal (optional)",
+                    "example": "Customer requested refund"
+                  },
+                  "refund_code": {
+                    "type": "string",
+                    "description": "Code identifying the refund motive",
+                    "example": "MD06"
+                  },
+                  "customer_message": {
+                    "type": "string"
+                  },
+                  "user_metadata": {
+                    "type": "object"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "description": "Tags for categorization (optional)",
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": [
+                      "refund",
+                      "customer-request"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Prevents duplicate reversals",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reversal created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReversalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters"
+          },
+          "409": {
+            "description": "Duplicate reversal (idempotency key already used)"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "PIX Reversals"
+        ],
+        "summary": "List Reversals",
+        "operationId": "listReversals",
+        "description": "Lists all PIX reversals with pagination and filter support. This endpoint is not implemented as of yet. Use [GET /reversals/:reversal_id](api:GET/api/v1/pix/reversals/{reversal_id}) to retrieve a specific reversal.\n\n**Scope:** `pix:reversals:read`",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "maximum": 100
+            },
+            "description": "Maximum number of results (max 100)",
+            "example": 10
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Cursor for pagination"
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Filter by creation date (after)",
+            "example": "2024-01-01"
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Filter by creation date (before)",
+            "example": "2024-12-31"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "processing",
+                "success",
+                "failed"
+              ]
+            },
+            "description": "Filter by status",
+            "example": "success"
+          },
+          {
+            "name": "end_to_end_ids",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by EndToEndID(s)"
+          },
+          {
+            "name": "external_ids",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by external ID(s)"
+          }
+        ],
+        "responses": {
+          "501": {
+            "description": "Not Implemented"
+          }
+        }
+      }
+    },
+    "/api/v1/pix/reversals/{reversal_id}": {
+      "get": {
+        "tags": [
+          "PIX Reversals"
+        ],
+        "summary": "Get Reversal by ID",
+        "operationId": "getReversal",
+        "description": "Retrieves the status and details of a PIX reversal by its ID.\n\n**Scope:** `pix:reversals:read`",
+        "parameters": [
+          {
+            "name": "reversal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Reversal ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reversal details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReversalResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reversal not found"
+          }
+        }
+      }
+    },
+    "/api/v1/pix/cash-out": {
+      "post": {
+        "tags": [
+          "PIX Cash-Out"
+        ],
+        "summary": "Create Cash-Out",
+        "operationId": "createCashOut",
+        "description": "Initiates a PIX payment (Cash-Out). This single endpoint supports three different payment flows depending on the fields provided:\n\n## Flow 1 — Via PIX Key\n\nSend a payment directly using the recipient's PIX key.\n**Required fields:** `amount`, `pix_key`, `pix_key_type`, `external_id`\n\n## Flow 2 — Via Bank Details\n\nSend a payment using the recipient's bank account details, without needing a PIX key.\n**Required fields:** `amount`, `receiver_name`, `receiver_document`, `receiver_ispb`, `receiver_branch`, `receiver_account`, `receiver_account_type`, `external_id`\n\n## Flow 3 — Via QR Code (Two-Step)\n\n1. First decode the QR Code via `POST /api/v1/pix/qrcode/decode`\n2. Use the returned `end_to_end_id` as the `X-Pix-Lookup-E2E` header in this call\n3. The system retrieves pre-decoded data and processes the payment (without decoding again)\n\n**Required fields:** `amount` + header `X-Pix-Lookup-E2E`\n\n**Scope:** `pix:cashout:write`",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amount"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "string",
+                    "description": "Payment amount in BRL",
+                    "example": "1000.00"
+                  },
+                  "pix_key": {
+                    "type": "string",
+                    "description": "Recipient PIX key (required for Flow 1)",
+                    "example": "12345678901"
+                  },
+                  "pix_key_type": {
+                    "type": "string",
+                    "enum": [
+                      "CPF",
+                      "CNPJ",
+                      "EMAIL",
+                      "PHONE",
+                      "EVP"
+                    ],
+                    "description": "PIX key type (required for Flow 1)",
+                    "example": "CPF"
+                  },
+                  "receiver_name": {
+                    "type": "string",
+                    "description": "Recipient full name (required for Flow 2)",
+                    "example": "John Doe"
+                  },
+                  "receiver_document": {
+                    "type": "string",
+                    "description": "Recipient CPF or CNPJ (required for Flow 2)",
+                    "example": "98765432100"
+                  },
+                  "receiver_ispb": {
+                    "type": "string",
+                    "description": "Recipient bank ISPB code, 8 digits (required for Flow 2)",
+                    "example": "00000000"
+                  },
+                  "receiver_branch": {
+                    "type": "string",
+                    "description": "Recipient branch number (required for Flow 2)",
+                    "example": "0001"
+                  },
+                  "receiver_account": {
+                    "type": "string",
+                    "description": "Recipient account number (required for Flow 2)",
+                    "example": "12345678"
+                  },
+                  "receiver_account_type": {
+                    "type": "string",
+                    "enum": [
+                      "checking",
+                      "savings",
+                      "salary",
+                      "payment"
+                    ],
+                    "description": "Recipient account type (required for Flow 2)",
+                    "example": "checking"
+                  },
+                  "external_id": {
+                    "type": "string",
+                    "description": "Cash-out ID in your system",
+                    "example": "ext_123"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Payment description (optional)",
+                    "example": "Supplier payment"
+                  },
+                  "reference": {
+                    "type": "string",
+                    "description": "Your internal reference ID (optional)",
+                    "example": "pay-001"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "description": "Custom metadata (optional)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Prevents duplicate payments (recommended)",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          {
+            "name": "X-Pix-Lookup-E2E",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "description": "EndToEndID from a previous QR Code decode (required for Flow 3). Obtained from `POST /api/v1/pix/qrcode/decode`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cash-Out initiated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "transaction_id": {
+                      "type": "string",
+                      "example": "1c1331ce-a9ff-43c5-8ed2-31a98e61a1ab"
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "queued"
+                    },
+                    "amount": {
+                      "type": "string",
+                      "example": 50.0
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Cash-out queued for processing"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters"
+          }
+        }
+      }
+    },
+    "/api/v1/pix/cash-out/{cash_out_id}": {
+      "get": {
+        "tags": [
+          "PIX Cash-Out"
+        ],
+        "summary": "Get Cash-Out Status",
+        "operationId": "getCashOutStatus",
+        "description": "Queries the status of a PIX payment (Cash-Out).\n\n**Possible statuses:** `processing`, `completed`, `failed`, `returned`\n\n**Scope:** `pix:cashout:read`",
+        "parameters": [
+          {
+            "name": "cash_out_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Cash-Out transaction ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cash-Out status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/CashOutStatus"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Cash-Out not found"
+          }
+        }
+      }
+    },
+    "/api/v1/pix/qrcode/decode": {
+      "post": {
+        "tags": [
+          "PIX Cash-Out"
+        ],
+        "summary": "Decode QR Code",
+        "operationId": "decodeQRCode",
+        "description": "Decodes a PIX QR Code (static or dynamic).\n\n**Required field:** `br_code` (EMV payload from QR Code)\n\n**Participant fields (resolved via BACEN ParticipantesSTR list):**\n- `receiver_participant_name` — Recipient institution name (always present)\n**Financial fields (returned when present in CobV QR):**\n- `due_date` — Due date (YYYY-MM-DD)\n- `penalty` — Late fee: `mode` (1=fixed, 2=%), `value`\n- `interest` — Interest: `mode` (1=BRL/day, 2=%/day, 3=%/month, 4=%/year), `value`\n- `discount` — Discount: `mode` (1-4), `value`, `fixed_dates[]`\n- `rebate` — Rebate: `mode` (1=fixed, 2=%), `value`\n- `final_amount` — Final amount calculated by BACEN (with charges applied)\n**Optimized flow (Two-Step — RECOMMENDED):**\n1. Decode the QR Code with this API (data is saved in lookup history)\n2. Confirm recipient details with the user\n3. Send the Cash-Out using the `X-Pix-Lookup-E2E: {end_to_end_id}` header (WITHOUT sending `br_code` again)\n4. The system uses pre-decoded data, avoiding a duplicate decode call\n\n**Scope:** `pix:cashout:write`",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "br_code"
+                ],
+                "properties": {
+                  "br_code": {
+                    "type": "string",
+                    "description": "EMV payload from the QR Code",
+                    "example": "00020126580014br.gov.bcb.pix0136263187470001865204000053039865405..."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Decoded QR Code data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "qr_code_type": {
+                      "type": "string",
+                      "enum": [
+                        "static",
+                        "dynamic"
+                      ],
+                      "example": "static"
+                    },
+                    "pix_key": {
+                      "type": "string"
+                    },
+                    "amount": {
+                      "type": "string",
+                      "description": "Amount in BRL (decimal string)"
+                    },
+                    "receiver_name": {
+                      "type": "string"
+                    },
+                    "receiver_ispb": {
+                      "type": "string"
+                    },
+                    "receiver_participant_name": {
+                      "type": "string"
+                    },
+                    "end_to_end_id": {
+                      "type": "string",
+                      "description": "Use this in X-Pix-Lookup-E2E header for the two-step flow"
+                    },
+                    "due_date": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "penalty": {
+                      "type": "object"
+                    },
+                    "interest": {
+                      "type": "object"
+                    },
+                    "discount": {
+                      "type": "object"
+                    },
+                    "rebate": {
+                      "type": "object"
+                    },
+                    "final_amount": {
+                      "type": "string",
+                      "description": "Final amount calculated by BACEN"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unreadable QR Code"
+          }
+        }
+      }
+    },
+    "/api/v1/pix/med/{med_id}/respond": {
+      "post": {
+        "tags": [
+          "MED"
+        ],
+        "summary": "Respond to MED Request",
+        "operationId": "respondMed",
+        "description": "Responds to an inbound MED (Special Return Mechanism) request.\n\n**Possible actions:**\n- `approve` — Approves the return (captures the precautionary hold and credits the funds)\n- `reject` — Rejects the return (releases the precautionary hold)\n\n**Scope:** `pix:med:write`",
+        "parameters": [
+          {
+            "name": "med_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "MED request ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "action"
+                ],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "approve",
+                      "reject"
+                    ],
+                    "description": "Action to take on the MED request",
+                    "example": "approve"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "Reason for the decision (optional)",
+                    "example": "Return approved after analysis"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "MED response recorded",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "404": {
+            "description": "MED request not found"
+          }
+        }
+      }
+    },
+    "/api/v1/pix/med/status/{status}": {
+      "get": {
+        "tags": [
+          "MED"
+        ],
+        "summary": "List MED by Status",
+        "operationId": "listMedByStatus",
+        "description": "Lists MED requests filtered by status.\n\n**Possible statuses:** `OPEN`, `IN_ANALYSIS`, `APPROVED`, `REJECTED`, `CLOSED`\n\n**Scope:** `pix:med:read`",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "IN_ANALYSIS",
+                "APPROVED",
+                "REJECTED",
+                "CLOSED"
+              ]
+            },
+            "description": "MED status to filter by"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "description": "Page number (1-based)",
+            "example": 1
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            },
+            "description": "Items per page",
+            "example": 20
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of MED requests",
+            "content": {
+              "application/json": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Create Webhook",
+        "operationId": "createWebhook",
+        "description": "Creates a new webhook to receive PIX event notifications.\n\n**IMPORTANT:** The `secret` is returned **only at creation time**. Store it securely for signature validation.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "url"
+                ],
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "HTTPS URL that will receive notifications",
+                    "example": "https://api.example.com/webhooks/pix"
+                  },
+                  "events": {
+                    "type": "array",
+                    "description": "List of events to subscribe to. If empty or `[\"*\"]`, receives all events.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": [
+                      "pix.cash_in.confirmed",
+                      "pix.cash_in.received",
+                      "pix.cash_out.completed"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Webhook created successfully",
+            "content": {
+              "application/json": {}
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "List Webhooks",
+        "operationId": "listWebhooks",
+        "description": "Lists all webhooks registered by the authenticated client.",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "maximum": 100
+            },
+            "description": "Items per page (max 100, default 20)",
+            "example": 20
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            },
+            "description": "Offset for pagination (default 0)",
+            "example": 0
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of webhooks",
+            "content": {
+              "application/json": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/{webhook_id}": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Get Webhook by ID",
+        "operationId": "getWebhook",
+        "description": "Retrieves a specific webhook by ID. Returns webhook details including status and last activity timestamps.",
+        "parameters": [
+          {
+            "name": "webhook_id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Webhook ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook details",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Update Webhook",
+        "operationId": "updateWebhook",
+        "description": "Updates an existing webhook. All fields are optional — send only what you want to change.",
+        "parameters": [
+          {
+            "name": "webhook_id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Webhook ID"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "New destination URL",
+                    "example": "https://api.example.com/webhooks/pix-v2"
+                  },
+                  "events": {
+                    "type": "array",
+                    "description": "New event list (use `[\"*\"]` for all)",
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": [
+                      "*"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "inactive"
+                    ],
+                    "description": "Webhook status",
+                    "example": "active"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook updated successfully",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Delete Webhook",
+        "operationId": "deleteWebhook",
+        "description": "Removes a registered webhook. Pending deliveries for this webhook will be cancelled.\n\n**WARNING:** This action is irreversible.",
+        "parameters": [
+          {
+            "name": "webhook_id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Webhook ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Webhook deleted successfully",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "404": {
+            "description": "Webhook not found"
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/deliveries": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "List Deliveries",
+        "operationId": "listDeliveries",
+        "description": "Lists webhook deliveries for the client. Each delivery shows the event, status, payload sent, response received, attempt count, and timestamps.",
+        "parameters": [
+          {
+            "name": "webhook_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by webhook ID (UUID)"
+          },
+          {
+            "name": "transaction_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by transaction ID (UUID)"
+          },
+          {
+            "name": "event_type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by event type (e.g. pix.cash_in.confirmed)"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "delivered",
+                "pending",
+                "failed"
+              ]
+            },
+            "description": "Filter by delivery status"
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Filter by start date (YYYY-MM-DD)"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Filter by end date (YYYY-MM-DD)"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "description": "Page number (1-based, default 1)",
+            "example": 1
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "maximum": 100
+            },
+            "description": "Items per page (max 100, default 50)",
+            "example": 20
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Alternative to page-based pagination (0-based)",
+            "example": 0
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of deliveries",
+            "content": {
+              "application/json": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/deliveries/{delivery_id}": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Get Delivery by ID",
+        "operationId": "getDelivery",
+        "description": "Retrieves details of a specific delivery, including the payload sent, HTTP response status, and number of attempts.",
+        "parameters": [
+          {
+            "name": "delivery_id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Delivery ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Delivery details",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "404": {
+            "description": "Delivery not found"
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/deliveries/{delivery_id}/resend": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Resend Delivery",
+        "operationId": "resendDelivery",
+        "description": "Manually resends a failed or undelivered webhook delivery.\n\nUseful when:\n- Your URL was down and is now back online\n- You missed a notification and need to reprocess\n- You want to test integration with real data\n\nThe delivery will be re-queued and delivered on the next worker execution.",
+        "parameters": [
+          {
+            "name": "delivery_id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "description": "Delivery ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Delivery re-queued successfully",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "404": {
+            "description": "Delivery not found"
+          }
+        }
+      }
+    },
+    "/api/v1/pix/p2p": {
+      "post": {
+        "tags": [
+          "P2P"
+        ],
+        "summary": "Transfer",
+        "operationId": "p2pTransfer",
+        "description": "Create a P2P transfer\n**Scope:** `pix:p2p:write`",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "external_id",
+                  "amount"
+                ],
+                "properties": {
+                  "external_id": {
+                    "type": "string",
+                    "description": "External reference ID",
+                    "example": "a9ae38b8-bdfc-4637-909e-af1495f62a4b"
+                  },
+                  "amount": {
+                    "type": "string",
+                    "description": "Decimal amount to be transfered",
+                    "example": "123.45"
+                  },
+                  "receiver_account_id": {
+                    "type": "string",
+                    "description": "Account id of the receiver. Obtained from field `account_id` of the [lookup](api:POST/api/v1/pix/p2p/lookup) flow",
+                    "example": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Description of the transfer",
+                    "example": "Paying back lunch"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "transaction_id": {
+                      "type": "string",
+                      "example": "f1e2d3c4-b5a6-7890-1234-567890abcdef"
+                    },
+                    "external_id": {
+                      "type": "string",
+                      "example": "p2p-transfer-001"
+                    },
+                    "status": {
+                      "type": "string",
+                      "example": "pending"
+                    },
+                    "amount": {
+                      "type": "string",
+                      "example": "150.00"
+                    },
+                    "currency": {
+                      "type": "string",
+                      "example": "BRL"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "example": "2026-03-23T14:30:00Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Receiver not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Receiver PIX key not found internally"
+                    },
+                    "code": {
+                      "type": "string",
+                      "example": "receiver_not_found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict, duplicate external_id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "Duplicate external_id for this client"
+                    },
+                    "code": {
+                      "type": "string",
+                      "example": "DUPLICATE_EXTERNAL_ID"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pix/p2p/lookup": {
+      "post": {
+        "tags": [
+          "P2P"
+        ],
+        "summary": "Lookup",
+        "operationId": "p2pLookup",
+        "description": "Looks up a user's account by their PIX key or account number\n**Scope:** `pix:p2p:read`",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "search_type",
+                  "search_value"
+                ],
+                "properties": {
+                  "search_type": {
+                    "type": "string",
+                    "enum": [
+                      "email",
+                      "phone",
+                      "document",
+                      "account"
+                    ],
+                    "description": "Type of lookup value",
+                    "example": "email"
+                  },
+                  "search_value": {
+                    "type": "string",
+                    "example": "maria@example.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lookup successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/P2PLookup"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid search type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": false
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "search_type must be one of: email, phone, document, account"
+                    },
+                    "code": {
+                      "type": "string",
+                      "example": "VALIDATION_ERROR"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/{accountId}/activate": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Activate account",
+        "operationId": "activateAccount",
+        "description": "Transition an account from `pending_kyc` to `active` state after KYC approval. Only accounts in `pending_kyc` state can be activated.\n\n**Authentication:** Bearer token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Account identifier",
+            "example": "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "description": "Optional reason for activation",
+                    "example": "KYC documents approved"
+                  },
+                  "correlation_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Optional correlation ID for audit trail",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account activated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Account activated successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid state transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Account not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/{accountId}/block": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Block account",
+        "operationId": "blockAccount",
+        "description": "Block an account, preventing all financial operations. A blocked account can be suspended or closed but cannot be reactivated directly.\n\n**Authentication:** Bearer token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Account identifier",
+            "example": "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "description": "Reason for blocking the account",
+                    "example": "Suspicious activity detected"
+                  },
+                  "correlation_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Optional correlation ID for audit trail",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account blocked successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Account blocked successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid state transition or missing reason",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Account not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/reserve": {
+      "post": {
+        "tags": [
+          "Accounts"
+        ],
+        "summary": "Reserve account",
+        "operationId": "reserveAccount",
+        "description": "Reserve an account slot for deferred provisioning. Used when creating an account identity before the full KYC flow is complete.\n\n**Authentication:** Bearer token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "document",
+                  "account_type"
+                ],
+                "properties": {
+                  "document": {
+                    "type": "string",
+                    "description": "CPF or CNPJ of the account holder",
+                    "example": "123.456.789-00"
+                  },
+                  "account_type": {
+                    "type": "string",
+                    "enum": [
+                      "PF",
+                      "PJ",
+                      "ESCROW"
+                    ],
+                    "description": "Type of account to reserve",
+                    "example": "PF"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Account holder name",
+                    "example": "Maria Silva"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Account holder email",
+                    "example": "maria@example.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account reserved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "account_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "example": "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+                        },
+                        "state": {
+                          "type": "string",
+                          "example": "pending_kyc"
+                        },
+                        "document": {
+                          "type": "string",
+                          "example": "123.456.789-00"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Account already exists for this document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/boleto/decode": {
+      "post": {
+        "tags": [
+          "Boleto"
+        ],
+        "summary": "Decode boleto barcode",
+        "operationId": "decodeBoleto",
+        "description": "Decode a boleto barcode (linha digitável or código de barras) and return structured payment details including the amount, due date, and beneficiary information.\n\nUse this endpoint before creating a payment to confirm the bill details with your user.\n\n**Authentication:** Bearer token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "barcode"
+                ],
+                "properties": {
+                  "barcode": {
+                    "type": "string",
+                    "description": "Boleto barcode (linha digitável or código de barras, with or without dots/spaces)",
+                    "example": "34191.75124 34567.861509 23460.190000 9 86690000010000"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Barcode decoded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "barcode": {
+                          "type": "string",
+                          "description": "Normalized barcode",
+                          "example": "34191752343567861502346019000000986690000010000"
+                        },
+                        "amount": {
+                          "type": "string",
+                          "description": "Payment amount in BRL",
+                          "example": "100.00"
+                        },
+                        "due_date": {
+                          "type": "string",
+                          "format": "date",
+                          "description": "Boleto due date",
+                          "example": "2026-07-31"
+                        },
+                        "recipient_name": {
+                          "type": "string",
+                          "description": "Boleto issuer / recipient name",
+                          "example": "Empresa ABC Ltda"
+                        },
+                        "recipient_document": {
+                          "type": "string",
+                          "description": "Recipient CNPJ/CPF",
+                          "example": "12.345.678/0001-90"
+                        },
+                        "bank_name": {
+                          "type": "string",
+                          "description": "Issuing bank name",
+                          "example": "Banco Bradesco S.A."
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "normal",
+                            "concessionaria",
+                            "taxa_publica"
+                          ],
+                          "description": "Boleto type",
+                          "example": "normal"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid barcode format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Barcode valid but payment not allowed (e.g., expired)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/boleto": {
+      "post": {
+        "tags": [
+          "Boleto"
+        ],
+        "summary": "Pay a boleto",
+        "operationId": "payBoleto",
+        "description": "Initiate a boleto payment. The payment is processed asynchronously — use `GET /api/v1/payments/boleto/{paymentId}` to track the status.\n\nAlways include `X-Idempotency-Key` to prevent duplicate payments. The key is scoped to your client and expires after 24 hours.\n\n**Authentication:** Bearer token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "X-Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Unique key to prevent duplicate payments (recommended)",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "barcode",
+                  "amount"
+                ],
+                "properties": {
+                  "barcode": {
+                    "type": "string",
+                    "description": "Boleto barcode decoded via /boleto/decode",
+                    "example": "34191752343567861502346019000000986690000010000"
+                  },
+                  "amount": {
+                    "type": "string",
+                    "description": "Payment amount (must match or override boleto amount for flex boletos)",
+                    "example": "100.00"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Payment description for statement",
+                    "example": "Conta de energia - julho 2026"
+                  },
+                  "reference": {
+                    "type": "string",
+                    "description": "Your internal reference for reconciliation",
+                    "example": "boleto-pay-001"
+                  },
+                  "scheduled_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Optional scheduled payment date (ISO 8601, must be >= today and <= due_date)",
+                    "example": "2026-07-30"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Payment accepted for processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "payment_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "description": "Payment identifier (use to check status)",
+                          "example": "7f3c2a1b-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "processing",
+                            "completed",
+                            "failed",
+                            "cancelled"
+                          ],
+                          "example": "pending"
+                        },
+                        "amount": {
+                          "type": "string",
+                          "example": "100.00"
+                        },
+                        "barcode": {
+                          "type": "string",
+                          "example": "34191752343567861502346019000000986690000010000"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "example": "2026-07-22T10:30:00Z"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Payment not allowed (insufficient funds, expired boleto, etc.)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Duplicate payment (same idempotency key)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/boleto/{paymentId}": {
+      "get": {
+        "tags": [
+          "Boleto"
+        ],
+        "summary": "Get boleto payment status",
+        "operationId": "getBoletoPayment",
+        "description": "Retrieve the current status and details of a boleto payment.\n\n**Authentication:** Bearer token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Payment identifier returned by POST /api/v1/payments/boleto",
+            "example": "7f3c2a1b-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "payment_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "example": "7f3c2a1b-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "processing",
+                            "completed",
+                            "failed",
+                            "cancelled"
+                          ],
+                          "example": "completed"
+                        },
+                        "amount": {
+                          "type": "string",
+                          "example": "100.00"
+                        },
+                        "barcode": {
+                          "type": "string",
+                          "example": "34191752343567861502346019000000986690000010000"
+                        },
+                        "recipient_name": {
+                          "type": "string",
+                          "example": "Empresa ABC Ltda"
+                        },
+                        "description": {
+                          "type": "string",
+                          "example": "Conta de energia - julho 2026"
+                        },
+                        "reference": {
+                          "type": "string",
+                          "example": "boleto-pay-001"
+                        },
+                        "settled_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "nullable": true,
+                          "example": "2026-07-22T10:45:00Z"
+                        },
+                        "created_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "example": "2026-07-22T10:30:00Z"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Payment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Boleto"
+        ],
+        "summary": "Cancel boleto payment",
+        "operationId": "cancelBoletoPayment",
+        "description": "Cancel a pending boleto payment. Only payments in `pending` status can be cancelled. Payments already in `processing` or `completed` cannot be reversed via this endpoint.\n\n**Authentication:** Bearer token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Payment identifier",
+            "example": "7f3c2a1b-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment cancelled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Boleto payment cancelled successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cannot cancel a payment in current status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Payment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1-1-beta/wallet/balance/{clientId}": {
+      "get": {
+        "tags": [
+          "Wallets"
+        ],
+        "summary": "Get wallet balance",
+        "operationId": "getWalletBalance",
+        "description": "Retrieve the real-time wallet balance for a client. The response includes `available`, `blocked`, and `total` amounts, plus a `wallet_breakdown` array when the client holds multiple wallets.\n\nBalance is cached (default TTL: 5 minutes) and invalidated by ledger events. Use the `from_cache` field to detect stale reads.\n\n**Path prefix:** `/api/v1-1-beta/` — stable beta contract.\n\n**Authentication:** Bearer token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "clientId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Client identifier",
+            "example": "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wallet balance retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/WalletBalance"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid client ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Wallet not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Wallet inactive, suspended or blocked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1-1-beta/wallet/balances": {
+      "post": {
+        "tags": [
+          "Wallets"
+        ],
+        "summary": "Get wallet balances (batch)",
+        "operationId": "getWalletBalances",
+        "description": "Retrieve wallet balances for multiple clients in a single request. Useful for dashboards and reconciliation flows. Maximum 100 client IDs per request.\n\n**Authentication:** Bearer token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "client_ids"
+                ],
+                "properties": {
+                  "client_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "maxItems": 100,
+                    "description": "List of client IDs (max 100)",
+                    "example": [
+                      "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+                      "b723c313-7701-5e35-cb46-3f47d9g4d1df"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch balance results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "balances": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/WalletBalance"
+                          }
+                        },
+                        "total": {
+                          "type": "integer",
+                          "description": "Total number of wallets returned",
+                          "example": 2
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty list or list exceeds 100 items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/participants": {
+      "get": {
+        "tags": [
+          "Participants"
+        ],
+        "summary": "List PIX participants",
+        "operationId": "listParticipants",
+        "description": "Search the list of financial institutions participating in the PIX network. Results include ISPB, name, short name, and participation flags.\n\n**Authentication:** Bearer token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search query — filters by bank name, short name, or ISPB",
+            "example": "Bradesco"
+          },
+          {
+            "name": "compe_enabled",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Filter by COMPE participation",
+            "example": true
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "maximum": 200
+            },
+            "description": "Maximum number of results to return",
+            "example": 50
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of participants",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "ispb": {
+                            "type": "string",
+                            "description": "ISPB code (8 digits)",
+                            "example": "60746948"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Full institution name",
+                            "example": "Banco Bradesco S.A."
+                          },
+                          "short_name": {
+                            "type": "string",
+                            "description": "Short institution name",
+                            "example": "Bradesco"
+                          },
+                          "compe_code": {
+                            "type": "string",
+                            "description": "COMPE/STR code (3 digits)",
+                            "example": "237"
+                          },
+                          "pix_enabled": {
+                            "type": "boolean",
+                            "description": "Indicates PIX participation",
+                            "example": true
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pix/qr/{accessToken}": {
+      "get": {
+        "tags": [
+          "PIX QR Code Server"
+        ],
+        "summary": "Resolve static PIX QR code",
+        "operationId": "resolveQrCode",
+        "x-fern-server-name": "QrCodeServer",
+        "description": "Resolve a PIX QR code access token to a signed JWS payload (RFC 7515).\n\n**Base URL:** `https://qrcode.brzip.com.br`\n**Authentication:** None — this is a public endpoint.\n\nThe response `Content-Type` is `application/jose`. The JWS compact serialization format is `<header>.<payload>.<signature>` (three base64url parts joined by dots). Decode each part with standard base64url decoding to inspect the contents.\n\nThe payload contains PIX EMV data: `chave`, `valor`, `devedor`, `recebedor`, `calendario`, and `solicitacaoPagador`.\n\nTo verify the signature, fetch the JWKS from `GET /pix/jwks`.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "accessToken",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque access token — UUID or short code provided in the QR code URL",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JWS payload",
+            "content": {
+              "application/jose": {
+                "schema": {
+                  "type": "string",
+                  "description": "Compact JWS (header.payload.signature in base64url)",
+                  "example": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImtleS0xIn0.eyJjaGF2ZSI6InBpeEBicnouY29tLmJyIn0.signature"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Access token not found or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "QR code inactive or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pix/cobv/{accessToken}": {
+      "get": {
+        "tags": [
+          "PIX QR Code Server"
+        ],
+        "summary": "Resolve dynamic PIX QR code (CobV)",
+        "operationId": "resolveQrCodeCobv",
+        "x-fern-server-name": "QrCodeServer",
+        "description": "Resolve a dynamic PIX QR code (CobV) with real-time recalculation of penalties, interest, and discounts according to BACEN PIX spec.\n\n**Base URL:** `https://qrcode.brzip.com.br`\n**Authentication:** None — this is a public endpoint.\n\nUnlike static QR codes, each GET recalculates `valor.final`, `valor.multa`, `valor.juros`, and updates `calendario.apresentacao` with the current timestamp. The response is always a fresh signed JWS.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "accessToken",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "CobV access token",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dynamic JWS payload with recalculated amounts",
+            "content": {
+              "application/jose": {
+                "schema": {
+                  "type": "string",
+                  "description": "Compact JWS with updated CobV payload",
+                  "example": "eyJhbGciOiJFUzI1NiIsImtpZCI6ImtleS0xIn0.eyJjaGF2ZSI6InBpeEBicnouY29tLmJyIn0.signature"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Access token not found or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "QR code inactive or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pix/jwks": {
+      "get": {
+        "tags": [
+          "PIX QR Code Server"
+        ],
+        "summary": "Get public JWKS",
+        "operationId": "getJwks",
+        "x-fern-server-name": "QrCodeServer",
+        "description": "Returns the JSON Web Key Set (JWKS) containing the public key(s) used to sign QR code JWS payloads. Use these keys to verify signatures on `/pix/qr/{accessToken}` and `/pix/cobv/{accessToken}` responses.\n\n**Base URL:** `https://qrcode.brzip.com.br`\n**Authentication:** None — this is a public endpoint.\n\nRequired by BACEN PIX spec for JWS signature validation. The JWKS includes `alg`, `kid`, and optionally `x5c` and `x5t#S256`.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "JWKS with active public keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "kty": {
+                            "type": "string",
+                            "enum": [
+                              "EC",
+                              "RSA"
+                            ],
+                            "example": "EC"
+                          },
+                          "kid": {
+                            "type": "string",
+                            "description": "Key ID",
+                            "example": "key-2026-07"
+                          },
+                          "alg": {
+                            "type": "string",
+                            "example": "ES256"
+                          },
+                          "crv": {
+                            "type": "string",
+                            "description": "Curve (for EC keys)",
+                            "example": "P-256"
+                          },
+                          "x": {
+                            "type": "string",
+                            "description": "EC public key x coordinate (base64url)"
+                          },
+                          "y": {
+                            "type": "string",
+                            "description": "EC public key y coordinate (base64url)"
+                          },
+                          "x5c": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Certificate chain (base64 DER, optional)"
+                          },
+                          "x5t#S256": {
+                            "type": "string",
+                            "description": "Certificate SHA-256 thumbprint (base64url)"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No active JWK configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
