@@ -2570,6 +2570,105 @@ paths:
                     description: Final amount calculated by BACEN
         '400':
           description: Invalid or unreadable QR Code
+  /api/v1/pix/med:
+    post:
+      tags:
+        - MED
+      summary: Open MED Request
+      operationId: openMed
+      description: >-
+        Opens a new MED (Mecanismo Especial de Devolução — Special Return
+        Mechanism) request to recover funds from a fraudulent PIX transaction.
+
+
+        Use this when your client was a victim of fraud and the original
+        transaction was received (cash-in) by the alleged fraudster.
+        BACEN will place a precautionary hold on the recipient's account
+        while the MED is under analysis.
+
+
+        **Scope:** `pix:med:write`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - end_to_end_id
+                - amount
+                - reason
+              properties:
+                end_to_end_id:
+                  type: string
+                  description: End-to-end ID of the original fraudulent PIX transaction
+                  example: "E54811417202603071234abcdef123456"
+                amount:
+                  type: string
+                  description: Amount to recover in BRL (must not exceed original transaction amount)
+                  example: "500.00"
+                reason:
+                  type: string
+                  description: Description of the fraud or reason for the special return
+                  example: "Estelionato — transferência realizada sob coação"
+                fraud_type:
+                  type: string
+                  description: Optional BACEN fraud classification
+                  enum: [SCAM, ACCOUNT_TAKEOVER, COERCION, OTHER]
+                  example: "SCAM"
+      responses:
+        '201':
+          description: MED request opened successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      med_id:
+                        type: string
+                        description: Internal MED request identifier
+                        example: "med_7a3b2c1d4e5f6a7b"
+                      refund_id:
+                        type: string
+                        description: DICT external refund identifier
+                        example: "RD12345678901234567890123456789012"
+                      status:
+                        type: string
+                        example: "CREATED"
+                      amount:
+                        type: string
+                        example: "500.00"
+                      created_at:
+                        type: string
+                        format: date-time
+                        example: "2026-07-22T14:30:00Z"
+        '400':
+          description: Invalid request or end_to_end_id not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: MED already exists for this end_to_end_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: DICT adapter unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /api/v1/pix/med/{med_id}/respond:
     post:
       tags:
@@ -3135,12 +3234,18 @@ paths:
           description: Account identifier
           example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - changed_by
               properties:
+                changed_by:
+                  type: string
+                  description: Identifier of the operator or system triggering the activation
+                  example: "admin-user-001"
                 reason:
                   type: string
                   description: Optional reason for activation
@@ -3208,11 +3313,16 @@ paths:
               type: object
               required:
                 - reason
+                - changed_by
               properties:
                 reason:
                   type: string
                   description: Reason for blocking the account
                   example: "Suspicious activity detected"
+                changed_by:
+                  type: string
+                  description: Identifier of the operator or system triggering the block
+                  example: "admin-user-001"
                 correlation_id:
                   type: string
                   format: uuid
@@ -3268,25 +3378,42 @@ paths:
               required:
                 - document
                 - account_type
+                - person_type
+                - name
+                - email
               properties:
                 document:
                   type: string
-                  description: CPF or CNPJ of the account holder
-                  example: "123.456.789-00"
+                  description: CPF (11 digits) for individuals or CNPJ (14 digits) for companies
+                  example: "12345678901"
                 account_type:
                   type: string
                   enum: [PF, PJ, ESCROW]
                   description: Type of account to reserve
                   example: "PF"
+                person_type:
+                  type: string
+                  enum: [individual, company]
+                  description: Legal person type — individual for PF, company for PJ/ESCROW
+                  example: "individual"
                 name:
                   type: string
-                  description: Account holder name
+                  description: Account holder full name or company name
                   example: "Maria Silva"
                 email:
                   type: string
                   format: email
                   description: Account holder email
                   example: "maria@example.com"
+                phone:
+                  type: string
+                  description: Account holder phone in E.164 format (optional)
+                  example: "+5511999999999"
+                correlation_id:
+                  type: string
+                  format: uuid
+                  description: Optional correlation ID for idempotency
+                  example: "550e8400-e29b-41d4-a716-446655440000"
       responses:
         '200':
           description: Account reserved successfully
