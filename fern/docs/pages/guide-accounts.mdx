@@ -1,0 +1,160 @@
+---
+title: "Account Management"
+description: "Manage account lifecycle — activate, block, and reserve payment accounts."
+---
+
+# Account Management
+
+Payment accounts go through a defined lifecycle managed via the Accounts API. After the onboarding flow creates the account (state: `pending_kyc`), your integration activates it, and from there you can block or reserve accounts as needed.
+
+## Account State Machine
+
+```
+pending_kyc
+    │
+    ▼
+ active ──────────────────┐
+    │                     │
+    ├──► suspended        │
+    │                     │
+    ├──► blocked ◄────────┘
+    │
+    └──► closed (terminal)
+```
+
+| State | Description |
+|-------|-------------|
+| `pending_kyc` | Account created, awaiting KYC approval |
+| `active` | Fully operational, can send and receive |
+| `suspended` | Temporarily restricted |
+| `blocked` | All operations halted |
+| `closed` | Terminal state — cannot be reopened |
+
+<Callout intent="warning">
+  State transitions are **one-way** for destructive states. A blocked account cannot be reactivated directly. `closed` is irreversible.
+</Callout>
+
+---
+
+## Activating an Account
+
+After KYC documents are approved, transition the account from `pending_kyc` to `active`:
+
+```bash
+curl -X POST https://api.brzip.com.br/api/v1/accounts/{accountId}/activate \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reason": "KYC documents approved",
+    "correlation_id": "550e8400-e29b-41d4-a716-446655440000"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Account activated successfully"
+}
+```
+
+**Errors:**
+
+| HTTP | Code | Meaning |
+|------|------|---------|
+| 400 | `INVALID_TRANSITION` | Account is not in `pending_kyc` state |
+| 404 | `ACCOUNT_NOT_FOUND` | Account ID does not exist |
+
+---
+
+## Blocking an Account
+
+Block an account to halt all financial operations. Provide a `reason` for audit trail:
+
+```bash
+curl -X POST https://api.brzip.com.br/api/v1/accounts/{accountId}/block \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reason": "Suspicious activity detected",
+    "correlation_id": "550e8400-e29b-41d4-a716-446655440001"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Account blocked successfully"
+}
+```
+
+<Callout intent="info">
+  Blocked accounts stop all PIX, boleto, and P2P operations immediately. Pending transactions already in flight will complete normally.
+</Callout>
+
+---
+
+## Reserving an Account
+
+Reserve an account slot before completing the full onboarding. Useful when you need to capture a client's identity early:
+
+```bash
+curl -X POST https://api.brzip.com.br/api/v1/accounts/reserve \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "document": "123.456.789-00",
+    "account_type": "PF",
+    "name": "Maria Silva",
+    "email": "maria@example.com"
+  }'
+```
+
+**Account types:**
+
+| Type | Description |
+|------|-------------|
+| `PF` | Individual (Pessoa Física) — requires CPF |
+| `PJ` | Business (Pessoa Jurídica) — requires CNPJ |
+| `ESCROW` | Escrow account for holding funds |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "account_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+    "state": "pending_kyc",
+    "document": "123.456.789-00"
+  }
+}
+```
+
+**Errors:**
+
+| HTTP | Code | Meaning |
+|------|------|---------|
+| 400 | `INVALID_REQUEST` | Missing required fields |
+| 409 | `ACCOUNT_EXISTS` | A document with this CPF/CNPJ already has an account |
+
+---
+
+## Account Capabilities
+
+Once an account is active, its capabilities depend on the KYC level. Higher KYC levels unlock higher limits and additional operations.
+
+| Capability | KYC Level 1 | KYC Level 2 | KYC Level 3 |
+|------------|:-----------:|:-----------:|:-----------:|
+| Receive PIX | ✓ | ✓ | ✓ |
+| Send PIX (low value) | ✓ | ✓ | ✓ |
+| Send PIX (high value) | — | ✓ | ✓ |
+| TED | — | — | ✓ |
+| Boleto payments | ✓ | ✓ | ✓ |
+
+<Callout intent="info">
+  PIX cash-out requires **step-up authentication** (`X-Step-Up-Token`) for amounts above the configured threshold. See the [Cash-Out guide](./guide-cash-out) for details.
+</Callout>

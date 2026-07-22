@@ -1,0 +1,219 @@
+---
+title: "Boleto Payments"
+description: "Pay boletos using the Celcoin provider — decode, authorize, track, and cancel."
+---
+
+# Boleto Payments
+
+The Boleto API allows your clients to pay boletos using funds in their BRZ wallet. The integration uses **Celcoin** as the underlying provider, orchestrated by the payment service.
+
+## Payment Flow
+
+```
+1. Decode barcode       →  retrieve beneficiary + amount
+2. Authorize payment    →  submit payment (deducts from wallet)
+3. Poll status          →  PROCESSING → PAID | FAILED | CANCELLED
+4. (Optional) Cancel    →  before settlement window closes
+```
+
+<Callout intent="info">
+  Include `X-Idempotency-Key` on payment requests to safely retry without duplicating charges.
+</Callout>
+
+---
+
+## Step 1: Decode a Barcode
+
+Before authorizing, decode the boleto barcode to confirm amount, due date, and beneficiary:
+
+```bash
+curl -X POST https://api.brzip.com.br/api/v1/payments/boleto/decode \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "barcode": "34191.09008 61234.678901 23456.789012 1 100000000025000"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "barcode": "34191090086123467890123456789012110000000002500",
+    "amount": "250.00",
+    "original_amount": "250.00",
+    "due_date": "2026-07-25",
+    "beneficiary": {
+      "name": "EMPRESA EXEMPLO LTDA",
+      "document": "12.345.678/0001-90"
+    },
+    "payer": {
+      "name": null,
+      "document": null
+    },
+    "bank_code": "341",
+    "bank_name": "Banco Itaú",
+    "fine": "0.00",
+    "interest": "0.00",
+    "discount": "0.00",
+    "expires_at": "2026-07-30T23:59:59Z"
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `amount` | Final amount due (after fine/interest/discount) |
+| `original_amount` | Face value on the boleto |
+| `fine` | Late fee applied |
+| `interest` | Daily interest accrued |
+| `discount` | Any discount applied |
+| `expires_at` | Payment deadline — after this, the boleto cannot be paid |
+
+---
+
+## Step 2: Authorize Payment
+
+Submit the payment. The wallet is debited immediately:
+
+```bash
+curl -X POST https://api.brzip.com.br/api/v1/payments/boleto \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: 7e0a1b2c-3d4e-5f6a-7b8c-9d0e1f2a3b4c" \
+  -d '{
+    "account_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+    "barcode": "34191090086123467890123456789012110000000002500",
+    "amount": "250.00",
+    "description": "Invoice #1234"
+  }'
+```
+
+**Response (`202 Accepted`):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "payment_id": "pay_9f3d2a1b4c5e6f7a",
+    "status": "PROCESSING",
+    "amount": "250.00",
+    "barcode": "34191090086123467890123456789012110000000002500",
+    "created_at": "2026-07-22T14:30:00Z"
+  }
+}
+```
+
+<Callout intent="warning">
+  A `202 Accepted` response means the payment was accepted for processing — **not** that it has settled. Poll the status endpoint to confirm.
+</Callout>
+
+**Errors:**
+
+| HTTP | Code | Meaning |
+|------|------|---------|
+| 400 | `INVALID_BARCODE` | Barcode failed checksum validation |
+| 400 | `AMOUNT_MISMATCH` | Submitted amount differs from decoded amount |
+| 400 | `BOLETO_EXPIRED` | Boleto past its `expires_at` date |
+| 402 | `INSUFFICIENT_FUNDS` | Wallet balance too low |
+| 409 | `DUPLICATE_PAYMENT` | Same barcode already paid by this account |
+| 409 | `IDEMPOTENCY_CONFLICT` | Key reused with different parameters |
+
+---
+
+## Step 3: Check Payment Status
+
+```bash
+curl -X GET https://api.brzip.com.br/api/v1/payments/boleto/{paymentId} \
+  -H "Authorization: Bearer <your-jwt>"
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "payment_id": "pay_9f3d2a1b4c5e6f7a",
+    "status": "PAID",
+    "amount": "250.00",
+    "paid_at": "2026-07-22T14:31:45Z",
+    "authentication_code": "B2026072234191341123456",
+    "barcode": "34191090086123467890123456789012110000000002500"
+  }
+}
+```
+
+**Payment statuses:**
+
+| Status | Description |
+|--------|-------------|
+| `PROCESSING` | Submitted to Celcoin, awaiting confirmation |
+| `PAID` | Settlement confirmed — `authentication_code` is available |
+| `FAILED` | Provider rejected — funds returned to wallet |
+| `CANCELLED` | Cancelled before settlement |
+
+Typical settlement time: **30 seconds to 2 minutes** for `PROCESSING → PAID`.
+
+**Recommended polling strategy:**
+
+```javascript
+async function waitForPayment(paymentId, token) {
+  const POLLS = 10;
+  const DELAY = 5000; // 5s
+
+  for (let i = 0; i < POLLS; i++) {
+    const resp = await fetch(
+      `https://api.brzip.com.br/api/v1/payments/boleto/${paymentId}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const { data } = await resp.json();
+
+    if (data.status !== "PROCESSING") return data;
+    await new Promise(r => setTimeout(r, DELAY));
+  }
+  throw new Error("Payment still processing after 50s — use webhooks");
+}
+```
+
+<Callout intent="info">
+  For production, subscribe to the `boleto.payment.paid` webhook event instead of polling. See the [Webhooks guide](./guide-webhooks).
+</Callout>
+
+---
+
+## Step 4: Cancel a Payment (Optional)
+
+Cancellation is only possible while the payment is still in `PROCESSING`:
+
+```bash
+curl -X DELETE https://api.brzip.com.br/api/v1/payments/boleto/{paymentId} \
+  -H "Authorization: Bearer <your-jwt>"
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Payment cancelled successfully"
+}
+```
+
+| HTTP | Code | Meaning |
+|------|------|---------|
+| 409 | `PAYMENT_NOT_CANCELLABLE` | Payment already settled or failed |
+
+---
+
+## Webhook Events
+
+Subscribe to these events in your webhook configuration:
+
+| Event | When |
+|-------|------|
+| `boleto.payment.paid` | Celcoin confirmed settlement |
+| `boleto.payment.failed` | Provider rejection — funds returned |
+| `boleto.payment.cancelled` | Cancellation confirmed |

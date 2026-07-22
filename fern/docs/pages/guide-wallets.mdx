@@ -1,0 +1,174 @@
+---
+title: "Wallet Balance & Breakdown"
+description: "Query real-time wallet balances and understand multi-wallet breakdowns."
+---
+
+# Wallet Balance & Breakdown
+
+The Wallet API provides real-time balance information for your clients. Balances are cached (5-minute TTL) and invalidated automatically when the ledger processes a transaction.
+
+<Callout intent="info">
+  These endpoints use the `/api/v1-1-beta/` path prefix. This is a **stable beta contract** — the API is production-ready but the path may change in a future major version.
+</Callout>
+
+## Get a Single Wallet Balance
+
+```bash
+curl -X GET https://api.brzip.com.br/api/v1-1-beta/wallet/balance/{clientId} \
+  -H "Authorization: Bearer <your-jwt>"
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "client_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+    "available": "1250.500000",
+    "blocked": "50.000000",
+    "overdraft": "0.000000",
+    "total": "1300.500000",
+    "currency": "BRL",
+    "status": "active",
+    "from_cache": true,
+    "updated_at": "2026-07-22T10:30:00Z",
+    "wallet_breakdown": []
+  }
+}
+```
+
+### Balance fields explained
+
+| Field | Description |
+|-------|-------------|
+| `available` | Funds available for immediate use |
+| `blocked` | Funds held for pending transactions |
+| `overdraft` | Overdraft amount (typically zero) |
+| `total` | `available + blocked` |
+| `from_cache` | `true` if served from Redis cache; `false` = live DB read |
+| `updated_at` | Timestamp of last balance update |
+
+### Wallet status
+
+| Status | Meaning |
+|--------|---------|
+| `active` | Normal operation |
+| `inactive` | Not yet initialized |
+| `suspended` | Temporarily restricted |
+| `blocked` | All operations halted |
+
+---
+
+## Wallet Breakdown (Multiple Wallets)
+
+When a client holds more than one wallet (e.g., a primary wallet and an escrow wallet), the `wallet_breakdown` array provides per-wallet detail:
+
+```json
+{
+  "success": true,
+  "data": {
+    "client_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+    "available": "2500.000000",
+    "blocked": "100.000000",
+    "total": "2600.000000",
+    "currency": "BRL",
+    "status": "active",
+    "from_cache": false,
+    "updated_at": "2026-07-22T10:30:00Z",
+    "wallet_breakdown": [
+      {
+        "wallet_id": "w1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c",
+        "wallet_type": "primary",
+        "available": "2000.000000",
+        "blocked": "100.000000",
+        "currency": "BRL"
+      },
+      {
+        "wallet_id": "w2b3c4d5-e6f7-8a9b-0c1d-2e3f4a5b6c7d",
+        "wallet_type": "escrow",
+        "available": "500.000000",
+        "blocked": "0.000000",
+        "currency": "BRL"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Batch Balance Query
+
+For dashboards and reconciliation, query up to **100 clients in a single call**:
+
+```bash
+curl -X POST https://api.brzip.com.br/api/v1-1-beta/wallet/balances \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_ids": [
+      "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+      "b723c313-7701-5e35-cb46-3f47d9g4d1df"
+    ]
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "balances": [
+      {
+        "client_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+        "available": "1250.500000",
+        "blocked": "50.000000",
+        "total": "1300.500000",
+        "currency": "BRL",
+        "status": "active",
+        "from_cache": true,
+        "updated_at": "2026-07-22T10:30:00Z",
+        "wallet_breakdown": []
+      }
+    ],
+    "total": 1
+  }
+}
+```
+
+<Callout intent="warning">
+  Maximum **100 client IDs per request**. For larger datasets, paginate in batches of 100.
+</Callout>
+
+---
+
+## Cache Behavior
+
+Balance is cached in Redis with a 5-minute TTL. Cache is **automatically invalidated** when the ledger processes a transaction event (`ledger.hold.created`, `ledger.capture.created`, `ledger.debit.created`, etc.).
+
+To detect stale reads, check the `from_cache` field:
+
+```javascript
+const balance = response.data;
+
+if (balance.from_cache) {
+  // Balance may be up to 5 minutes old
+  console.log(`Balance from cache, updated at: ${balance.updated_at}`);
+} else {
+  // Live read from database
+  console.log(`Live balance: ${balance.available} BRL available`);
+}
+```
+
+---
+
+## Error Reference
+
+| HTTP | Code | Meaning |
+|------|------|---------|
+| 400 | `INVALID_REQUEST` | Empty or invalid `clientId` |
+| 404 | `WALLET_NOT_FOUND` | No wallet exists for this client |
+| 422 | `WALLET_STATUS_ERROR` | Wallet is inactive, suspended, or blocked |
+| 500 | `INTERNAL_ERROR` | Internal error — retry with exponential backoff |

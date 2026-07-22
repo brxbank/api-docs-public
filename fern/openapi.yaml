@@ -157,6 +157,12 @@ servers:
   - url: https://api.brzip.com.br
     description: Production
     x-fern-server-name: Production
+  - url: https://api.stg.brzip.com.br
+    description: Staging
+    x-fern-server-name: Staging
+  - url: https://qrcode.brzip.com.br
+    description: PIX QR Code Server (public, no auth)
+    x-fern-server-name: QrCodeServer
 components:
   schemas:
     Transaction:
@@ -671,6 +677,89 @@ components:
         pix_key_value:
           type: string
           example: "maria@exemplo.com"
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Account not found"
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "ACCOUNT_NOT_FOUND"
+        correlation_id:
+          type: string
+          format: uuid
+          description: Request correlation ID for support tracing
+          example: "550e8400-e29b-41d4-a716-446655440000"
+    WalletBalance:
+      type: object
+      properties:
+        client_id:
+          type: string
+          format: uuid
+          description: Client identifier
+          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+        available:
+          type: string
+          description: Available balance (6 decimal places)
+          example: "1250.500000"
+        blocked:
+          type: string
+          description: Blocked/held balance
+          example: "50.000000"
+        overdraft:
+          type: string
+          description: Overdraft amount (usually zero)
+          example: "0.000000"
+        total:
+          type: string
+          description: Total balance (available + blocked)
+          example: "1300.500000"
+        currency:
+          type: string
+          example: "BRL"
+        status:
+          type: string
+          enum: [active, inactive, suspended, blocked]
+          description: Wallet status
+          example: "active"
+        from_cache:
+          type: boolean
+          description: Indicates if the balance was served from cache
+          example: true
+        updated_at:
+          type: string
+          format: date-time
+          description: Last balance update timestamp (RFC3339)
+          example: "2026-07-22T10:30:00Z"
+        wallet_breakdown:
+          type: array
+          description: Per-wallet breakdown (present when client holds multiple wallets)
+          items:
+            type: object
+            properties:
+              wallet_id:
+                type: string
+                format: uuid
+                example: "w1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c"
+              wallet_type:
+                type: string
+                description: Wallet type identifier
+                example: "primary"
+              available:
+                type: string
+                example: "1250.500000"
+              blocked:
+                type: string
+                example: "50.000000"
+              currency:
+                type: string
+                example: "BRL"
     bearerAuth:
       type: http
       scheme: bearer
@@ -945,6 +1034,84 @@ tags:
       **Authentication:** Bearer token
 
       **Scope:** `pix:p2p:read` / `pix:p2p:write`
+  - name: Accounts
+    description: >-
+      Manage account state transitions — activate, block, or reserve accounts.
+
+
+      These endpoints are used to manage the lifecycle of a payment account after
+      it has been created through the onboarding flow. Accounts start in
+      `pending_kyc` state and must be activated before they can transact.
+
+
+      **Account states:** `pending_kyc → active → suspended | blocked | closed`
+
+
+      **Authentication:** Bearer token
+  - name: Boleto
+    description: >-
+      Decode barcode data and make boleto payments using the BRZ API.
+
+
+      Boleto processing is handled through the payment orchestrator and settled
+      via the Celcoin integration. Supports both boleto payments (paying a
+      third-party bill) and boleto issuance (charging your customers).
+
+
+      **Authentication:** Bearer token
+
+
+      **Idempotency:** Always include `X-Idempotency-Key` when creating payments.
+  - name: Wallets
+    description: >-
+      Query wallet balances and validate funds availability.
+
+
+      The Wallet API (`v1-1-beta`) provides real-time balance information with
+      cache invalidation driven by ledger events. The `wallet_breakdown` field
+      shows a per-wallet breakdown when a client holds multiple wallets.
+
+
+      > **Note:** The `v1-1-beta` path prefix indicates this contract is stable
+      but may evolve. Plan for a future migration to `/api/v1/wallet/*`.
+
+
+      **Authentication:** Bearer token
+  - name: Participants
+    description: >-
+      Query the list of financial institutions participating in the PIX network
+      (STR/COMPE directory).
+
+
+      Useful for validating ISPBs, looking up bank names, and checking PIX
+      participation status before initiating transfers.
+
+
+      **Authentication:** Bearer token
+  - name: PIX QR Code Server
+    description: >-
+      Public endpoints served by the BRZ QR Code server at `qrcode.brzip.com.br`.
+
+
+      These endpoints resolve PIX QR code access tokens to signed JWS payloads
+      (RFC 7515) containing the full EMV QRCODE data. No authentication is
+      required — security is enforced through opaque access tokens and
+      expiration.
+
+
+      **Base URL:** `https://qrcode.brzip.com.br`
+
+      **Authentication:** None (public endpoints)
+
+
+      The response is a compact JWS (`application/jose`) with three
+      base64url-encoded parts (`header.payload.signature`). The payload
+      contains PIX-standard fields: `chave`, `valor`, `devedor`,
+      `recebedor`, `calendario`, and `solicitacaoPagador`.
+
+
+      The JWKS endpoint (`/pix/jwks`) exposes the public key for signature
+      verification, compliant with BACEN PIX spec.
 paths:
   /api/v1/auth/bearer-token:
     post:
@@ -2941,3 +3108,929 @@ paths:
                   code:
                     type: string
                     example: "VALIDATION_ERROR"
+
+  # ── Accounts ──────────────────────────────────────────────────────────────
+
+  /api/v1/accounts/{accountId}/activate:
+    post:
+      tags:
+        - Accounts
+      summary: Activate account
+      operationId: activateAccount
+      description: >-
+        Transition an account from `pending_kyc` to `active` state after KYC
+        approval. Only accounts in `pending_kyc` state can be activated.
+
+
+        **Authentication:** Bearer token
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Account identifier
+          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Optional reason for activation
+                  example: "KYC documents approved"
+                correlation_id:
+                  type: string
+                  format: uuid
+                  description: Optional correlation ID for audit trail
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Account activated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Account activated successfully"
+        '400':
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{accountId}/block:
+    post:
+      tags:
+        - Accounts
+      summary: Block account
+      operationId: blockAccount
+      description: >-
+        Block an account, preventing all financial operations. A blocked account
+        can be suspended or closed but cannot be reactivated directly.
+
+
+        **Authentication:** Bearer token
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Account identifier
+          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  description: Reason for blocking the account
+                  example: "Suspicious activity detected"
+                correlation_id:
+                  type: string
+                  format: uuid
+                  description: Optional correlation ID for audit trail
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Account blocked successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Account blocked successfully"
+        '400':
+          description: Invalid state transition or missing reason
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/reserve:
+    post:
+      tags:
+        - Accounts
+      summary: Reserve account
+      operationId: reserveAccount
+      description: >-
+        Reserve an account slot for deferred provisioning. Used when creating
+        an account identity before the full KYC flow is complete.
+
+
+        **Authentication:** Bearer token
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - document
+                - account_type
+              properties:
+                document:
+                  type: string
+                  description: CPF or CNPJ of the account holder
+                  example: "123.456.789-00"
+                account_type:
+                  type: string
+                  enum: [PF, PJ, ESCROW]
+                  description: Type of account to reserve
+                  example: "PF"
+                name:
+                  type: string
+                  description: Account holder name
+                  example: "Maria Silva"
+                email:
+                  type: string
+                  format: email
+                  description: Account holder email
+                  example: "maria@example.com"
+      responses:
+        '200':
+          description: Account reserved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      account_id:
+                        type: string
+                        format: uuid
+                        example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+                      state:
+                        type: string
+                        example: "pending_kyc"
+                      document:
+                        type: string
+                        example: "123.456.789-00"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Account already exists for this document
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── Boleto ────────────────────────────────────────────────────────────────
+
+  /api/v1/payments/boleto/decode:
+    post:
+      tags:
+        - Boleto
+      summary: Decode boleto barcode
+      operationId: decodeBoleto
+      description: >-
+        Decode a boleto barcode (linha digitável or código de barras) and return
+        structured payment details including the amount, due date, and beneficiary
+        information.
+
+
+        Use this endpoint before creating a payment to confirm the bill details
+        with your user.
+
+
+        **Authentication:** Bearer token
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - barcode
+              properties:
+                barcode:
+                  type: string
+                  description: Boleto barcode (linha digitável or código de barras, with or without dots/spaces)
+                  example: "34191.75124 34567.861509 23460.190000 9 86690000010000"
+      responses:
+        '200':
+          description: Barcode decoded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      barcode:
+                        type: string
+                        description: Normalized barcode
+                        example: "34191752343567861502346019000000986690000010000"
+                      amount:
+                        type: string
+                        description: Payment amount in BRL
+                        example: "100.00"
+                      due_date:
+                        type: string
+                        format: date
+                        description: Boleto due date
+                        example: "2026-07-31"
+                      recipient_name:
+                        type: string
+                        description: Boleto issuer / recipient name
+                        example: "Empresa ABC Ltda"
+                      recipient_document:
+                        type: string
+                        description: Recipient CNPJ/CPF
+                        example: "12.345.678/0001-90"
+                      bank_name:
+                        type: string
+                        description: Issuing bank name
+                        example: "Banco Bradesco S.A."
+                      type:
+                        type: string
+                        enum: [normal, concessionaria, taxa_publica]
+                        description: Boleto type
+                        example: "normal"
+        '400':
+          description: Invalid barcode format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Barcode valid but payment not allowed (e.g., expired)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/payments/boleto:
+    post:
+      tags:
+        - Boleto
+      summary: Pay a boleto
+      operationId: payBoleto
+      description: >-
+        Initiate a boleto payment. The payment is processed asynchronously — use
+        `GET /api/v1/payments/boleto/{paymentId}` to track the status.
+
+
+        Always include `X-Idempotency-Key` to prevent duplicate payments. The key
+        is scoped to your client and expires after 24 hours.
+
+
+        **Authentication:** Bearer token
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Unique key to prevent duplicate payments (recommended)
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - barcode
+                - amount
+              properties:
+                barcode:
+                  type: string
+                  description: Boleto barcode decoded via /boleto/decode
+                  example: "34191752343567861502346019000000986690000010000"
+                amount:
+                  type: string
+                  description: Payment amount (must match or override boleto amount for flex boletos)
+                  example: "100.00"
+                description:
+                  type: string
+                  description: Payment description for statement
+                  example: "Conta de energia - julho 2026"
+                reference:
+                  type: string
+                  description: Your internal reference for reconciliation
+                  example: "boleto-pay-001"
+                scheduled_date:
+                  type: string
+                  format: date
+                  description: Optional scheduled payment date (ISO 8601, must be >= today and <= due_date)
+                  example: "2026-07-30"
+      responses:
+        '202':
+          description: Payment accepted for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      payment_id:
+                        type: string
+                        format: uuid
+                        description: Payment identifier (use to check status)
+                        example: "7f3c2a1b-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
+                      status:
+                        type: string
+                        enum: [pending, processing, completed, failed, cancelled]
+                        example: "pending"
+                      amount:
+                        type: string
+                        example: "100.00"
+                      barcode:
+                        type: string
+                        example: "34191752343567861502346019000000986690000010000"
+                      created_at:
+                        type: string
+                        format: date-time
+                        example: "2026-07-22T10:30:00Z"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Payment not allowed (insufficient funds, expired boleto, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Duplicate payment (same idempotency key)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/payments/boleto/{paymentId}:
+    get:
+      tags:
+        - Boleto
+      summary: Get boleto payment status
+      operationId: getBoletoPayment
+      description: >-
+        Retrieve the current status and details of a boleto payment.
+
+
+        **Authentication:** Bearer token
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Payment identifier returned by POST /api/v1/payments/boleto
+          example: "7f3c2a1b-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
+      responses:
+        '200':
+          description: Payment details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      payment_id:
+                        type: string
+                        format: uuid
+                        example: "7f3c2a1b-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
+                      status:
+                        type: string
+                        enum: [pending, processing, completed, failed, cancelled]
+                        example: "completed"
+                      amount:
+                        type: string
+                        example: "100.00"
+                      barcode:
+                        type: string
+                        example: "34191752343567861502346019000000986690000010000"
+                      recipient_name:
+                        type: string
+                        example: "Empresa ABC Ltda"
+                      description:
+                        type: string
+                        example: "Conta de energia - julho 2026"
+                      reference:
+                        type: string
+                        example: "boleto-pay-001"
+                      settled_at:
+                        type: string
+                        format: date-time
+                        nullable: true
+                        example: "2026-07-22T10:45:00Z"
+                      created_at:
+                        type: string
+                        format: date-time
+                        example: "2026-07-22T10:30:00Z"
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Boleto
+      summary: Cancel boleto payment
+      operationId: cancelBoletoPayment
+      description: >-
+        Cancel a pending boleto payment. Only payments in `pending` status can
+        be cancelled. Payments already in `processing` or `completed` cannot be
+        reversed via this endpoint.
+
+
+        **Authentication:** Bearer token
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Payment identifier
+          example: "7f3c2a1b-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
+      responses:
+        '200':
+          description: Payment cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Boleto payment cancelled successfully"
+        '400':
+          description: Cannot cancel a payment in current status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Payment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── Wallets ───────────────────────────────────────────────────────────────
+
+  /api/v1-1-beta/wallet/balance/{clientId}:
+    get:
+      tags:
+        - Wallets
+      summary: Get wallet balance
+      operationId: getWalletBalance
+      description: >-
+        Retrieve the real-time wallet balance for a client. The response
+        includes `available`, `blocked`, and `total` amounts, plus a
+        `wallet_breakdown` array when the client holds multiple wallets.
+
+
+        Balance is cached (default TTL: 5 minutes) and invalidated by ledger
+        events. Use the `from_cache` field to detect stale reads.
+
+
+        **Path prefix:** `/api/v1-1-beta/` — stable beta contract.
+
+
+        **Authentication:** Bearer token
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Client identifier
+          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+      responses:
+        '200':
+          description: Wallet balance retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/WalletBalance'
+        '400':
+          description: Invalid client ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Wallet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Wallet inactive, suspended or blocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1-1-beta/wallet/balances:
+    post:
+      tags:
+        - Wallets
+      summary: Get wallet balances (batch)
+      operationId: getWalletBalances
+      description: >-
+        Retrieve wallet balances for multiple clients in a single request.
+        Useful for dashboards and reconciliation flows. Maximum 100 client IDs
+        per request.
+
+
+        **Authentication:** Bearer token
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - client_ids
+              properties:
+                client_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  maxItems: 100
+                  description: List of client IDs (max 100)
+                  example:
+                    - "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+                    - "b723c313-7701-5e35-cb46-3f47d9g4d1df"
+      responses:
+        '200':
+          description: Batch balance results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      balances:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/WalletBalance'
+                      total:
+                        type: integer
+                        description: Total number of wallets returned
+                        example: 2
+        '400':
+          description: Empty list or list exceeds 100 items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── Participants ──────────────────────────────────────────────────────────
+
+  /api/v1/participants:
+    get:
+      tags:
+        - Participants
+      summary: List PIX participants
+      operationId: listParticipants
+      description: >-
+        Search the list of financial institutions participating in the PIX
+        network. Results include ISPB, name, short name, and participation flags.
+
+
+        **Authentication:** Bearer token
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search query — filters by bank name, short name, or ISPB
+          example: "Bradesco"
+        - name: compe_enabled
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Filter by COMPE participation
+          example: true
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+          description: Maximum number of results to return
+          example: 50
+      responses:
+        '200':
+          description: List of participants
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ispb:
+                          type: string
+                          description: ISPB code (8 digits)
+                          example: "60746948"
+                        name:
+                          type: string
+                          description: Full institution name
+                          example: "Banco Bradesco S.A."
+                        short_name:
+                          type: string
+                          description: Short institution name
+                          example: "Bradesco"
+                        compe_code:
+                          type: string
+                          description: COMPE/STR code (3 digits)
+                          example: "237"
+                        pix_enabled:
+                          type: boolean
+                          description: Indicates PIX participation
+                          example: true
+
+  # ── PIX QR Code Server (qrcode.brzip.com.br) ─────────────────────────────
+
+  /pix/qr/{accessToken}:
+    get:
+      tags:
+        - PIX QR Code Server
+      summary: Resolve static PIX QR code
+      operationId: resolveQrCode
+      x-fern-server-name: QrCodeServer
+      description: >-
+        Resolve a PIX QR code access token to a signed JWS payload (RFC 7515).
+
+
+        **Base URL:** `https://qrcode.brzip.com.br`
+
+        **Authentication:** None — this is a public endpoint.
+
+
+        The response `Content-Type` is `application/jose`. The JWS compact
+        serialization format is `<header>.<payload>.<signature>` (three
+        base64url parts joined by dots). Decode each part with standard
+        base64url decoding to inspect the contents.
+
+
+        The payload contains PIX EMV data: `chave`, `valor`, `devedor`,
+        `recebedor`, `calendario`, and `solicitacaoPagador`.
+
+
+        To verify the signature, fetch the JWKS from `GET /pix/jwks`.
+      security: []
+      parameters:
+        - name: accessToken
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Opaque access token — UUID or short code provided in the QR code URL
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: JWS payload
+          content:
+            application/jose:
+              schema:
+                type: string
+                description: Compact JWS (header.payload.signature in base64url)
+                example: "eyJhbGciOiJFUzI1NiIsImtpZCI6ImtleS0xIn0.eyJjaGF2ZSI6InBpeEBicnouY29tLmJyIn0.signature"
+        '404':
+          description: Access token not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '410':
+          description: QR code inactive or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pix/cobv/{accessToken}:
+    get:
+      tags:
+        - PIX QR Code Server
+      summary: Resolve dynamic PIX QR code (CobV)
+      operationId: resolveQrCodeCobv
+      x-fern-server-name: QrCodeServer
+      description: >-
+        Resolve a dynamic PIX QR code (CobV) with real-time recalculation of
+        penalties, interest, and discounts according to BACEN PIX spec.
+
+
+        **Base URL:** `https://qrcode.brzip.com.br`
+
+        **Authentication:** None — this is a public endpoint.
+
+
+        Unlike static QR codes, each GET recalculates `valor.final`,
+        `valor.multa`, `valor.juros`, and updates `calendario.apresentacao`
+        with the current timestamp. The response is always a fresh signed JWS.
+      security: []
+      parameters:
+        - name: accessToken
+          in: path
+          required: true
+          schema:
+            type: string
+          description: CobV access token
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Dynamic JWS payload with recalculated amounts
+          content:
+            application/jose:
+              schema:
+                type: string
+                description: Compact JWS with updated CobV payload
+                example: "eyJhbGciOiJFUzI1NiIsImtpZCI6ImtleS0xIn0.eyJjaGF2ZSI6InBpeEBicnouY29tLmJyIn0.signature"
+        '404':
+          description: Access token not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '410':
+          description: QR code inactive or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pix/jwks:
+    get:
+      tags:
+        - PIX QR Code Server
+      summary: Get public JWKS
+      operationId: getJwks
+      x-fern-server-name: QrCodeServer
+      description: >-
+        Returns the JSON Web Key Set (JWKS) containing the public key(s) used
+        to sign QR code JWS payloads. Use these keys to verify signatures on
+        `/pix/qr/{accessToken}` and `/pix/cobv/{accessToken}` responses.
+
+
+        **Base URL:** `https://qrcode.brzip.com.br`
+
+        **Authentication:** None — this is a public endpoint.
+
+
+        Required by BACEN PIX spec for JWS signature validation. The JWKS
+        includes `alg`, `kid`, and optionally `x5c` and `x5t#S256`.
+      security: []
+      responses:
+        '200':
+          description: JWKS with active public keys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kty:
+                          type: string
+                          enum: [EC, RSA]
+                          example: "EC"
+                        kid:
+                          type: string
+                          description: Key ID
+                          example: "key-2026-07"
+                        alg:
+                          type: string
+                          example: "ES256"
+                        crv:
+                          type: string
+                          description: Curve (for EC keys)
+                          example: "P-256"
+                        x:
+                          type: string
+                          description: EC public key x coordinate (base64url)
+                        "y":
+                          type: string
+                          description: EC public key y coordinate (base64url)
+                        x5c:
+                          type: array
+                          items:
+                            type: string
+                          description: Certificate chain (base64 DER, optional)
+                        "x5t#S256":
+                          type: string
+                          description: Certificate SHA-256 thumbprint (base64url)
+        '404':
+          description: No active JWK configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

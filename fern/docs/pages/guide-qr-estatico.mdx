@@ -1,0 +1,176 @@
+---
+title: "Static QR Code (JWS)"
+description: "Understand the BRZ static PIX QR code format — JWS-signed payloads and JWKS key verification."
+---
+
+# Static QR Code (JWS)
+
+BRZ serves PIX QR codes as **JWS (JSON Web Signature)** compact serialization — signed payloads that allow clients to verify authenticity before displaying a QR to end-users.
+
+The QR Code server is a **public, unauthenticated** service at `qrcode.brzip.com.br`.
+
+---
+
+## How It Works
+
+```
+1. Merchant/partner generates a static QR access token
+2. Client app calls GET /pix/qr/{accessToken}
+3. Server returns JWS compact serialization (header.payload.signature)
+4. Client verifies signature using JWKS at /pix/jwks
+5. Client decodes payload and renders PIX QR image
+```
+
+<Callout intent="info">
+  The JWS signature uses **PS256** (RSA-PSS with SHA-256). The JWKS contains `alg: PS256` and `x5t#S256` fingerprint — required by Banco Inter, BTG Pactual, and Bradesco to accept the dynamic QR.
+</Callout>
+
+---
+
+## Resolve a Static QR Code
+
+```bash
+curl -X GET https://qrcode.brzip.com.br/pix/qr/{accessToken}
+```
+
+No authentication required.
+
+**Response headers:**
+
+```
+Content-Type: application/jose
+```
+
+**Response body** (JWS compact serialization):
+
+```
+eyJhbGciOiJQUzI1NiIsImtpZCI6ImJyei0yMDI2LTAxIiwidHlwIjoiSldTIiwi
+eDV0I1MyNTYiOiJhYmNkZWZnMTIzNDU2Nzg5MEFCQ0RFRkdIMTIzNDU2Nzg5MEE
+ifQ.eyJwaXhDb3BpYUVDb2xhIjoiMDAwMDEuMTExMTAgMjIyMjIuMjIyMjIyIDM
+zMzMzLjMzMzMzMyA0IDAwMDAwMDAwMDEwMCIsImluZm9BZGl0aXZhcyI6W3sia
+...
+```
+
+The payload is split into three Base64URL-encoded parts: `header.payload.signature`.
+
+---
+
+## Verify the Signature (Recommended)
+
+Always verify the JWS before rendering or trusting the payload:
+
+```javascript
+import * as jose from 'jose';
+
+const jwksUri = 'https://qrcode.brzip.com.br/pix/jwks';
+const JWKS = jose.createRemoteJWKSet(new URL(jwksUri));
+
+async function verifyQR(jws) {
+  const { payload, protectedHeader } = await jose.compactVerify(jws, JWKS);
+
+  console.log('Algorithm:', protectedHeader.alg); // PS256
+  console.log('Key ID:', protectedHeader.kid);
+
+  const data = JSON.parse(new TextDecoder().decode(payload));
+  return data;
+}
+```
+
+**Decoded payload example:**
+
+```json
+{
+  "pixCopiaECola": "00001.11110 22222.222222 33333.333333 4 00000000000100",
+  "infoAditivais": [
+    { "nome": "destinatario", "valor": "João da Silva" },
+    { "nome": "valor", "valor": "10.00" }
+  ],
+  "revisao": 0,
+  "calendario": {
+    "criacao": "2026-07-22T00:00:00Z",
+    "expiracao": 86400
+  }
+}
+```
+
+---
+
+## Resolve a Dynamic CobV QR Code
+
+For scheduled charges with fine/interest/discount (Cobrança com Vencimento):
+
+```bash
+curl -X GET https://qrcode.brzip.com.br/pix/cobv/{accessToken}
+```
+
+**Response:** Same JWS format. The payload includes additional `cobv` fields:
+
+```json
+{
+  "pixCopiaECola": "...",
+  "cobv": {
+    "valor": {
+      "original": "100.00",
+      "multa": { "modalidade": 2, "valorPerc": "2.00" },
+      "juros": { "modalidade": 1, "valorPerc": "1.00" },
+      "desconto": { "modalidade": 1, "valorPerc": "5.00", "descontoDataFixa": [] }
+    },
+    "calendario": {
+      "dataDeVencimento": "2026-07-30",
+      "validadeAposVencimento": 30
+    }
+  }
+}
+```
+
+---
+
+## JWKS Endpoint
+
+Retrieve the public key set for signature verification:
+
+```bash
+curl https://qrcode.brzip.com.br/pix/jwks
+```
+
+**Response:**
+
+```json
+{
+  "keys": [
+    {
+      "kty": "RSA",
+      "use": "sig",
+      "alg": "PS256",
+      "kid": "brz-2026-01",
+      "n": "...",
+      "e": "AQAB",
+      "x5t#S256": "abcdefg1234567890ABCDEFGH1234567890A"
+    }
+  ]
+}
+```
+
+The JWKS is also available at `/pixEndpoint/jwks` and `/jwks` (aliases, same content).
+
+<Callout intent="warning">
+  Cache the JWKS response and rotate keys on a TTL of at least 5 minutes. Do not call `/pix/jwks` on every QR scan — use `jose.createRemoteJWKSet()` which handles caching automatically.
+</Callout>
+
+---
+
+## Key Rotation
+
+BRZ rotates signing keys periodically. The new key appears in the JWKS with a new `kid` before the old key is retired. Your verification code must support multiple keys in the JWKS simultaneously — `jose.createRemoteJWKSet()` handles this automatically by matching `kid` from the JWS header.
+
+---
+
+## Summary: Endpoints
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/pix/qr/{accessToken}` | GET | None | Static QR — returns JWS |
+| `/pix/cobv/{accessToken}` | GET | None | Dynamic CobV QR — returns JWS |
+| `/pix/jwks` | GET | None | Public key set (PS256) |
+| `/pixEndpoint/jwks` | GET | None | Alias for `/pix/jwks` |
+| `/jwks` | GET | None | Alias for `/pix/jwks` |

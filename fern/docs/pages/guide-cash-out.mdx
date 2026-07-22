@@ -146,6 +146,77 @@ curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
 |--------|-------------|
 | `X-Pix-Lookup-E2E` | `end_to_end_id` obtained from [`POST /api/v1/pix/qrcode/decode`](api:POST/api/v1/pix/qrcode/decode) |
 
+## 2FA / Step-Up Authentication
+
+Cash-out payments above your tenant's configured threshold require an additional `X-Step-Up-Token` header. This is a short-lived token that proves the user completed a second factor (OTP) just before the transaction.
+
+<Callout intent="warning">
+  If your payload exceeds the threshold and `X-Step-Up-Token` is missing or expired, the API returns `403 STEP_UP_REQUIRED`. The token is valid for **5 minutes** and is single-use.
+</Callout>
+
+### Step 1 — Request an OTP
+
+```bash
+curl -X POST https://api.brzip.com.br/api/v1/auth/otp/request \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operation": "cash_out",
+    "channel": "sms"
+  }'
+```
+
+OTP is sent to the user's registered phone (or email if `channel: "email"`).
+
+### Step 2 — Verify OTP and Obtain Step-Up Token
+
+```bash
+curl -X POST https://api.brzip.com.br/api/v1/auth/otp/verify \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "otp": "123456"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "step_up_token": "eyJhbGciOiJSUzI1NiJ9...",
+    "expires_at": "2026-07-22T14:35:00Z"
+  }
+}
+```
+
+### Step 3 — Include `X-Step-Up-Token` in the Cash-Out Request
+
+```bash
+curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440088" \
+  -H "X-Step-Up-Token: eyJhbGciOiJSUzI1NiJ9..." \
+  -d '{
+    "amount": "50000.00",
+    "pix_key": "destinatario@empresa.com.br",
+    "pix_key_type": "EMAIL",
+    "description": "High-value transfer"
+  }'
+```
+
+**Step-up error codes:**
+
+| HTTP | Code | Meaning |
+|------|------|---------|
+| 403 | `STEP_UP_REQUIRED` | Amount exceeds threshold and no valid step-up token |
+| 403 | `STEP_UP_EXPIRED` | Token is older than 5 minutes |
+| 403 | `STEP_UP_INVALID` | Token was already used or is malformed |
+
+---
+
 ## Optional Fields (All Flows)
 
 | Field | Type | Description |
@@ -161,6 +232,7 @@ curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
 | `Authorization` | Yes | `Bearer <jwt>` |
 | `X-Idempotency-Key` | Recommended | UUID to prevent duplicate payments |
 | `X-Pix-Lookup-E2E` | Flow 3 only | EndToEndID from QR Code decode |
+| `X-Step-Up-Token` | Above threshold | Short-lived OTP token for 2FA (see section above) |
 
 ## Checking Payment Status
 

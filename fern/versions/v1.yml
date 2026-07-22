@@ -11,16 +11,34 @@ navigation:
         path: ../docs/pages/error-handling.mdx
   - section: Guides
     contents:
-      - page: Cash-In (Receiving Payments)
-        path: ../docs/pages/guide-cash-in.mdx
-      - page: Cash-Out (Sending Payments)
-        path: ../docs/pages/guide-cash-out.mdx
-      - page: PIX Keys Management
-        path: ../docs/pages/guide-pix-keys.mdx
-      - page: Webhooks Integration
-        path: ../docs/pages/guide-webhooks.mdx
-      - page: MED (Special Returns)
-        path: ../docs/pages/guide-med.mdx
+      - section: PIX
+        contents:
+          - page: Cash-In (Receiving Payments)
+            path: ../docs/pages/guide-cash-in.mdx
+          - page: Cash-Out (Sending Payments)
+            path: ../docs/pages/guide-cash-out.mdx
+          - page: Static QR Code (JWS)
+            path: ../docs/pages/guide-qr-estatico.mdx
+          - page: PIX Keys Management
+            path: ../docs/pages/guide-pix-keys.mdx
+          - page: MED (Special Returns)
+            path: ../docs/pages/guide-med.mdx
+      - section: Accounts & Wallets
+        contents:
+          - page: Account Management
+            path: ../docs/pages/guide-accounts.mdx
+          - page: Wallet Balance & Breakdown
+            path: ../docs/pages/guide-wallets.mdx
+      - section: Payments
+        contents:
+          - page: Boleto Payments
+            path: ../docs/pages/guide-boleto.mdx
+      - section: Platform
+        contents:
+          - page: Webhooks Integration
+            path: ../docs/pages/guide-webhooks.mdx
+          - page: Changelog
+            path: ../docs/pages/changelog.mdx
   - api: API Reference
     layout:
       - Authentication
@@ -33,6 +51,11 @@ navigation:
       - PIX Reversals
       - PIX Cash-Out
       - MED
+      - Accounts
+      - Boleto
+      - Wallets
+      - Participants
+      - PIX QR Code Server
       - Webhooks
       - section: P2P # Override name to fix casing issue
         referenced-packages:

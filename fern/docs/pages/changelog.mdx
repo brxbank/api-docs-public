@@ -1,0 +1,98 @@
+---
+title: "Changelog"
+description: "BRZ API changes, new features, and breaking changes."
+---
+
+# Changelog
+
+## Q3 2026
+
+### 2026-07-22 — Wallet Breakdown (v1-1-beta)
+
+**New:** `wallet_breakdown` array in `GET /api/v1-1-beta/wallet/balance/{clientId}` and `POST /api/v1-1-beta/wallet/balances`.
+
+Clients holding multiple wallets (e.g., primary + escrow) now receive a per-wallet breakdown with `wallet_id`, `wallet_type`, `available`, `blocked`, and `currency` fields.
+
+No changes to the `v1` path — `wallet_breakdown` is only in `v1-1-beta`.
+
+---
+
+### 2026-07-01 — Boleto Payments (Celcoin) — General Availability
+
+The Boleto Payments API is now GA for all tenants:
+
+- `POST /api/v1/payments/boleto/decode` — decode and validate barcodes before payment
+- `POST /api/v1/payments/boleto` — authorize payment (debits wallet immediately)
+- `GET /api/v1/payments/boleto/{paymentId}` — poll payment status
+- `DELETE /api/v1/payments/boleto/{paymentId}` — cancel while in `PROCESSING`
+
+Webhook events: `boleto.payment.paid`, `boleto.payment.failed`, `boleto.payment.cancelled`.
+
+---
+
+### 2026-07-01 — PIX QR Code Server — Public Documentation
+
+The QR Code server at `qrcode.brzip.com.br` is now fully documented:
+
+- JWS compact serialization format (PS256)
+- JWKS at `/pix/jwks` with `alg: PS256` and `x5t#S256`
+- Static (`/pix/qr/{accessToken}`) and dynamic CobV (`/pix/cobv/{accessToken}`) endpoints
+
+---
+
+## Q2 2026
+
+### 2026-06-15 — 2FA / Step-Up Authentication for Cash-Out
+
+Cash-out operations above the configured tenant threshold now require `X-Step-Up-Token`.
+
+**How to obtain:**
+1. Call `POST /api/v1/auth/otp/request` — sends OTP to the user's registered device
+2. Submit OTP to `POST /api/v1/auth/otp/verify` — returns a short-lived step-up token (valid 5 minutes)
+3. Include the token as `X-Step-Up-Token: <token>` on the cash-out request
+
+See the [Cash-Out guide](./guide-cash-out) for the full flow.
+
+---
+
+### 2026-06-01 — Account Capabilities & KYC Levels
+
+Account capabilities are now tied to KYC level:
+
+- `GET /api/v1/accounts/{accountId}/capabilities` returns the current capability matrix
+- `POST /api/v1/accounts/{accountId}/activate` transitions `pending_kyc → active` after KYC approval
+- `POST /api/v1/accounts/{accountId}/block` halts all operations (PIX, boleto, P2P)
+
+New account types: `PF` (CPF), `PJ` (CNPJ), `ESCROW`.
+
+See the [Account Management guide](./guide-accounts).
+
+---
+
+### 2026-05-20 — Webhook Authentication (INTERNAL_SERVICE_KEY)
+
+Webhook signing migrated from `X-Webhook-Secret` to `HMAC-SHA256` with `X-BRZ-Signature` header.
+
+**Action required:** Update your webhook consumer to verify `X-BRZ-Signature` using the shared secret from your tenant configuration. The old `X-Webhook-Secret` header is deprecated and will be removed in Q4 2026.
+
+See the [Webhooks guide](./guide-webhooks).
+
+---
+
+### 2026-05-01 — PIX Participant Directory
+
+`GET /api/v1/participants` now available — query the list of PIX-enabled financial institutions with their ISPB codes, names, and capabilities.
+
+---
+
+### 2026-04-15 — Account Reservation
+
+`POST /api/v1/accounts/reserve` — reserve an account slot before completing full onboarding. Returns `account_id` in `pending_kyc` state. Allows capturing client identity early without requiring all KYC documents at sign-up.
+
+---
+
+### 2026-04-01 — Staging Environment
+
+`api.stg.brzip.com.br` is now available for integration testing. Staging is isolated — transactions do not settle and funds are virtual.
+
+All endpoints documented in this reference work in staging with the same request/response shapes.
