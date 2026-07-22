@@ -1,0 +1,39 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Convert openapi.yaml to openapi.json
+        run: |
+          python3 -c "
+          import json, yaml, datetime
+
+          def default(obj):
+              if isinstance(obj, (datetime.date, datetime.datetime)):
+                  return str(obj)
+              raise TypeError(f'Not serializable: {type(obj)}')
+
+          data = yaml.safe_load(open('fern/openapi.yaml'))
+          json.dump(data, open('openapi.json', 'w'), ensure_ascii=False, indent=2, default=default)
+          "
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          exclude_assets: '.github,fern,README.md,VERSIONING.md'
+          cname: docs.brzip.com.br
