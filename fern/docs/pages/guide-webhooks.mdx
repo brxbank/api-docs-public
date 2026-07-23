@@ -161,6 +161,16 @@ def verify_webhook_signature(raw_body: str, signing_key: str, headers: dict) -> 
 | `pix.cash_out.failed` | Payment failed |
 | `pix.cash_out.returned` | Payment was returned by the recipient's bank |
 
+### MED Events
+
+| Event | Description |
+|-------|-------------|
+| `pix.med_refund.received` | BACEN opened an inbound MED — funds return requested |
+| `pix.med_refund.defense_submitted` | Defense recorded — status moved to UNDER_REVIEW |
+| `pix.med_refund.resolved` | BACEN issued final decision (COMPLETED or CANCELLED) |
+| `pix.infraction.received` | Inbound PIX infraction report received from BACEN |
+| `pix.infraction_notification.received` | JDPI §8.2.21 infraction notification received |
+
 ### Other Events
 
 | Event | Description |
@@ -168,8 +178,6 @@ def verify_webhook_signature(raw_body: str, signing_key: str, headers: dict) -> 
 | `onboarding.status_changed` | Account onboarding status changed |
 | `limits.request_approved` | Limit change request approved |
 | `limits.request_rejected` | Limit change request rejected |
-| `pix.infraction.received` | PIX infraction notification received |
-| `pix.med_refund.received` | MED refund request received |
 | `payment_link.paid` | Payment link paid |
 | `payment_link.expired` | Payment link expired |
 

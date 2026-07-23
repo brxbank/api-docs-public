@@ -889,144 +889,18 @@ tags:
       **Scope:** `pix:med:read` / `pix:med:write`
   - name: Webhooks
     description: >-
-      Manage webhook notification endpoints. Allows clients to register URLs to
-      receive real-time notifications about PIX events.
+      Register URLs to receive real-time HTTP POST notifications when events
+      occur in your account — PIX payments, MED requests, onboarding updates,
+      and more.
 
 
-      ## Overview
+      **Scopes:** `webhooks:read` (list, search) · `webhooks:write` (create,
+      update, delete, resend)
 
 
-      The webhook system sends HTTP POST notifications to URLs registered by the
-      client when events occur (PIX received, transfer confirmed, etc.).
-
-
-      ## Authentication
-
-
-      All endpoints use Bearer Token JWT with the following scopes:
-
-      - `webhooks:read` — List, search webhooks and deliveries
-
-      - `webhooks:write` — Create, update, delete webhooks and resend deliveries
-
-
-      **IMPORTANT:** Tokens must explicitly include `webhooks:read` and/or
-      `webhooks:write` in the scopes requested during token generation. API Keys
-      created by the system include these scopes by default.
-
-
-      ## Supported Events
-
-
-      | Event | Description |
-      |-------|-------------|
-      | `*` | All events |
-      | `pix.cash_in.received` | Charge confirmed — QR Code generated and ready for payment |
-      | `pix.cash_in.confirmed` | Payment received — funds credited to account |
-      | `pix.cash_in.expired` | PIX Cash-In expired |
-      | `pix.cash_in.refunded` | PIX Cash-In refunded |
-      | `pix.cash_out.created` | PIX Cash-Out created |
-      | `pix.cash_out.completed` | PIX Cash-Out completed |
-      | `pix.cash_out.failed` | PIX Cash-Out failed |
-      | `pix.cash_out.returned` | PIX Cash-Out returned |
-      | `pix.reversal.created` | PIX Reversal created |
-      | `pix.reversal.completed` | PIX Reversal completed |
-      | `pix.reversal.failed` | PIX Reversal failed |
-      | `pix.inbound.received` | PIX inbound received (direct) |
-      | `onboarding.status_changed` | Onboarding status changed (approved/rejected) |
-      | `limits.request_approved` | Limit change request approved |
-      | `limits.request_rejected` | Limit change request rejected |
-      | `pix.infraction.received` | PIX infraction notification received |
-      | `pix.med_refund.received` | MED refund request received |
-      | `balance.updated` | Balance updated |
-      | `payment_link.paid` | Payment link paid |
-      | `payment_link.expired` | Payment link expired |
-
-
-      ## Notification Payload
-
-
-      Each notification sent to your URL uses the legacy-compatible format:
-
-      ```json
-      {
-        "id": "transaction-uuid",
-        "source": "pixgw",
-        "event": "pix.cash_in.confirmed",
-        "timestamp": "2025-01-15T10:30:00Z",
-        "correlation_id": "transaction-uuid",
-        "data": {
-          "transaction": {
-            "id": "internal-uuid",
-            "amount": "150.00",
-            "status": "completed",
-            "reference": "ref-001",
-            "pix_key": "key@pix.com",
-            "pix_key_type": "EMAIL",
-            "payer": {
-              "name": "John Doe",
-              "document": "123.456.789-00"
-            }
-          }
-        }
-      }
-      ```
-
-
-      The notification includes an `X-Webhook-Signature` header with
-      HMAC-SHA256 using the webhook `secret` for validation.
-
-
-      ### Internal Payload Statuses
-
-
-      | Status | Meaning |
-      |--------|---------|
-      | `pending` | Received, awaiting processing |
-      | `processing` | Being processed |
-      | `completed` | Successfully completed |
-      | `failed` | Failed |
-      | `expired` | Expired |
-      | `cancelled` | Cancelled |
-      | `refunded` | Refunded |
-      | `returned` | Returned (cash-out) |
-
-
-      ## Retries
-
-
-      If your URL returns an error (status >= 400 or timeout), the system
-      automatically retries with exponential backoff:
-
-      - 1st retry: 1 minute
-
-      - 2nd retry: 5 minutes
-
-      - 3rd retry: 30 minutes
-
-      - 4th retry: 1 hour
-
-      - 5th retry: sent to DLQ (Dead Letter Queue)
-
-
-      ## Temporal Workflow
-
-
-      Cash-in events with `completed` status and cash-out events with final
-      status are processed by the Temporal Workflow before webhook delivery. The
-      workflow manages:
-
-      - Ledger capture (balance)
-
-      - Retention check (cash-in)
-
-      - Webhook delivery to client
-
-
-      This ensures consistency between balance and notification.
-
-
-      ---
+      For the full integration guide including supported events, payload
+      examples, signature verification and retry behaviour, see the [Webhooks
+      Integration guide](/guides/webhooks-integration).
   - name: P2P
     description: >-
       Look up internal accounts and execute peer to peer (P2P) transfers.

@@ -1,30 +1,82 @@
 ---
 title: "MED (Special Returns)"
-description: "Learn how to respond to MED requests and list them by status using the BRZ API."
+description: "Complete guide to managing MED refund requests and PIX infractions — inbound and outbound flows, step-by-step integration journeys, and webhook payloads."
 ---
 
-# MED (Special Returns)
+# MED — Mecanismo Especial de Devolução
 
-MED (Special Return Mechanism) is a BACEN mechanism that allows a payer's institution to request the return of PIX funds in cases of fraud or operational errors. When your account is the recipient of such a request, the BRZ API lets you **respond** to it and **list** all inbound MED requests by status.
+MED (Special Return Mechanism) is the BACEN process for returning PIX funds in cases of fraud or operational errors. Your system may be involved in two roles:
+
+- **Inbound MED** — BACEN requests a return of funds you received (you are the accused party)
+- **Outbound MED** — You initiate a return request for funds you sent and want back (you are the claimant)
 
 <Callout intent="info">
-  MED endpoints use **Bearer Token** authentication. Scopes required: `pix:med:read` (list) and `pix:med:write` (respond).
+  **Scopes required:** `pix:med:read` (list, get) and `pix:med:write` (create, respond, cancel).
+  Infraction endpoints require `pix:infractions:read` and `pix:infractions:write`.
 </Callout>
 
-## How It Works
+---
 
-1. A payer's institution initiates a MED request targeting a transaction received by your account.
-2. BACEN places a **precautionary hold** on the corresponding funds.
-3. You receive a webhook notification (`pix.med_refund.received`) and the MED appears with status `OPEN`.
-4. You review the request and call the **Respond** endpoint with `approve` or `reject`.
-5. If approved, the held funds are returned to the payer. If rejected, the hold is released and funds remain in your account.
+## Inbound MED Journey
 
-## Listing MED Requests by Status
+This is the flow when BACEN opens a MED against your account — you are being asked to return funds.
 
-Use this endpoint to list all inbound MED requests filtered by their current status:
+```
+BACEN/JDPI
+    │
+    ▼ (1) MED refund request arrives
+gw-pix-service ──► pix.med_refund.received webhook ──► your system
+    │
+    ▼
+  status: OPEN
+    │
+    ├── (2) You submit a defense (approve or reject)
+    │       POST /api/v1/pix/med/{id}/respond
+    │       action: "approve" | "reject", reason: "..."
+    │
+    ▼
+  status: UNDER_REVIEW
+    │
+    ▼ pix.med_refund.defense_submitted webhook
+    │
+    ▼ (3) BACEN resolves
+pix.med_refund.resolved webhook
+  status: CANCELLED (rejected/not returned) or COMPLETED (returned)
+```
+
+### Step 1 — Receive the webhook
+
+When a MED arrives, your registered endpoint receives a `pix.med_refund.received` event:
+
+```json
+{
+  "id": "d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a",
+  "source": "pixgw",
+  "event": "pix.med_refund.received",
+  "timestamp": "2026-07-23T14:30:00Z",
+  "data": {
+    "refund_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "external_refund_id": "JDPI-REF-00123456",
+    "end_to_end_id": "E1234567820260723123456789abcdef",
+    "e2e": "E1234567820260723123456789abcdef",
+    "amount": "1500.00",
+    "refund_reason": "FRAUD",
+    "direction": "INBOUND",
+    "status": "OPEN",
+    "hold_placed": false,
+    "data_recebimento": "23/07/2026",
+    "hora_recebimento_med": "11:30:00",
+    "bancocontestante": "Banco Bradesco S.A."
+  }
+}
+```
+
+**`refund_reason` values:** `FRAUD` | `OPERATIONAL_FLAW` | `UNDISCLOSED`
+
+### Step 2 — Fetch the MED details
 
 ```bash
-curl -X GET "https://api.brzip.com.br/api/v1/pix/med/status/OPEN?page=1&page_size=20" \
+curl -X GET "https://api.brzip.com.br/api/v1/pix/med/{refund_id}" \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
@@ -32,65 +84,602 @@ curl -X GET "https://api.brzip.com.br/api/v1/pix/med/status/OPEN?page=1&page_siz
 
 ```json
 {
-  "meds": [
-    {
-      "med_id": "med_e5f6a7b8-c9d0-1e2f-3a4b-5c6d7e8f9a0b",
-      "status": "OPEN",
-      "type": "FRAUD",
-      "amount": "500.00",
-      "currency": "BRL",
-      "end_to_end_id": "E12345678202302232120abcdef123456",
-      "created_at": "2026-02-23T21:50:00.000Z"
-    }
-  ]
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "external_refund_id": "JDPI-REF-00123456",
+  "end_to_end_id": "E1234567820260723123456789abcdef",
+  "client_id": "your-client-uuid",
+  "amount": "1500.00",
+  "refund_reason": 1,
+  "status": "OPEN",
+  "direction": "INBOUND",
+  "defense_reason": null,
+  "defense_submitted_at": null,
+  "created_at": "2026-07-23T14:30:00Z",
+  "updated_at": "2026-07-23T14:30:00Z"
 }
 ```
 
-### Available Statuses
+**`refund_reason` as integer:** `1` = FRAUD | `2` = OPERATIONAL_FLAW | `3` = UNDISCLOSED
 
-| Status | Description |
-|--------|-------------|
-| `OPEN` | Request received, awaiting your response |
-| `IN_ANALYSIS` | Under review by the counterparty institution |
-| `APPROVED` | Return approved, funds being transferred back |
-| `REJECTED` | Return rejected, precautionary hold released |
-| `CLOSED` | Request closed (final state) |
+### Step 3 — Respond (approve or reject the return)
 
-### Query Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `page` | 1 | Page number (1-based) |
-| `page_size` | 20 | Items per page |
-
-## Responding to a MED Request
-
-Once you have reviewed an inbound MED request, respond with `approve` or `reject`:
+Call the respond endpoint. For inbound MEDs, `action` must be `"approve"` or `"reject"` and `reason` is required:
 
 ```bash
-curl -X POST https://api.brzip.com.br/api/v1/pix/med/{med_id}/respond \
+# Approve — agree to return the funds
+curl -X POST "https://api.brzip.com.br/api/v1/pix/med/{refund_id}/respond" \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -d '{
     "action": "approve",
-    "reason": "Return approved after internal analysis"
+    "reason": "Transaction confirmed as fraudulent after internal review"
   }'
 ```
 
-### Request Fields
+```bash
+# Reject — dispute the MED request
+curl -X POST "https://api.brzip.com.br/api/v1/pix/med/{refund_id}/respond" \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "reject",
+    "reason": "Transaction was authorized by account holder — legitimate purchase confirmed"
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "message": "defense submitted",
+  "refund_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "status": "UNDER_REVIEW"
+}
+```
+
+After this call, a `pix.med_refund.defense_submitted` webhook fires and the status moves to `UNDER_REVIEW`.
+
+### Step 4 — Await resolution
+
+BACEN analyzes the defense and sends a final decision. You receive `pix.med_refund.resolved`:
+
+```json
+{
+  "id": "f7a8b9c0-d1e2-3f4a-5b6c-7d8e9f0a1b2c",
+  "source": "pixgw",
+  "event": "pix.med_refund.resolved",
+  "timestamp": "2026-07-25T09:00:00Z",
+  "data": {
+    "refund_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "external_refund_id": "JDPI-REF-00123456",
+    "end_to_end_id": "E1234567820260723123456789abcdef",
+    "e2e": "E1234567820260723123456789abcdef",
+    "amount": "1500.00",
+    "refund_reason": "FRAUD",
+    "direction": "INBOUND",
+    "status": "CANCELLED",
+    "resolved_by": "bacen_event",
+    "data_recebimento": "25/07/2026",
+    "hora_recebimento_med": "06:00:00",
+    "bancocontestante": "Banco Bradesco S.A."
+  }
+}
+```
+
+**Final `status` values:**
+- `COMPLETED` — funds were returned to the claimant
+- `CANCELLED` — MED was rejected/dropped; funds remain with you
+
+---
+
+## Outbound MED Journey
+
+This is the flow when **you** initiate a MED — you sent PIX funds and want them back (fraud or operational error).
+
+```
+your system
+    │
+    ▼ (1) POST /api/v1/pix/med
+        direction: "OUTBOUND"
+    │
+    ▼
+  status: OPEN → workflow started (JDPI opened)
+    │
+    ▼ (2) Counterparty responds via JDPI (days or weeks)
+    │
+    ▼ (3) You confirm outcome
+        POST /api/v1/pix/med/{id}/respond
+        action: "completed" | "cancelled"
+    │
+    ▼
+pix.med_refund.resolved (status: COMPLETED or CANCELLED)
+```
+
+### Step 1 — Open an outbound MED
+
+```bash
+curl -X POST "https://api.brzip.com.br/api/v1/pix/med" \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "end_to_end_id": "E1234567820260710143022abcdef1234",
+    "amount": "850.00",
+    "refund_reason": 1,
+    "direction": "OUTBOUND",
+    "details": "Recipient unrecognized — possible fraud"
+  }'
+```
+
+**Request fields:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `action` | string | Yes | `approve` or `reject` |
-| `reason` | string | No | Justification for the decision |
+| `end_to_end_id` | string | Yes | E2E ID of the original PIX transaction |
+| `amount` | string | Yes | Amount to recover (in BRL, decimal string) |
+| `refund_reason` | integer | Yes | `1` = FRAUD, `2` = OPERATIONAL_FLAW, `3` = UNDISCLOSED |
+| `direction` | string | Yes | `"OUTBOUND"` |
+| `details` | string | No | Free-text description |
 
-### Actions
+**Response (201):**
 
-| Action | Behavior |
-|--------|----------|
-| `approve` | Captures the precautionary hold and returns the funds to the payer |
-| `reject` | Releases the precautionary hold; funds remain in your account |
+```json
+{
+  "id": "c3d4e5f6-a7b8-9c0d-ef12-34567890abcd",
+  "external_refund_id": null,
+  "end_to_end_id": "E1234567820260710143022abcdef1234",
+  "client_id": "your-client-uuid",
+  "amount": "850.00",
+  "refund_reason": 1,
+  "status": "OPEN",
+  "direction": "OUTBOUND",
+  "created_at": "2026-07-23T15:00:00Z",
+  "updated_at": "2026-07-23T15:00:00Z"
+}
+```
 
-## Webhook Notifications
+### Step 2 — Confirm outcome (when BACEN resolves)
 
-Subscribe to the `pix.med_refund.received` event to be notified in real time when a new MED request arrives. See the [Webhooks Integration](/guides/webhooks-integration) guide for setup instructions.
+Once the counterparty responds through JDPI, confirm the outcome:
+
+```bash
+# Funds returned successfully
+curl -X POST "https://api.brzip.com.br/api/v1/pix/med/{refund_id}/respond" \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "completed"}'
+
+# Return not obtained
+curl -X POST "https://api.brzip.com.br/api/v1/pix/med/{refund_id}/respond" \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{"action": "cancelled"}'
+```
+
+---
+
+## MED Statuses
+
+| Status | Description |
+|--------|-------------|
+| `OPEN` | MED received or created — awaiting response |
+| `WAITING_RETURN` | Counterparty acknowledged — awaiting fund transfer |
+| `UNDER_REVIEW` | Defense submitted — BACEN is analyzing |
+| `COMPLETED` | Funds returned successfully (final) |
+| `CANCELLED` | MED closed without return (rejected or dropped) (final) |
+
+---
+
+## Listing MEDs
+
+### List all MEDs for your account
+
+```bash
+curl -X GET "https://api.brzip.com.br/api/v1/pix/med?page=1&page_size=20" \
+  -H "Authorization: Bearer <your-jwt>"
+```
+
+**Response:**
+
+```json
+{
+  "data": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "end_to_end_id": "E1234567820260723123456789abcdef",
+      "amount": "1500.00",
+      "refund_reason": 1,
+      "status": "OPEN",
+      "direction": "INBOUND",
+      "created_at": "2026-07-23T14:30:00Z",
+      "updated_at": "2026-07-23T14:30:00Z"
+    }
+  ],
+  "page": 1,
+  "page_size": 20
+}
+```
+
+### List by status
+
+```bash
+curl -X GET "https://api.brzip.com.br/api/v1/pix/med/status/OPEN" \
+  -H "Authorization: Bearer <your-jwt>"
+```
+
+Valid statuses: `OPEN` | `WAITING_RETURN` | `UNDER_REVIEW` | `COMPLETED` | `CANCELLED`
+
+### Cancel a MED
+
+Cancel an open MED before BACEN begins processing:
+
+```bash
+curl -X POST "https://api.brzip.com.br/api/v1/pix/med/{refund_id}/cancel" \
+  -H "Authorization: Bearer <your-jwt>"
+```
+
+---
+
+## Infractions
+
+PIX infractions (`/infractions`) are formal reports to BACEN about suspicious transactions — separate from MED but closely related. Infractions trigger BACEN investigations; MED is the mechanism for the actual fund return.
+
+### Creating an outbound infraction report
+
+```bash
+curl -X POST "https://api.brzip.com.br/api/v1/pix/infractions" \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "end_to_end_id": "E1234567820260710143022abcdef1234",
+    "report_type": "FRAUD",
+    "reporter_ispb": "12345678",
+    "direction": "OUTBOUND",
+    "details": "Suspected fraudulent recipient account"
+  }'
+```
+
+**Request fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `end_to_end_id` | string | No* | E2E ID of the flagged transaction |
+| `pix_key_id` | string | No* | PIX key involved (alternative to E2E) |
+| `report_type` | string | Yes | `FRAUD` \| `AML_CFT` \| `ACCOUNT_CLOSURE` \| `OTHER` |
+| `reporter_ispb` | string | Yes | ISPB of the reporting institution |
+| `reported_ispb` | string | No | ISPB of the reported institution |
+| `direction` | string | Yes | `INBOUND` \| `OUTBOUND` |
+| `details` | string | No | Free-text description |
+
+*At least one of `end_to_end_id` or `pix_key_id` is expected.
+
+**Response (201):**
+
+```json
+{
+  "id": "inf-uuid-here",
+  "external_report_id": null,
+  "end_to_end_id": "E1234567820260710143022abcdef1234",
+  "report_type": "FRAUD",
+  "reporter_ispb": "12345678",
+  "status": "OPEN",
+  "direction": "OUTBOUND",
+  "created_at": "2026-07-23T15:00:00Z",
+  "updated_at": "2026-07-23T15:00:00Z"
+}
+```
+
+### Infraction statuses
+
+| Status | Description |
+|--------|-------------|
+| `OPEN` | Report created — under analysis |
+| `ACKNOWLEDGED` | Counterparty acknowledged the report |
+| `CANCELLED` | Report cancelled |
+| `CLOSED` | Investigation concluded (final) |
+
+### Receiving an inbound infraction (`pix.infraction.received`)
+
+When BACEN reports an infraction against a transaction you received, you get this webhook:
+
+```json
+{
+  "id": "e1f2a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b",
+  "source": "pixgw",
+  "event": "pix.infraction.received",
+  "timestamp": "2026-07-23T16:00:00Z",
+  "data": {
+    "infraction_id": "inf-a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "external_report_id": "JDPI-INFR-00456789",
+    "report_type": "FRAUD",
+    "end_to_end_id": "E1234567820260710143022abcdef1234",
+    "reporter_ispb": "60746948",
+    "direction": "INBOUND",
+    "status": "OPEN"
+  }
+}
+```
+
+### Receiving an infraction notification (`pix.infraction_notification.received`)
+
+JDPI §8.2.21 infraction notifications (separate from the standard infraction flow):
+
+```json
+{
+  "id": "b3c4d5e6-f7a8-9b0c-1d2e-3f4a5b6c7d8e",
+  "source": "pixgw",
+  "event": "pix.infraction_notification.received",
+  "timestamp": "2026-07-23T16:05:00Z",
+  "data": {
+    "refund_id": "notif-uuid-here",
+    "external_report_id": "JDPI-NOTIF-00789012",
+    "end_to_end_id": "E1234567820260710143022abcdef1234",
+    "e2e": "E1234567820260710143022abcdef1234",
+    "report_type": "FRAUD",
+    "contested_ispb": "60746948",
+    "direction": "INBOUND",
+    "status": "OPEN",
+    "jdpi_status": "open",
+    "data_recebimento": "23/07/2026",
+    "hora_recebimento_med": "13:05:00",
+    "bancocontestante": "Itaú Unibanco S.A."
+  }
+}
+```
+
+---
+
+## All MED Webhook Events
+
+Subscribe to these events on your webhook to cover the full MED lifecycle:
+
+```bash
+curl -X POST "https://api.brzip.com.br/api/v1/webhooks" \
+  -H "Authorization: Bearer <your-jwt>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-system.com/webhooks/med",
+    "events": [
+      "pix.med_refund.received",
+      "pix.med_refund.defense_submitted",
+      "pix.med_refund.resolved",
+      "pix.infraction.received",
+      "pix.infraction_notification.received"
+    ]
+  }'
+```
+
+| Event | When it fires |
+|-------|--------------|
+| `pix.med_refund.received` | BACEN opens an inbound MED against you |
+| `pix.med_refund.defense_submitted` | Your defense was recorded (status → UNDER_REVIEW) |
+| `pix.med_refund.resolved` | BACEN issued a final decision (COMPLETED or CANCELLED) |
+| `pix.infraction.received` | BACEN sent an inbound infraction report |
+| `pix.infraction_notification.received` | JDPI §8.2.21 infraction notification received |
+
+All events arrive as an HTTP POST to your URL with this envelope:
+
+```json
+{
+  "id": "d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a",
+  "source": "pixgw",
+  "event": "pix.med_refund.received",
+  "timestamp": "2026-07-23T14:30:00Z",
+  "data": { }
+}
+```
+
+| Envelope field | Type | Description |
+|----------------|------|-------------|
+| `id` | string (UUID) | Unique delivery ID |
+| `source` | string | Always `pixgw` |
+| `event` | string | Event name (see table above) |
+| `timestamp` | string | ISO 8601 UTC timestamp |
+| `data` | object | Event-specific payload — detailed per event below |
+
+---
+
+### `pix.med_refund.received`
+
+Fires when BACEN opens a new MED request targeting funds in your account.
+
+**`data`:**
+
+```json
+{
+  "refund_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "external_refund_id": "JDPI-REF-00123456",
+  "end_to_end_id": "E1234567820260723123456789abcdef",
+  "e2e": "E1234567820260723123456789abcdef",
+  "amount": "1500.00",
+  "refund_reason": "FRAUD",
+  "direction": "INBOUND",
+  "status": "OPEN",
+  "hold_placed": false,
+  "data_recebimento": "23/07/2026",
+  "hora_recebimento_med": "11:30:00",
+  "bancocontestante": "Banco Bradesco S.A."
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `refund_id` | string (UUID) | Internal MED ID — use in subsequent API calls |
+| `external_refund_id` | string | JDPI reference ID |
+| `end_to_end_id` | string | E2E ID of the original PIX transaction |
+| `e2e` | string | Alias for `end_to_end_id` |
+| `amount` | string | Amount requested for return (BRL) |
+| `refund_reason` | string | `FRAUD` \| `OPERATIONAL_FLAW` \| `UNDISCLOSED` |
+| `direction` | string | Always `INBOUND` |
+| `status` | string | Always `OPEN` on receipt |
+| `hold_placed` | boolean | Whether a precautionary hold was placed on funds |
+| `data_recebimento` | string | Receipt date (DD/MM/YYYY, BRT) |
+| `hora_recebimento_med` | string | Receipt time (HH:MM:SS, BRT) |
+| `bancocontestante` | string | Name of the contesting institution |
+
+---
+
+### `pix.med_refund.defense_submitted`
+
+Fires after your system calls `POST /med/{id}/respond` with `approve` or `reject`. Status moves to `UNDER_REVIEW`.
+
+**`data`:**
+
+```json
+{
+  "refund_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "end_to_end_id": "E1234567820260723123456789abcdef",
+  "e2e": "E1234567820260723123456789abcdef",
+  "direction": "INBOUND",
+  "status": "UNDER_REVIEW",
+  "defense_reason": "Transaction was authorized by account holder",
+  "data_recebimento": "23/07/2026",
+  "hora_recebimento_med": "12:45:00",
+  "bancocontestante": "Banco Bradesco S.A."
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `refund_id` | string (UUID) | Internal MED ID |
+| `end_to_end_id` | string | E2E ID of the original PIX transaction |
+| `e2e` | string | Alias for `end_to_end_id` |
+| `direction` | string | Always `INBOUND` |
+| `status` | string | Always `UNDER_REVIEW` after defense |
+| `defense_reason` | string | The reason text submitted with the response |
+| `data_recebimento` | string | Submission date (DD/MM/YYYY, BRT) |
+| `hora_recebimento_med` | string | Submission time (HH:MM:SS, BRT) |
+| `bancocontestante` | string | Name of the contesting institution |
+
+---
+
+### `pix.med_refund.resolved`
+
+Fires when BACEN issues the final decision. Terminal event — no further action needed.
+
+**`data`:**
+
+```json
+{
+  "refund_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "external_refund_id": "JDPI-REF-00123456",
+  "end_to_end_id": "E1234567820260723123456789abcdef",
+  "e2e": "E1234567820260723123456789abcdef",
+  "amount": "1500.00",
+  "refund_reason": "FRAUD",
+  "direction": "INBOUND",
+  "status": "CANCELLED",
+  "resolved_by": "bacen_event",
+  "data_recebimento": "25/07/2026",
+  "hora_recebimento_med": "06:00:00",
+  "bancocontestante": "Banco Bradesco S.A."
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `refund_id` | string (UUID) | Internal MED ID |
+| `external_refund_id` | string | JDPI reference ID |
+| `end_to_end_id` | string | E2E ID of the original PIX transaction |
+| `e2e` | string | Alias for `end_to_end_id` |
+| `amount` | string | Amount at stake (BRL) |
+| `refund_reason` | string | `FRAUD` \| `OPERATIONAL_FLAW` \| `UNDISCLOSED` |
+| `direction` | string | `INBOUND` or `OUTBOUND` |
+| `status` | string | `COMPLETED` — funds returned \| `CANCELLED` — not returned |
+| `resolved_by` | string | Always `bacen_event` |
+| `data_recebimento` | string | Resolution date (DD/MM/YYYY, BRT) |
+| `hora_recebimento_med` | string | Resolution time (HH:MM:SS, BRT) |
+| `bancocontestante` | string | Name of the contesting institution |
+
+---
+
+### `pix.infraction.received`
+
+Fires when BACEN sends an inbound infraction report for a transaction you received.
+
+**`data`:**
+
+```json
+{
+  "infraction_id": "a9b8c7d6-e5f4-3210-fedc-ba9876543210",
+  "external_report_id": "JDPI-INFR-00456789",
+  "report_type": "FRAUD",
+  "end_to_end_id": "E1234567820260710143022abcdef1234",
+  "reporter_ispb": "60746948",
+  "direction": "INBOUND",
+  "status": "OPEN"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `infraction_id` | string (UUID) | Internal infraction ID — use in `GET /infractions/{id}` |
+| `external_report_id` | string | JDPI report reference ID |
+| `report_type` | string | `FRAUD` \| `AML_CFT` \| `ACCOUNT_CLOSURE` \| `OTHER` |
+| `end_to_end_id` | string | E2E ID of the flagged transaction |
+| `reporter_ispb` | string | ISPB of the institution that filed the report |
+| `direction` | string | Always `INBOUND` |
+| `status` | string | Always `OPEN` on receipt |
+
+---
+
+### `pix.infraction_notification.received`
+
+Fires on JDPI §8.2.21 infraction notifications — lighter than a formal infraction. No funds held, no action required; use for monitoring and audit.
+
+**`data`:**
+
+```json
+{
+  "refund_id": "c1d2e3f4-a5b6-7c8d-9e0f-1a2b3c4d5e6f",
+  "external_report_id": "JDPI-NOTIF-00789012",
+  "end_to_end_id": "E1234567820260710143022abcdef1234",
+  "e2e": "E1234567820260710143022abcdef1234",
+  "report_type": "FRAUD",
+  "contested_ispb": "60746948",
+  "direction": "INBOUND",
+  "status": "OPEN",
+  "jdpi_status": "open",
+  "data_recebimento": "23/07/2026",
+  "hora_recebimento_med": "13:05:00",
+  "bancocontestante": "Itaú Unibanco S.A."
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `refund_id` | string (UUID) | Internal record ID (type `INFRACTION_NOTIFICATION`) |
+| `external_report_id` | string | JDPI notification reference ID |
+| `end_to_end_id` | string | E2E ID of the flagged transaction |
+| `e2e` | string | Alias for `end_to_end_id` |
+| `report_type` | string | `FRAUD` \| `AML_CFT` \| `ACCOUNT_CLOSURE` \| `OTHER` |
+| `contested_ispb` | string | ISPB of the institution being contested |
+| `direction` | string | Always `INBOUND` |
+| `status` | string | `OPEN` \| `COMPLETED` \| `CANCELLED` (mapped from JDPI) |
+| `jdpi_status` | string | Raw JDPI value: `open` \| `accepted` \| `rejected` \| `cancelled` |
+| `data_recebimento` | string | Receipt date (DD/MM/YYYY, BRT) |
+| `hora_recebimento_med` | string | Receipt time (HH:MM:SS, BRT) |
+| `bancocontestante` | string | Name of the contesting institution |
+
+---
+
+## Quick Reference
+
+### MED endpoints
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| `POST` | `/api/v1/pix/med` | `pix:med:write` | Create outbound MED |
+| `GET` | `/api/v1/pix/med` | `pix:med:read` | List MEDs for your account |
+| `GET` | `/api/v1/pix/med/{id}` | `pix:med:read` | Get MED by ID |
+| `POST` | `/api/v1/pix/med/{id}/respond` | `pix:med:write` | Respond to inbound or confirm outbound |
+| `POST` | `/api/v1/pix/med/{id}/cancel` | `pix:med:write` | Cancel an open MED |
+| `GET` | `/api/v1/pix/med/status/{status}` | `pix:med:read` | List MEDs by status |
+
+### Infraction endpoints
+
+| Method | Path | Scope | Description |
+|--------|------|-------|-------------|
+| `POST` | `/api/v1/pix/infractions` | `pix:infractions:write` | Create infraction report |
+| `GET` | `/api/v1/pix/infractions/{id}` | `pix:infractions:read` | Get infraction by ID |
+| `POST` | `/api/v1/pix/infractions/{id}/cancel` | `pix:infractions:write` | Cancel infraction |
+| `GET` | `/api/v1/pix/infractions/status/{status}` | `pix:infractions:read` | List infractions by status |
