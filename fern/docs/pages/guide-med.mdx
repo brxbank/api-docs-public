@@ -516,6 +516,10 @@ Fires when BACEN opens a new MED request targeting funds in your account.
 | `hora_recebimento_med` | string | Receipt time (HH:MM:SS, BRT) |
 | `bancocontestante` | string | Name of the contesting institution |
 
+<Callout intent="info">
+  This event is also enriched with `data_transacao`, `hora_transacao`, `pix_key`, `pix_key_type`, `pagador`, and `recebedor` from the original PIX transaction when the `end_to_end_id` matches a stored transaction. The `valor` field (original transaction amount) is also included — note that it may differ from `amount` if the MED covers only a partial refund.
+</Callout>
+
 ---
 
 ### `pix.med_refund.defense_submitted`
@@ -641,9 +645,41 @@ Fires on JDPI §8.2.21 infraction notifications — lighter than a formal infrac
   "jdpi_status": "open",
   "data_recebimento": "23/07/2026",
   "hora_recebimento_med": "13:05:00",
-  "bancocontestante": "Itaú Unibanco S.A."
+  "bancocontestante": "Itaú Unibanco S.A.",
+  "tax_id_contestante": "60746948000100",
+  "pix_key_contestante": "joao@example.com",
+  "tipo_chave_contestante": "EMAIL",
+  "motivo": "Transação suspeita de fraude relatada pelo PSP originador",
+  "id_marcacao_fraude": "FRAUD-MARKER-00123",
+  "psp_criador": "60746948",
+  "psp_contra_parte": "00416968",
+  "valor": "1500.00",
+  "data_transacao": "10/07/2026",
+  "hora_transacao": "14:30:22",
+  "pix_key": "joao@example.com",
+  "pix_key_type": "EMAIL",
+  "pagador": {
+    "nome": "João Silva",
+    "cpf": "123.456.789-00",
+    "ispb": "60746948",
+    "agencia": "0001",
+    "conta": "12345-6",
+    "tipoConta": "CONTA_CORRENTE"
+  },
+  "recebedor": {
+    "nome": "Maria Souza",
+    "cpf": "987.654.321-00",
+    "ispb": "00416968",
+    "agencia": "0002",
+    "conta": "98765-4",
+    "tipoConta": "CONTA_CORRENTE"
+  }
 }
 ```
+
+<Callout intent="info">
+  Fields `valor`, `data_transacao`, `hora_transacao`, `pix_key`, `pix_key_type`, `pagador`, and `recebedor` are enriched at delivery time from the original PIX transaction record matched by `end_to_end_id`. If the transaction is not found, these fields are omitted but the notification is still delivered.
+</Callout>
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -659,6 +695,20 @@ Fires on JDPI §8.2.21 infraction notifications — lighter than a formal infrac
 | `data_recebimento` | string | Receipt date (DD/MM/YYYY, BRT) |
 | `hora_recebimento_med` | string | Receipt time (HH:MM:SS, BRT) |
 | `bancocontestante` | string | Name of the contesting institution |
+| `tax_id_contestante` | string | CNPJ/CPF of the contesting institution |
+| `pix_key_contestante` | string | PIX key associated with the contesting party |
+| `tipo_chave_contestante` | string | PIX key type: `CPF` \| `CNPJ` \| `EMAIL` \| `PHONE` \| `EVP` |
+| `motivo` | string | Reason text from the JDPI notification |
+| `id_marcacao_fraude` | string | Fraud marker ID from JDPI (when applicable) |
+| `psp_criador` | string | ISPB of the PSP that created the notification |
+| `psp_contra_parte` | string | ISPB of the counterparty PSP |
+| `valor` | string | Original transaction amount (BRL) — enriched from PIX record |
+| `data_transacao` | string | Original transaction date (DD/MM/YYYY, BRT) — enriched from PIX record |
+| `hora_transacao` | string | Original transaction time (HH:MM:SS, BRT) — enriched from PIX record |
+| `pix_key` | string | PIX key used in the original transaction — enriched from PIX record |
+| `pix_key_type` | string | Type of PIX key used — enriched from PIX record |
+| `pagador` | object | Full payer data from the original PIX transaction — enriched from PIX record |
+| `recebedor` | object | Full receiver data from the original PIX transaction — enriched from PIX record |
 
 ---
 
