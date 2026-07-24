@@ -36,7 +36,7 @@ navigation:
       - section: Platform
         contents:
           - page: Webhooks Integration
-            path: ../docs/pages/guide-webhooks.mdx
+            path: ../docs/pages/webhooks-integration.mdx
           - page: Changelog
             path: ../docs/pages/changelog.mdx
   - api: API Reference
