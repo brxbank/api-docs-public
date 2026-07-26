@@ -1,25 +1,22 @@
-name: Publish Docs
+# Fern hosting disabled — docs are now served via GitHub Pages + Scalar.
+# This workflow is kept for reference only and will never trigger.
+name: Publish Docs (disabled)
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to confirm (Fern token expired — use deploy-pages.yml)'
+        required: true
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && contains(github.ref, 'refs/heads/main' ) && github.run_number > 1 }}
+    if: ${{ github.event.inputs.confirm == 'yes' }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Fern CLI
-        run: npm install -g fern-api
-
-      - name: Validate configuration
-        run: fern check
-
-      - name: Publish Docs
-        env:
+      - uses: actions/checkout@v4
+      - run: npm install -g fern-api
+      - run: fern check
+      - env:
           FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
         run: fern generate --docs

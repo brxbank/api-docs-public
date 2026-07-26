@@ -16,6 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Python dependencies
+        run: pip3 install pyyaml markdown
+
       - name: Convert openapi.yaml to openapi.json
         run: |
           python3 -c "
@@ -30,10 +33,13 @@ jobs:
           json.dump(data, open('openapi.json', 'w'), ensure_ascii=False, indent=2, default=default)
           "
 
+      - name: Build guide pages
+        run: python3 scripts/build_docs.py
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: .
-          exclude_assets: '.github,fern,README.md,VERSIONING.md'
+          exclude_assets: '.github,fern,scripts,README.md,VERSIONING.md'
           cname: docs.brzip.com.br
