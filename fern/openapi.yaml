@@ -75,35 +75,34 @@ info:
     ### Step 1 — Create Account
 
 
-    Create your account with `POST /api/v1/auth/signup`. Save the returned `keyId`
-    and `secretKey`. OTP codes will be sent via email and SMS.
+    Create your account with `POST /api/v1/auth/signup`. The response includes
+    your `keyId` and `secretKey` — save them securely, the secret is shown only
+    once. OTP codes will be sent via email and SMS.
 
 
     ### Step 1b — Verify Email
 
 
     Verify your email with `POST /api/v1/auth/verify-email` using the OTP code
-    received.
+    received. If you did not receive the code, resend it with
+    `POST /api/v1/auth/resend-otp` (max 5 per hour) before retrying.
 
 
     ### Step 1c — Verify Phone
 
 
     Verify your phone with `POST /api/v1/auth/verify-phone` using the OTP code
-    received via SMS.
+    received via SMS. If you did not receive the code, use
+    `POST /api/v1/auth/resend-otp` to request a new one.
 
 
-    ### Step 1d — Resend OTP (optional)
+    ### Step 2 — Log In to Continue Onboarding
 
 
-    If needed, resend the code with `POST /api/v1/auth/resend-otp` (max 5 per
-    hour).
-
-
-    ### Step 2 — Login
-
-
-    Log in with `POST /api/v1/auth/login` to obtain a session token.
+    Log in with `POST /api/v1/auth/login` (email + password) to obtain a
+    session token. This token is required to access the document upload
+    endpoints below. It is a temporary onboarding token, not the production
+    Bearer Token you will use to call the API.
 
 
     ### Step 3 — Submit Documents (3 stages)
@@ -132,8 +131,10 @@ info:
     ### Step 5 — Generate Bearer Token
 
 
-    After approval, generate your Bearer Token with `POST /api/v1/auth/bearer-token`
-    using your credentials.
+    After approval, generate your production Bearer Token with
+    `POST /api/v1/auth/bearer-token` using your `keyId` and `secretKey` as
+    headers (`x-key-id` / `x-secret-key`). This is the JWT you will use in the
+    `Authorization: Bearer <token>` header for all API calls.
 
 
     ### Step 6 — Register PIX Key

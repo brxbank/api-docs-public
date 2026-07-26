@@ -35,6 +35,8 @@ navigation:
             path: ../docs/pages/guide-boleto.mdx
       - section: Platform
         contents:
+          - page: Tenant BaaS — Sub-Client Accounts
+            path: ../docs/pages/guide-tenant-baas.mdx
           - page: Webhooks Integration
             path: ../docs/pages/webhooks-integration.mdx
           - page: Changelog
