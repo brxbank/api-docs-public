@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cash-Out (Sending Payments) — BRZ API Docs</title>
+<meta name="description" content="Learn how to send PIX payments using the BRZ API.">
+<link rel="icon" type="image/png" href="/brand-logo.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;font-size:15px;line-height:1.65;color:#1a1a2e;background:#fff;display:flex;min-height:100vh}
+
+/* Sidebar */
+.sidebar{width:260px;min-width:260px;background:#f8f9fb;border-right:1px solid #e5e7eb;padding:24px 0;position:fixed;top:0;left:0;bottom:0;overflow-y:auto}
+.sidebar-logo{display:block;font-size:17px;font-weight:700;color:#1e3a5f;text-decoration:none;padding:0 20px 16px;border-bottom:1px solid #e5e7eb;margin-bottom:12px;letter-spacing:-.02em}
+.sidebar-api-ref{display:block;font-size:12.5px;color:#1e3a5f;text-decoration:none;padding:6px 12px;margin:0 12px 16px;border-radius:6px;border:1px solid #1e3a5f33;font-weight:500;text-align:center}
+.sidebar-api-ref:hover{background:#1e3a5f0d}
+.nav-section{margin-bottom:4px}
+.nav-section-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#9ca3af;padding:8px 20px 3px}
+.nav-subsection-title{font-size:10.5px;font-weight:600;color:#b0b8c4;padding:6px 20px 2px 28px;text-transform:uppercase;letter-spacing:.07em}
+.nav-link{display:block;font-size:13.5px;color:#374151;text-decoration:none;padding:5px 20px;transition:background .1s,color .1s}
+.nav-link:hover{background:#e9ecf0;color:#1e3a5f}
+.nav-link.active{background:#1e3a5f14;color:#1e3a5f;font-weight:600;border-left:3px solid #1e3a5f;padding-left:17px}
+
+/* Main */
+.main{margin-left:260px;flex:1;padding:52px 64px;max-width:960px}
+.page-meta{margin-bottom:32px}
+.page-description{color:#6b7280;font-size:15.5px;margin-top:6px}
+
+/* Typography */
+h1{font-size:28px;font-weight:700;color:#111827;line-height:1.25;margin-bottom:4px}
+h2{font-size:19px;font-weight:700;color:#1f2937;margin-top:44px;margin-bottom:12px;border-bottom:1px solid #e5e7eb;padding-bottom:6px}
+h3{font-size:15.5px;font-weight:600;color:#374151;margin-top:28px;margin-bottom:8px}
+h4{font-size:14px;font-weight:600;color:#4b5563;margin-top:20px;margin-bottom:6px}
+p{margin-bottom:14px}
+a{color:#1e3a5f;text-decoration:underline}
+a:hover{color:#2d5a8e}
+ul,ol{margin:10px 0 16px 24px}
+li{margin-bottom:5px}
+strong{font-weight:600}
+
+/* Code */
+code{font-family:"Menlo","Monaco","Consolas","Courier New",monospace;font-size:13px;background:#f3f4f6;padding:2px 5px;border-radius:4px;color:#c2185b}
+pre{background:#1a1a2e;color:#e2e8f0;border-radius:8px;padding:20px 24px;overflow-x:auto;margin:16px 0;font-size:13px;line-height:1.55}
+pre code{background:none;padding:0;color:inherit;font-size:inherit}
+
+/* Tables */
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px}
+th{background:#f3f4f6;font-weight:600;color:#374151;text-align:left;padding:8px 12px;border:1px solid #d1d5db}
+td{padding:8px 12px;border:1px solid #e5e7eb;color:#4b5563;vertical-align:top}
+tr:nth-child(even) td{background:#fafafa}
+
+/* Callouts */
+.callout{border-left:4px solid;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;font-size:14px;line-height:1.5}
+.callout p{margin:0}
+.callout-info{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8}
+.callout-warning{border-color:#f59e0b;background:#fffbeb;color:#92400e}
+.callout-danger{border-color:#ef4444;background:#fef2f2;color:#991b1b}
+.callout-tip{border-color:#10b981;background:#ecfdf5;color:#065f46}
+.callout-success{border-color:#10b981;background:#ecfdf5;color:#065f46}
+
+/* Steps */
+ol.steps{list-style:none;margin:16px 0;padding:0;counter-reset:step-counter}
+ol.steps li{counter-increment:step-counter;padding:16px 16px 16px 60px;position:relative;margin-bottom:10px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa}
+ol.steps li::before{content:counter(step-counter);position:absolute;left:16px;top:16px;width:28px;height:28px;background:#1e3a5f;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;line-height:1}
+ol.steps li p{margin:4px 0 0}
+
+/* Mobile */
+@media(max-width:768px){.sidebar{display:none}.main{margin-left:0;padding:28px 20px}}
+
+</style>
+</head>
+<body>
+<nav class="sidebar">
+<a href="/" class="sidebar-logo">BRZ Public API</a>
+<a href="/" class="sidebar-api-ref">API Reference ↗</a>
+<div class="nav-section">
+<div class="nav-section-title">Getting Started</div>
+<a href="/getting-started/introduction/" class="nav-link">Introduction</a>
+<a href="/getting-started/authentication/" class="nav-link">Authentication</a>
+<a href="/getting-started/rate-limits/" class="nav-link">Rate Limits</a>
+<a href="/getting-started/error-handling/" class="nav-link">Error Handling</a>
+</div>
+<div class="nav-section">
+<div class="nav-section-title">Guides</div>
+<div class="nav-subsection-title">PIX</div>
+<a href="/guides/guide-cash-in/" class="nav-link">Cash-In (Receiving Payments)</a>
+<a href="/guides/guide-cash-out/" class="nav-link active">Cash-Out (Sending Payments)</a>
+<a href="/guides/guide-qr-estatico/" class="nav-link">Static QR Code (JWS)</a>
+<a href="/guides/guide-pix-keys/" class="nav-link">PIX Keys Management</a>
+<a href="/guides/guide-med/" class="nav-link">MED (Special Returns)</a>
+<div class="nav-subsection-title">Accounts & Wallets</div>
+<a href="/guides/guide-accounts/" class="nav-link">Account Management</a>
+<a href="/guides/guide-wallets/" class="nav-link">Wallet Balance & Breakdown</a>
+<div class="nav-subsection-title">Payments</div>
+<a href="/guides/guide-boleto/" class="nav-link">Boleto Payments</a>
+<div class="nav-subsection-title">Platform</div>
+<a href="/guides/webhooks-integration/" class="nav-link">Webhooks Integration</a>
+<a href="/guides/changelog/" class="nav-link">Changelog</a>
+</div>
+</nav>
+<main class="main">
+<div class="page-meta">
+<h1>Cash-Out (Sending Payments)</h1>
+<p class="page-description">Learn how to send PIX payments using the BRZ API.</p>
+</div>
+<h1>Cash-Out (Sending Payments)</h1>
+<p>Cash-Out endpoints allow you to send PIX payments to any bank account in Brazil. There are three available flows depending on the information you have about the recipient.</p>
+<p><div class="callout callout-info">ℹ️ <p>Cash-Out endpoints use <strong>Bearer Token</strong> authentication. Always include the <code>X-Idempotency-Key</code> header to prevent duplicate payments.</p></div></p>
+<h2>Flow 1 — Via PIX Key</h2>
+<p>Send a payment directly using the recipient's PIX key. The system resolves the key to obtain the recipient's bank details automatically.</p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000&quot; \
+  -d '{
+    &quot;amount&quot;: &quot;150.00&quot;,
+    &quot;pix_key&quot;: &quot;12345678901&quot;,
+    &quot;pix_key_type&quot;: &quot;CPF&quot;,
+    &quot;description&quot;: &quot;Payment via PIX key&quot;,
+    &quot;reference&quot;: &quot;pay-key-001&quot;
+  }'
+</code></pre>
+<p><strong>Required fields:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td>Payment amount in BRL (e.g., <code>"150.00"</code>)</td>
+</tr>
+<tr>
+<td><code>pix_key</code></td>
+<td>string</td>
+<td>Recipient's PIX key</td>
+</tr>
+<tr>
+<td><code>pix_key_type</code></td>
+<td>string</td>
+<td>Key type: <code>CPF</code>, <code>CNPJ</code>, <code>EMAIL</code>, <code>PHONE</code>, or <code>EVP</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Example: Payment via Phone Number</h3>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440099&quot; \
+  -d '{
+    &quot;amount&quot;: &quot;75.00&quot;,
+    &quot;pix_key&quot;: &quot;+5531999999999&quot;,
+    &quot;pix_key_type&quot;: &quot;PHONE&quot;,
+    &quot;description&quot;: &quot;Payment via phone number&quot;,
+    &quot;reference&quot;: &quot;pay-phone-001&quot;
+  }'
+</code></pre>
+<h2>Flow 2 — Via Bank Details</h2>
+<p>Send a payment using the recipient's bank account details directly, without needing a PIX key.</p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;X-Idempotency-Key: 660e8400-e29b-41d4-a716-446655440001&quot; \
+  -d '{
+    &quot;amount&quot;: &quot;2500.00&quot;,
+    &quot;receiver_name&quot;: &quot;Acme Corp Ltda&quot;,
+    &quot;receiver_document&quot;: &quot;12345678000190&quot;,
+    &quot;receiver_ispb&quot;: &quot;00000000&quot;,
+    &quot;receiver_branch&quot;: &quot;0001&quot;,
+    &quot;receiver_account&quot;: &quot;98765432&quot;,
+    &quot;receiver_account_type&quot;: &quot;checking&quot;,
+    &quot;description&quot;: &quot;Supplier invoice #4521&quot;,
+    &quot;reference&quot;: &quot;pay-bank-001&quot;
+  }'
+</code></pre>
+<p><strong>Required fields:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td>Payment amount in BRL (e.g., <code>"2500.00"</code>)</td>
+</tr>
+<tr>
+<td><code>receiver_name</code></td>
+<td>string</td>
+<td>Recipient's full name or company name</td>
+</tr>
+<tr>
+<td><code>receiver_document</code></td>
+<td>string</td>
+<td>Recipient's CPF (11 digits) or CNPJ (14 digits)</td>
+</tr>
+<tr>
+<td><code>receiver_ispb</code></td>
+<td>string</td>
+<td>Recipient's bank ISPB code (8 digits)</td>
+</tr>
+<tr>
+<td><code>receiver_branch</code></td>
+<td>string</td>
+<td>Recipient's branch number</td>
+</tr>
+<tr>
+<td><code>receiver_account</code></td>
+<td>string</td>
+<td>Recipient's account number</td>
+</tr>
+<tr>
+<td><code>receiver_account_type</code></td>
+<td>string</td>
+<td>Account type: <code>checking</code>, <code>savings</code>, <code>salary</code>, or <code>payment</code></td>
+</tr>
+</tbody>
+</table>
+<h2>Flow 3 — Via QR Code (Two-Step)</h2>
+<p>The recommended approach for QR Code payments. First decode the QR Code, then send the payment using the pre-decoded data.</p>
+<h3>Step 1 — Decode the QR Code</h3>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/pix/qrcode/decode \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;br_code&quot;: &quot;00020126580014br.gov.bcb.pix0136a1b2c3d4-e5f6-7890-1234-567890123456...&quot;
+  }'
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;qr_code_type&quot;: &quot;static&quot;,
+  &quot;pix_key&quot;: &quot;26318747000186&quot;,
+  &quot;amount&quot;: &quot;10.00&quot;,
+  &quot;receiver_name&quot;: &quot;John Doe&quot;,
+  &quot;receiver_ispb&quot;: &quot;00000000&quot;,
+  &quot;receiver_participant_name&quot;: &quot;BCO DO BRASIL S.A.&quot;,
+  &quot;end_to_end_id&quot;: &quot;E54811417202603071234abcdef123456&quot;
+}
+</code></pre>
+<h3>Step 2 — Send the Payment</h3>
+<p>Use the <code>end_to_end_id</code> from the decode response as the <code>X-Pix-Lookup-E2E</code> header:</p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;X-Idempotency-Key: 770e8400-e29b-41d4-a716-446655440002&quot; \
+  -H &quot;X-Pix-Lookup-E2E: E54811417202603071234abcdef123456&quot; \
+  -d '{
+    &quot;amount&quot;: &quot;10.00&quot;,
+    &quot;description&quot;: &quot;QR Code payment&quot;,
+    &quot;reference&quot;: &quot;pay-qr-001&quot;
+  }'
+</code></pre>
+<p><strong>Required fields:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td>Payment amount in BRL</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Required header:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Header</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>X-Pix-Lookup-E2E</code></td>
+<td><code>end_to_end_id</code> obtained from <a href="/"><code>POST /api/v1/pix/qrcode/decode</code></a></td>
+</tr>
+</tbody>
+</table>
+<h2>2FA / Step-Up Authentication</h2>
+<p>Cash-out payments above your tenant's configured threshold require an additional <code>X-Step-Up-Token</code> header. This is a short-lived token that proves the user completed a second factor (OTP) just before the transaction.</p>
+<p><div class="callout callout-warning">⚠️ <p>If your payload exceeds the threshold and <code>X-Step-Up-Token</code> is missing or expired, the API returns <code>403 STEP_UP_REQUIRED</code>. The token is valid for <strong>5 minutes</strong> and is single-use.</p></div></p>
+<h3>Step 1 — Request an OTP</h3>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/auth/otp/request \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;operation&quot;: &quot;cash_out&quot;,
+    &quot;channel&quot;: &quot;sms&quot;
+  }'
+</code></pre>
+<p>OTP is sent to the user's registered phone (or email if <code>channel: "email"</code>).</p>
+<h3>Step 2 — Verify OTP and Obtain Step-Up Token</h3>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/auth/otp/verify \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;otp&quot;: &quot;123456&quot;
+  }'
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;step_up_token&quot;: &quot;eyJhbGciOiJSUzI1NiJ9...&quot;,
+    &quot;expires_at&quot;: &quot;2026-07-22T14:35:00Z&quot;
+  }
+}
+</code></pre>
+<h3>Step 3 — Include <code>X-Step-Up-Token</code> in the Cash-Out Request</h3>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440088&quot; \
+  -H &quot;X-Step-Up-Token: eyJhbGciOiJSUzI1NiJ9...&quot; \
+  -d '{
+    &quot;amount&quot;: &quot;50000.00&quot;,
+    &quot;pix_key&quot;: &quot;destinatario@empresa.com.br&quot;,
+    &quot;pix_key_type&quot;: &quot;EMAIL&quot;,
+    &quot;description&quot;: &quot;High-value transfer&quot;
+  }'
+</code></pre>
+<p><strong>Step-up error codes:</strong></p>
+<table>
+<thead>
+<tr>
+<th>HTTP</th>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>403</td>
+<td><code>STEP_UP_REQUIRED</code></td>
+<td>Amount exceeds threshold and no valid step-up token</td>
+</tr>
+<tr>
+<td>403</td>
+<td><code>STEP_UP_EXPIRED</code></td>
+<td>Token is older than 5 minutes</td>
+</tr>
+<tr>
+<td>403</td>
+<td><code>STEP_UP_INVALID</code></td>
+<td>Token was already used or is malformed</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Optional Fields (All Flows)</h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>Payment description</td>
+</tr>
+<tr>
+<td><code>reference</code></td>
+<td>string</td>
+<td>Your internal reference ID</td>
+</tr>
+<tr>
+<td><code>metadata</code></td>
+<td>object</td>
+<td>Custom key-value metadata</td>
+</tr>
+</tbody>
+</table>
+<h2>Important Headers</h2>
+<table>
+<thead>
+<tr>
+<th>Header</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Authorization</code></td>
+<td>Yes</td>
+<td><code>Bearer &lt;jwt&gt;</code></td>
+</tr>
+<tr>
+<td><code>X-Idempotency-Key</code></td>
+<td>Recommended</td>
+<td>UUID to prevent duplicate payments</td>
+</tr>
+<tr>
+<td><code>X-Pix-Lookup-E2E</code></td>
+<td>Flow 3 only</td>
+<td>EndToEndID from QR Code decode</td>
+</tr>
+<tr>
+<td><code>X-Step-Up-Token</code></td>
+<td>Above threshold</td>
+<td>Short-lived OTP token for 2FA (see section above)</td>
+</tr>
+</tbody>
+</table>
+<h2>Checking Payment Status</h2>
+<p>Query the status of a Cash-Out by its transaction ID:</p>
+<pre><code class="language-bash">curl -X GET https://api.brzip.com.br/api/v1/pix/cash-out/&lt;cash-out-id&gt; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<h3>Transaction Statuses</h3>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>processing</code></td>
+<td>Payment is being processed</td>
+</tr>
+<tr>
+<td><code>completed</code></td>
+<td>Payment was successful</td>
+</tr>
+<tr>
+<td><code>failed</code></td>
+<td>Payment failed</td>
+</tr>
+<tr>
+<td><code>returned</code></td>
+<td>Payment was returned by the recipient's bank</td>
+</tr>
+</tbody>
+</table>
+<h2>Best Practices</h2>
+<ol>
+<li><strong>Always use idempotency keys</strong> to prevent duplicate payments in case of network issues.</li>
+<li><strong>Use the two-step flow</strong> for QR Code payments — it allows you to show recipient details before confirming the payment.</li>
+<li><strong>Check your balance</strong> before initiating large payments using <a href="/"><code>GET /api/v1/pix/balance</code></a>.</li>
+<li><strong>Monitor webhooks</strong> for real-time status updates on your payments.</li>
+<li><strong>Verify limits</strong> — ensure the payment amount is within your configured limits using <a href="/"><code>GET /api/v1/pix/limits</code></a>.</li>
+</ol>
+</main>
+</body>
+</html>

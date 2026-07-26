@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Webhooks Integration — BRZ API Docs</title>
+<meta name="description" content="Learn how to configure and manage webhooks to receive real-time notifications from the BRZ API.">
+<link rel="icon" type="image/png" href="/brand-logo.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;font-size:15px;line-height:1.65;color:#1a1a2e;background:#fff;display:flex;min-height:100vh}
+
+/* Sidebar */
+.sidebar{width:260px;min-width:260px;background:#f8f9fb;border-right:1px solid #e5e7eb;padding:24px 0;position:fixed;top:0;left:0;bottom:0;overflow-y:auto}
+.sidebar-logo{display:block;font-size:17px;font-weight:700;color:#1e3a5f;text-decoration:none;padding:0 20px 16px;border-bottom:1px solid #e5e7eb;margin-bottom:12px;letter-spacing:-.02em}
+.sidebar-api-ref{display:block;font-size:12.5px;color:#1e3a5f;text-decoration:none;padding:6px 12px;margin:0 12px 16px;border-radius:6px;border:1px solid #1e3a5f33;font-weight:500;text-align:center}
+.sidebar-api-ref:hover{background:#1e3a5f0d}
+.nav-section{margin-bottom:4px}
+.nav-section-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#9ca3af;padding:8px 20px 3px}
+.nav-subsection-title{font-size:10.5px;font-weight:600;color:#b0b8c4;padding:6px 20px 2px 28px;text-transform:uppercase;letter-spacing:.07em}
+.nav-link{display:block;font-size:13.5px;color:#374151;text-decoration:none;padding:5px 20px;transition:background .1s,color .1s}
+.nav-link:hover{background:#e9ecf0;color:#1e3a5f}
+.nav-link.active{background:#1e3a5f14;color:#1e3a5f;font-weight:600;border-left:3px solid #1e3a5f;padding-left:17px}
+
+/* Main */
+.main{margin-left:260px;flex:1;padding:52px 64px;max-width:960px}
+.page-meta{margin-bottom:32px}
+.page-description{color:#6b7280;font-size:15.5px;margin-top:6px}
+
+/* Typography */
+h1{font-size:28px;font-weight:700;color:#111827;line-height:1.25;margin-bottom:4px}
+h2{font-size:19px;font-weight:700;color:#1f2937;margin-top:44px;margin-bottom:12px;border-bottom:1px solid #e5e7eb;padding-bottom:6px}
+h3{font-size:15.5px;font-weight:600;color:#374151;margin-top:28px;margin-bottom:8px}
+h4{font-size:14px;font-weight:600;color:#4b5563;margin-top:20px;margin-bottom:6px}
+p{margin-bottom:14px}
+a{color:#1e3a5f;text-decoration:underline}
+a:hover{color:#2d5a8e}
+ul,ol{margin:10px 0 16px 24px}
+li{margin-bottom:5px}
+strong{font-weight:600}
+
+/* Code */
+code{font-family:"Menlo","Monaco","Consolas","Courier New",monospace;font-size:13px;background:#f3f4f6;padding:2px 5px;border-radius:4px;color:#c2185b}
+pre{background:#1a1a2e;color:#e2e8f0;border-radius:8px;padding:20px 24px;overflow-x:auto;margin:16px 0;font-size:13px;line-height:1.55}
+pre code{background:none;padding:0;color:inherit;font-size:inherit}
+
+/* Tables */
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px}
+th{background:#f3f4f6;font-weight:600;color:#374151;text-align:left;padding:8px 12px;border:1px solid #d1d5db}
+td{padding:8px 12px;border:1px solid #e5e7eb;color:#4b5563;vertical-align:top}
+tr:nth-child(even) td{background:#fafafa}
+
+/* Callouts */
+.callout{border-left:4px solid;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;font-size:14px;line-height:1.5}
+.callout p{margin:0}
+.callout-info{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8}
+.callout-warning{border-color:#f59e0b;background:#fffbeb;color:#92400e}
+.callout-danger{border-color:#ef4444;background:#fef2f2;color:#991b1b}
+.callout-tip{border-color:#10b981;background:#ecfdf5;color:#065f46}
+.callout-success{border-color:#10b981;background:#ecfdf5;color:#065f46}
+
+/* Steps */
+ol.steps{list-style:none;margin:16px 0;padding:0;counter-reset:step-counter}
+ol.steps li{counter-increment:step-counter;padding:16px 16px 16px 60px;position:relative;margin-bottom:10px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa}
+ol.steps li::before{content:counter(step-counter);position:absolute;left:16px;top:16px;width:28px;height:28px;background:#1e3a5f;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;line-height:1}
+ol.steps li p{margin:4px 0 0}
+
+/* Mobile */
+@media(max-width:768px){.sidebar{display:none}.main{margin-left:0;padding:28px 20px}}
+
+</style>
+</head>
+<body>
+<nav class="sidebar">
+<a href="/" class="sidebar-logo">BRZ Public API</a>
+<a href="/" class="sidebar-api-ref">API Reference ↗</a>
+<div class="nav-section">
+<div class="nav-section-title">Getting Started</div>
+<a href="/getting-started/introduction/" class="nav-link">Introduction</a>
+<a href="/getting-started/authentication/" class="nav-link">Authentication</a>
+<a href="/getting-started/rate-limits/" class="nav-link">Rate Limits</a>
+<a href="/getting-started/error-handling/" class="nav-link">Error Handling</a>
+</div>
+<div class="nav-section">
+<div class="nav-section-title">Guides</div>
+<div class="nav-subsection-title">PIX</div>
+<a href="/guides/guide-cash-in/" class="nav-link">Cash-In (Receiving Payments)</a>
+<a href="/guides/guide-cash-out/" class="nav-link">Cash-Out (Sending Payments)</a>
+<a href="/guides/guide-qr-estatico/" class="nav-link">Static QR Code (JWS)</a>
+<a href="/guides/guide-pix-keys/" class="nav-link">PIX Keys Management</a>
+<a href="/guides/guide-med/" class="nav-link">MED (Special Returns)</a>
+<div class="nav-subsection-title">Accounts & Wallets</div>
+<a href="/guides/guide-accounts/" class="nav-link">Account Management</a>
+<a href="/guides/guide-wallets/" class="nav-link">Wallet Balance & Breakdown</a>
+<div class="nav-subsection-title">Payments</div>
+<a href="/guides/guide-boleto/" class="nav-link">Boleto Payments</a>
+<div class="nav-subsection-title">Platform</div>
+<a href="/guides/webhooks-integration/" class="nav-link active">Webhooks Integration</a>
+<a href="/guides/changelog/" class="nav-link">Changelog</a>
+</div>
+</nav>
+<main class="main">
+<div class="page-meta">
+<h1>Webhooks Integration</h1>
+<p class="page-description">Learn how to configure and manage webhooks to receive real-time notifications from the BRZ API.</p>
+</div>
+<h1>Webhooks Integration</h1>
+<p>Webhooks allow your system to receive real-time HTTP notifications whenever events occur in your BRZ account — such as incoming PIX payments, completed cash-outs, limit approvals, and more.</p>
+<p>Instead of polling the API for status changes, you register a URL and the BRZ platform pushes event data to your server as soon as it happens.</p>
+<p><div class="callout callout-info">ℹ️ <p>Webhook endpoints require <strong>Bearer Token</strong> or <strong>API Key</strong> authentication with <code>webhooks:read</code> and/or <code>webhooks:write</code> scopes.</p></div></p>
+<h2>How It Works</h2>
+<ol>
+<li>You register a webhook URL in the BRZ API</li>
+<li>When an event occurs (e.g., a PIX payment is received), the system sends an HTTP POST to your URL</li>
+<li>Your server processes the notification and returns HTTP 200</li>
+<li>If delivery fails, the system retries automatically with exponential backoff</li>
+</ol>
+<h2>Step 1 — Create a Webhook</h2>
+<p>Register a new webhook to start receiving notifications:</p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/webhooks \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;url&quot;: &quot;https://your-system.com/webhooks/pix&quot;,
+    &quot;events&quot;: [
+      &quot;pix.cash_in.confirmed&quot;,
+      &quot;pix.cash_in.received&quot;,
+      &quot;pix.cash_out.completed&quot;,
+      &quot;onboarding.status_changed&quot;,
+      &quot;limits.request_approved&quot;,
+      &quot;limits.request_rejected&quot;
+    ]
+  }'
+</code></pre>
+<p><strong>Request fields:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>url</code></td>
+<td>Yes</td>
+<td>HTTPS URL that will receive the notifications</td>
+</tr>
+<tr>
+<td><code>events</code></td>
+<td>No</td>
+<td>List of events to subscribe to. If empty or <code>["*"]</code>, receives <strong>all</strong> events</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;wh_abc123-def456-ghi789&quot;,
+    &quot;url&quot;: &quot;https://your-system.com/webhooks/pix&quot;,
+    &quot;events&quot;: [&quot;pix.cash_in.confirmed&quot;, &quot;pix.cash_in.received&quot;, &quot;pix.cash_out.completed&quot;],
+    &quot;status&quot;: &quot;active&quot;,
+    &quot;secret&quot;: &quot;whsec_a1b2c3d4e5f6g7h8i9j0...&quot;
+  }
+}
+</code></pre>
+<p><div class="callout callout-warning">⚠️ <p>The <code>secret</code> is returned <strong>only at creation time</strong>. Store it securely — you will need it to validate webhook signatures.</p></div></p>
+<h2>Step 2 — Validate Signatures</h2>
+<p>Every webhook delivery includes two headers for signature verification:</p>
+<table>
+<thead>
+<tr>
+<th>Header</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>x-webhook-timestamp</code></td>
+<td>Unix timestamp of when the webhook was sent</td>
+</tr>
+<tr>
+<td><code>x-webhook-signature</code></td>
+<td>HMAC-SHA256 signature of the payload</td>
+</tr>
+</tbody>
+</table>
+<p>The signing process works as follows:</p>
+<ol>
+<li>Remove the <code>whsec_</code> prefix from the signing key (the <code>secret</code> returned at creation time)</li>
+<li>Concatenate the timestamp header value + <code>"."</code> + raw request body</li>
+<li>Compute HMAC-SHA256 of the concatenated string using the secret</li>
+<li>Compare the result with the <code>x-webhook-signature</code> header</li>
+</ol>
+<p><div class="callout callout-info">ℹ️ <p>Always use the <strong>raw request body</strong> (not a parsed/re-serialized JSON) to compute the signature. Re-serializing may change field ordering and break validation.</p></div></p>
+<pre><code class="language-javascript">const crypto = require('crypto');
+
+function verifyWebhookSignature(rawBody, signingKey, headers) {
+  // 1. Remove &quot;whsec_&quot; prefix from the key
+  const secret = signingKey.replace('whsec_', '');
+
+  // 2. Get timestamp from header
+  const timestamp = headers['x-webhook-timestamp'];
+
+  // 3. Concatenate timestamp + &quot;.&quot; + raw body
+  const signedPayload = timestamp + '.' + rawBody;
+
+  // 4. Compute HMAC-SHA256
+  const expected = 'sha256=' + crypto
+    .createHmac('sha256', secret)
+    .update(signedPayload)
+    .digest('hex');
+
+  // 5. Compare with the received header
+  const received = headers['x-webhook-signature'];
+  return crypto.timingSafeEqual(
+    Buffer.from(expected),
+    Buffer.from(received)
+  );
+}
+</code></pre>
+<pre><code class="language-python">import hmac
+import hashlib
+
+def verify_webhook_signature(raw_body: str, signing_key: str, headers: dict) -&gt; bool:
+    # 1. Remove &quot;whsec_&quot; prefix from the key
+    secret = signing_key.replace('whsec_', '')
+
+    # 2. Get timestamp from header
+    timestamp = headers['x-webhook-timestamp']
+
+    # 3. Concatenate timestamp + &quot;.&quot; + raw body
+    signed_payload = timestamp + '.' + raw_body
+
+    # 4. Compute HMAC-SHA256
+    expected = 'sha256=' + hmac.new(
+        secret.encode(),
+        signed_payload.encode(),
+        hashlib.sha256
+    ).hexdigest()
+
+    # 5. Compare with the received header
+    received = headers['x-webhook-signature']
+    return hmac.compare_digest(expected, received)
+</code></pre>
+<h2>Supported Events</h2>
+<h3>PIX Cash-In Events</h3>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pix.cash_in.confirmed</code></td>
+<td>Payment received — funds credited to account</td>
+</tr>
+<tr>
+<td><code>pix.cash_in.received</code></td>
+<td>Charge confirmed — QR Code generated and ready for payment</td>
+</tr>
+<tr>
+<td><code>pix.cash_in.expired</code></td>
+<td>Charge expired without payment</td>
+</tr>
+<tr>
+<td><code>pix.cash_in.cancelled</code></td>
+<td>Charge was cancelled</td>
+</tr>
+<tr>
+<td><code>pix.cash_in.refunded</code></td>
+<td>Payment was refunded to the payer</td>
+</tr>
+</tbody>
+</table>
+<h3>PIX Cash-Out Events</h3>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pix.cash_out.completed</code></td>
+<td>Payment sent successfully</td>
+</tr>
+<tr>
+<td><code>pix.cash_out.failed</code></td>
+<td>Payment failed</td>
+</tr>
+<tr>
+<td><code>pix.cash_out.returned</code></td>
+<td>Payment was returned by the recipient's bank</td>
+</tr>
+</tbody>
+</table>
+<h3>MED Events</h3>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pix.med_refund.received</code></td>
+<td>BACEN opened an inbound MED — funds return requested</td>
+</tr>
+<tr>
+<td><code>pix.med_refund.defense_submitted</code></td>
+<td>Defense recorded — status moved to UNDER_REVIEW</td>
+</tr>
+<tr>
+<td><code>pix.med_refund.resolved</code></td>
+<td>BACEN issued final decision (COMPLETED or CANCELLED)</td>
+</tr>
+<tr>
+<td><code>pix.infraction.received</code></td>
+<td>Inbound PIX infraction report received from BACEN</td>
+</tr>
+<tr>
+<td><code>pix.infraction_notification.received</code></td>
+<td>JDPI §8.2.21 infraction notification received</td>
+</tr>
+</tbody>
+</table>
+<h3>Other Events</h3>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>onboarding.status_changed</code></td>
+<td>Account onboarding status changed</td>
+</tr>
+<tr>
+<td><code>limits.request_approved</code></td>
+<td>Limit change request approved</td>
+</tr>
+<tr>
+<td><code>limits.request_rejected</code></td>
+<td>Limit change request rejected</td>
+</tr>
+<tr>
+<td><code>payment_link.paid</code></td>
+<td>Payment link paid</td>
+</tr>
+<tr>
+<td><code>payment_link.expired</code></td>
+<td>Payment link expired</td>
+</tr>
+</tbody>
+</table>
+<p>Use <code>["*"]</code> in the <code>events</code> field to subscribe to all events at once.</p>
+<h2>Notification Payload</h2>
+<p>Every webhook delivery sends an HTTP POST to your URL with a JSON payload:</p>
+<pre><code class="language-json">{
+  &quot;event&quot;: &quot;pix.cash_in.received&quot;,
+  &quot;timestamp&quot;: &quot;2026-03-15T14:30:00.000Z&quot;,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;txn_abc123&quot;,
+    &quot;external_id&quot;: &quot;order-12345&quot;,
+    &quot;type&quot;: &quot;cash_in&quot;,
+    &quot;status&quot;: &quot;completed&quot;,
+    &quot;amount&quot;: &quot;150.00&quot;,
+    &quot;payer_name&quot;: &quot;John Doe&quot;,
+    &quot;payer_document&quot;: &quot;123.456.789-00&quot;,
+    &quot;created_at&quot;: &quot;2026-03-15T14:28:00.000Z&quot;,
+    &quot;completed_at&quot;: &quot;2026-03-15T14:30:00.000Z&quot;
+  }
+}
+</code></pre>
+<h3>Transaction Statuses in Payloads</h3>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pending</code></td>
+<td>Pending processing</td>
+</tr>
+<tr>
+<td><code>processing</code></td>
+<td>Being processed</td>
+</tr>
+<tr>
+<td><code>completed</code></td>
+<td>Successfully completed</td>
+</tr>
+<tr>
+<td><code>failed</code></td>
+<td>Failed</td>
+</tr>
+<tr>
+<td><code>expired</code></td>
+<td>Expired</td>
+</tr>
+<tr>
+<td><code>cancelled</code></td>
+<td>Cancelled</td>
+</tr>
+<tr>
+<td><code>refunded</code></td>
+<td>Refunded (cash-in)</td>
+</tr>
+<tr>
+<td><code>returned</code></td>
+<td>Returned (cash-out)</td>
+</tr>
+</tbody>
+</table>
+<h2>Automatic Retries</h2>
+<p>If your URL returns an error (HTTP status &gt;= 400 or timeout), the system automatically retries with exponential backoff:</p>
+<table>
+<thead>
+<tr>
+<th>Attempt</th>
+<th>Delay</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1st retry</td>
+<td>1 minute</td>
+</tr>
+<tr>
+<td>2nd retry</td>
+<td>5 minutes</td>
+</tr>
+<tr>
+<td>3rd retry</td>
+<td>30 minutes</td>
+</tr>
+<tr>
+<td>4th retry</td>
+<td>1 hour</td>
+</tr>
+<tr>
+<td>5th retry</td>
+<td>Sent to DLQ (Dead Letter Queue)</td>
+</tr>
+</tbody>
+</table>
+<p>After all retries are exhausted, the delivery is marked as <code>failed</code>. You can manually resend it later.</p>
+<h2>Managing Webhooks</h2>
+<h3>List Webhooks</h3>
+<p>Retrieve all registered webhooks:</p>
+<pre><code class="language-bash">curl -X GET &quot;https://api.brzip.com.br/api/v1/webhooks?limit=20&amp;offset=0&quot; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<p><strong>Query parameters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>limit</code></td>
+<td>20</td>
+<td>Items per page (max 100)</td>
+</tr>
+<tr>
+<td><code>offset</code></td>
+<td>0</td>
+<td>Pagination offset</td>
+</tr>
+</tbody>
+</table>
+<h3>Get Webhook by ID</h3>
+<p>Retrieve details of a specific webhook, including status and last activity timestamps:</p>
+<pre><code class="language-bash">curl -X GET https://api.brzip.com.br/api/v1/webhooks/&lt;webhook-id&gt; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<h3>Update Webhook</h3>
+<p>Update an existing webhook. All fields are optional — send only what you want to change:</p>
+<pre><code class="language-bash">curl -X PUT https://api.brzip.com.br/api/v1/webhooks/&lt;webhook-id&gt; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;url&quot;: &quot;https://your-system.com/webhooks/pix-v2&quot;,
+    &quot;events&quot;: [&quot;*&quot;],
+    &quot;status&quot;: &quot;active&quot;
+  }'
+</code></pre>
+<p><strong>Updatable fields:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>url</code></td>
+<td>string</td>
+<td>New destination URL</td>
+</tr>
+<tr>
+<td><code>events</code></td>
+<td>array</td>
+<td>New list of events (use <code>["*"]</code> for all)</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td><code>"active"</code> or <code>"inactive"</code></td>
+</tr>
+</tbody>
+</table>
+<h3>Delete Webhook</h3>
+<p>Permanently remove a webhook. Pending deliveries for this webhook will be cancelled.</p>
+<pre><code class="language-bash">curl -X DELETE https://api.brzip.com.br/api/v1/webhooks/&lt;webhook-id&gt; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<p><div class="callout callout-warning">⚠️ <p>This action is irreversible. All pending deliveries for this webhook will be cancelled.</p></div></p>
+<h2>Monitoring Deliveries</h2>
+<h3>List Deliveries</h3>
+<p>View the delivery history for your webhooks. Each delivery shows the event, status, payload sent, response received, attempt count, and timestamps.</p>
+<pre><code class="language-bash">curl -X GET &quot;https://api.brzip.com.br/api/v1/webhooks/deliveries?webhook_id=&lt;webhook-id&gt;&amp;limit=20&amp;page=1&quot; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<p><strong>Available filters:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>webhook_id</code></td>
+<td>Filter by webhook ID (UUID)</td>
+</tr>
+<tr>
+<td><code>transaction_id</code></td>
+<td>Filter by transaction ID (UUID)</td>
+</tr>
+<tr>
+<td><code>event_type</code></td>
+<td>Filter by event type (e.g., <code>pix.cash_in.confirmed</code>)</td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>Filter by status: <code>delivered</code>, <code>pending</code>, <code>failed</code></td>
+</tr>
+<tr>
+<td><code>start_date</code></td>
+<td>Filter by start date (YYYY-MM-DD)</td>
+</tr>
+<tr>
+<td><code>end_date</code></td>
+<td>Filter by end date (YYYY-MM-DD)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Pagination:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>page</code></td>
+<td>1</td>
+<td>Page number (1-based)</td>
+</tr>
+<tr>
+<td><code>limit</code></td>
+<td>50</td>
+<td>Items per page (max 100)</td>
+</tr>
+<tr>
+<td><code>offset</code></td>
+<td>—</td>
+<td>Alternative to page-based pagination (0-based)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response includes:</strong> <code>page</code>, <code>totalPages</code>, <code>total</code>, <code>limit</code>, <code>offset</code>, and an array of deliveries with <code>payload</code> and <code>response_body</code>.</p>
+<h3>Get Delivery by ID</h3>
+<p>Retrieve details of a specific delivery, including the payload sent, HTTP response status, and number of attempts:</p>
+<pre><code class="language-bash">curl -X GET https://api.brzip.com.br/api/v1/webhooks/deliveries/&lt;delivery-id&gt; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<h3>Resend a Failed Delivery</h3>
+<p>Manually resend a delivery that failed or was not delivered. Useful when:</p>
+<ul>
+<li>Your URL was down and is now back online</li>
+<li>You missed a notification and need to reprocess it</li>
+<li>You want to test your integration with real data</li>
+</ul>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/webhooks/deliveries/&lt;delivery-id&gt;/resend \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<p>The delivery will be re-queued and delivered on the next worker execution cycle.</p>
+<h2>Best Practices</h2>
+<ol>
+<li><strong>Always validate signatures</strong> — Use the <code>secret</code> from webhook creation to verify that requests are authentic.</li>
+<li><strong>Return HTTP 200 quickly</strong> — Process the webhook asynchronously if needed. The system considers any non-2xx response as a failure and will retry.</li>
+<li><strong>Handle duplicates</strong> — Use the <code>transaction_id</code> or <code>delivery_id</code> to deduplicate notifications, as retries may deliver the same event more than once.</li>
+<li><strong>Use event filtering</strong> — Subscribe only to the events you need instead of <code>["*"]</code> to reduce noise and processing overhead.</li>
+<li><strong>Monitor delivery status</strong> — Regularly check the deliveries endpoint to identify and troubleshoot failed deliveries.</li>
+<li><strong>Store the secret securely</strong> — The webhook secret is only shown once at creation. If lost, you must delete and recreate the webhook.</li>
+<li><strong>Use HTTPS</strong> — Webhook URLs must use HTTPS to ensure data is encrypted in transit.</li>
+</ol>
+</main>
+</body>
+</html>

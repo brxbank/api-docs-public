@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PIX Keys Management — BRZ API Docs</title>
+<meta name="description" content="Learn how to register, list, search, and delete PIX keys using the BRZ API.">
+<link rel="icon" type="image/png" href="/brand-logo.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;font-size:15px;line-height:1.65;color:#1a1a2e;background:#fff;display:flex;min-height:100vh}
+
+/* Sidebar */
+.sidebar{width:260px;min-width:260px;background:#f8f9fb;border-right:1px solid #e5e7eb;padding:24px 0;position:fixed;top:0;left:0;bottom:0;overflow-y:auto}
+.sidebar-logo{display:block;font-size:17px;font-weight:700;color:#1e3a5f;text-decoration:none;padding:0 20px 16px;border-bottom:1px solid #e5e7eb;margin-bottom:12px;letter-spacing:-.02em}
+.sidebar-api-ref{display:block;font-size:12.5px;color:#1e3a5f;text-decoration:none;padding:6px 12px;margin:0 12px 16px;border-radius:6px;border:1px solid #1e3a5f33;font-weight:500;text-align:center}
+.sidebar-api-ref:hover{background:#1e3a5f0d}
+.nav-section{margin-bottom:4px}
+.nav-section-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#9ca3af;padding:8px 20px 3px}
+.nav-subsection-title{font-size:10.5px;font-weight:600;color:#b0b8c4;padding:6px 20px 2px 28px;text-transform:uppercase;letter-spacing:.07em}
+.nav-link{display:block;font-size:13.5px;color:#374151;text-decoration:none;padding:5px 20px;transition:background .1s,color .1s}
+.nav-link:hover{background:#e9ecf0;color:#1e3a5f}
+.nav-link.active{background:#1e3a5f14;color:#1e3a5f;font-weight:600;border-left:3px solid #1e3a5f;padding-left:17px}
+
+/* Main */
+.main{margin-left:260px;flex:1;padding:52px 64px;max-width:960px}
+.page-meta{margin-bottom:32px}
+.page-description{color:#6b7280;font-size:15.5px;margin-top:6px}
+
+/* Typography */
+h1{font-size:28px;font-weight:700;color:#111827;line-height:1.25;margin-bottom:4px}
+h2{font-size:19px;font-weight:700;color:#1f2937;margin-top:44px;margin-bottom:12px;border-bottom:1px solid #e5e7eb;padding-bottom:6px}
+h3{font-size:15.5px;font-weight:600;color:#374151;margin-top:28px;margin-bottom:8px}
+h4{font-size:14px;font-weight:600;color:#4b5563;margin-top:20px;margin-bottom:6px}
+p{margin-bottom:14px}
+a{color:#1e3a5f;text-decoration:underline}
+a:hover{color:#2d5a8e}
+ul,ol{margin:10px 0 16px 24px}
+li{margin-bottom:5px}
+strong{font-weight:600}
+
+/* Code */
+code{font-family:"Menlo","Monaco","Consolas","Courier New",monospace;font-size:13px;background:#f3f4f6;padding:2px 5px;border-radius:4px;color:#c2185b}
+pre{background:#1a1a2e;color:#e2e8f0;border-radius:8px;padding:20px 24px;overflow-x:auto;margin:16px 0;font-size:13px;line-height:1.55}
+pre code{background:none;padding:0;color:inherit;font-size:inherit}
+
+/* Tables */
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px}
+th{background:#f3f4f6;font-weight:600;color:#374151;text-align:left;padding:8px 12px;border:1px solid #d1d5db}
+td{padding:8px 12px;border:1px solid #e5e7eb;color:#4b5563;vertical-align:top}
+tr:nth-child(even) td{background:#fafafa}
+
+/* Callouts */
+.callout{border-left:4px solid;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;font-size:14px;line-height:1.5}
+.callout p{margin:0}
+.callout-info{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8}
+.callout-warning{border-color:#f59e0b;background:#fffbeb;color:#92400e}
+.callout-danger{border-color:#ef4444;background:#fef2f2;color:#991b1b}
+.callout-tip{border-color:#10b981;background:#ecfdf5;color:#065f46}
+.callout-success{border-color:#10b981;background:#ecfdf5;color:#065f46}
+
+/* Steps */
+ol.steps{list-style:none;margin:16px 0;padding:0;counter-reset:step-counter}
+ol.steps li{counter-increment:step-counter;padding:16px 16px 16px 60px;position:relative;margin-bottom:10px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa}
+ol.steps li::before{content:counter(step-counter);position:absolute;left:16px;top:16px;width:28px;height:28px;background:#1e3a5f;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;line-height:1}
+ol.steps li p{margin:4px 0 0}
+
+/* Mobile */
+@media(max-width:768px){.sidebar{display:none}.main{margin-left:0;padding:28px 20px}}
+
+</style>
+</head>
+<body>
+<nav class="sidebar">
+<a href="/" class="sidebar-logo">BRZ Public API</a>
+<a href="/" class="sidebar-api-ref">API Reference ↗</a>
+<div class="nav-section">
+<div class="nav-section-title">Getting Started</div>
+<a href="/getting-started/introduction/" class="nav-link">Introduction</a>
+<a href="/getting-started/authentication/" class="nav-link">Authentication</a>
+<a href="/getting-started/rate-limits/" class="nav-link">Rate Limits</a>
+<a href="/getting-started/error-handling/" class="nav-link">Error Handling</a>
+</div>
+<div class="nav-section">
+<div class="nav-section-title">Guides</div>
+<div class="nav-subsection-title">PIX</div>
+<a href="/guides/guide-cash-in/" class="nav-link">Cash-In (Receiving Payments)</a>
+<a href="/guides/guide-cash-out/" class="nav-link">Cash-Out (Sending Payments)</a>
+<a href="/guides/guide-qr-estatico/" class="nav-link">Static QR Code (JWS)</a>
+<a href="/guides/guide-pix-keys/" class="nav-link active">PIX Keys Management</a>
+<a href="/guides/guide-med/" class="nav-link">MED (Special Returns)</a>
+<div class="nav-subsection-title">Accounts & Wallets</div>
+<a href="/guides/guide-accounts/" class="nav-link">Account Management</a>
+<a href="/guides/guide-wallets/" class="nav-link">Wallet Balance & Breakdown</a>
+<div class="nav-subsection-title">Payments</div>
+<a href="/guides/guide-boleto/" class="nav-link">Boleto Payments</a>
+<div class="nav-subsection-title">Platform</div>
+<a href="/guides/webhooks-integration/" class="nav-link">Webhooks Integration</a>
+<a href="/guides/changelog/" class="nav-link">Changelog</a>
+</div>
+</nav>
+<main class="main">
+<div class="page-meta">
+<h1>PIX Keys Management</h1>
+<p class="page-description">Learn how to register, list, search, and delete PIX keys using the BRZ API.</p>
+</div>
+<h1>PIX Keys Management</h1>
+<p>PIX keys are registered directly with BACEN's DICT (Diretório de Identificadores de Contas Transacionais). The BRZ API simplifies this process by auto-filling account data from your onboarding.</p>
+<h2>Key Types</h2>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CPF</code></td>
+<td>Individual tax ID</td>
+<td><code>12345678901</code> (11 digits)</td>
+</tr>
+<tr>
+<td><code>CNPJ</code></td>
+<td>Company tax ID</td>
+<td><code>12345678000190</code> (14 digits)</td>
+</tr>
+<tr>
+<td><code>EMAIL</code></td>
+<td>Email address</td>
+<td><code>user@example.com</code></td>
+</tr>
+<tr>
+<td><code>PHONE</code></td>
+<td>Phone number</td>
+<td><code>+5511999998888</code></td>
+</tr>
+<tr>
+<td><code>EVP</code></td>
+<td>Random key (generated by BACEN)</td>
+<td>Auto-generated UUID</td>
+</tr>
+</tbody>
+</table>
+<h2>Register a PIX Key</h2>
+<p>Only <code>key_type</code> is required. Account data is auto-filled from your approved onboarding:</p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/pix/keys \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;key_type&quot;: &quot;EVP&quot;
+  }'
+</code></pre>
+<p><strong>Response (201 Created):</strong></p>
+<pre><code class="language-json">{
+  &quot;key_type&quot;: &quot;EVP&quot;,
+  &quot;key&quot;: &quot;a1b2c3d4-e5f6-7890-abcd-ef1234567890&quot;,
+  &quot;account&quot;: {
+    &quot;participant&quot;: &quot;12345678&quot;,
+    &quot;branch&quot;: &quot;0001&quot;,
+    &quot;account_number&quot;: &quot;12345678&quot;,
+    &quot;account_type&quot;: &quot;CACC&quot;,
+    &quot;opening_date&quot;: &quot;2026-02-23&quot;
+  },
+  &quot;owner&quot;: {
+    &quot;type&quot;: &quot;NATURAL_PERSON&quot;,
+    &quot;tax_id_number&quot;: &quot;22768368067&quot;,
+    &quot;name&quot;: &quot;Ana Paula Oliveira&quot;
+  },
+  &quot;created_at&quot;: &quot;2026-02-23T21:10:00.000Z&quot;,
+  &quot;status&quot;: &quot;REGISTERED&quot;
+}
+</code></pre>
+<p><div class="callout callout-tip">💡 <p>For EVP keys, just send <code>{"key_type": "EVP"}</code>. For other types, include the <code>key</code> field with the actual value (e.g., CPF number, email address).</p></div></p>
+<h3>Optional Override Fields</h3>
+<p>If you need to override the auto-filled onboarding data, you can include any of these fields:</p>
+<ul>
+<li><code>account_type</code>, <code>account_number</code>, <code>branch_number</code></li>
+<li><code>person_type</code>, <code>tax_id</code>, <code>name</code>, <code>trade_name</code></li>
+<li><code>account_open_date</code></li>
+</ul>
+<h2>List PIX Keys</h2>
+<p>List all PIX keys registered for your account:</p>
+<pre><code class="language-bash">curl -X GET https://api.brzip.com.br/api/v1/pix/keys \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<h2>Search a PIX Key</h2>
+<p>Search for a specific PIX key by its value:</p>
+<pre><code class="language-bash">curl -X GET https://api.brzip.com.br/api/v1/pix/keys/12345678901 \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<h2>Delete a PIX Key</h2>
+<p>Delete a registered PIX key:</p>
+<pre><code class="language-bash">curl -X DELETE https://api.brzip.com.br/api/v1/pix/keys/a1b2c3d4-e5f6-7890-abcd-ef1234567890 \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;reason&quot;: &quot;USER_REQUESTED&quot;
+  }'
+</code></pre>
+<h3>Deletion Reasons</h3>
+<table>
+<thead>
+<tr>
+<th>Reason</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>USER_REQUESTED</code></td>
+<td>User requested the deletion</td>
+</tr>
+<tr>
+<td><code>ACCOUNT_CLOSURE</code></td>
+<td>Account is being closed</td>
+</tr>
+<tr>
+<td><code>BRANCH_TRANSFER</code></td>
+<td>Transferring to another branch</td>
+</tr>
+<tr>
+<td><code>FRAUD</code></td>
+<td>Key involved in fraud</td>
+</tr>
+</tbody>
+</table>
+</main>
+</body>
+</html>

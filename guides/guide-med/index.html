@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MED (Special Returns) — BRZ API Docs</title>
+<meta name="description" content="Complete guide to managing MED refund requests and PIX infractions — inbound and outbound flows, step-by-step integration journeys, and webhook payloads.">
+<link rel="icon" type="image/png" href="/brand-logo.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;font-size:15px;line-height:1.65;color:#1a1a2e;background:#fff;display:flex;min-height:100vh}
+
+/* Sidebar */
+.sidebar{width:260px;min-width:260px;background:#f8f9fb;border-right:1px solid #e5e7eb;padding:24px 0;position:fixed;top:0;left:0;bottom:0;overflow-y:auto}
+.sidebar-logo{display:block;font-size:17px;font-weight:700;color:#1e3a5f;text-decoration:none;padding:0 20px 16px;border-bottom:1px solid #e5e7eb;margin-bottom:12px;letter-spacing:-.02em}
+.sidebar-api-ref{display:block;font-size:12.5px;color:#1e3a5f;text-decoration:none;padding:6px 12px;margin:0 12px 16px;border-radius:6px;border:1px solid #1e3a5f33;font-weight:500;text-align:center}
+.sidebar-api-ref:hover{background:#1e3a5f0d}
+.nav-section{margin-bottom:4px}
+.nav-section-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#9ca3af;padding:8px 20px 3px}
+.nav-subsection-title{font-size:10.5px;font-weight:600;color:#b0b8c4;padding:6px 20px 2px 28px;text-transform:uppercase;letter-spacing:.07em}
+.nav-link{display:block;font-size:13.5px;color:#374151;text-decoration:none;padding:5px 20px;transition:background .1s,color .1s}
+.nav-link:hover{background:#e9ecf0;color:#1e3a5f}
+.nav-link.active{background:#1e3a5f14;color:#1e3a5f;font-weight:600;border-left:3px solid #1e3a5f;padding-left:17px}
+
+/* Main */
+.main{margin-left:260px;flex:1;padding:52px 64px;max-width:960px}
+.page-meta{margin-bottom:32px}
+.page-description{color:#6b7280;font-size:15.5px;margin-top:6px}
+
+/* Typography */
+h1{font-size:28px;font-weight:700;color:#111827;line-height:1.25;margin-bottom:4px}
+h2{font-size:19px;font-weight:700;color:#1f2937;margin-top:44px;margin-bottom:12px;border-bottom:1px solid #e5e7eb;padding-bottom:6px}
+h3{font-size:15.5px;font-weight:600;color:#374151;margin-top:28px;margin-bottom:8px}
+h4{font-size:14px;font-weight:600;color:#4b5563;margin-top:20px;margin-bottom:6px}
+p{margin-bottom:14px}
+a{color:#1e3a5f;text-decoration:underline}
+a:hover{color:#2d5a8e}
+ul,ol{margin:10px 0 16px 24px}
+li{margin-bottom:5px}
+strong{font-weight:600}
+
+/* Code */
+code{font-family:"Menlo","Monaco","Consolas","Courier New",monospace;font-size:13px;background:#f3f4f6;padding:2px 5px;border-radius:4px;color:#c2185b}
+pre{background:#1a1a2e;color:#e2e8f0;border-radius:8px;padding:20px 24px;overflow-x:auto;margin:16px 0;font-size:13px;line-height:1.55}
+pre code{background:none;padding:0;color:inherit;font-size:inherit}
+
+/* Tables */
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px}
+th{background:#f3f4f6;font-weight:600;color:#374151;text-align:left;padding:8px 12px;border:1px solid #d1d5db}
+td{padding:8px 12px;border:1px solid #e5e7eb;color:#4b5563;vertical-align:top}
+tr:nth-child(even) td{background:#fafafa}
+
+/* Callouts */
+.callout{border-left:4px solid;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;font-size:14px;line-height:1.5}
+.callout p{margin:0}
+.callout-info{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8}
+.callout-warning{border-color:#f59e0b;background:#fffbeb;color:#92400e}
+.callout-danger{border-color:#ef4444;background:#fef2f2;color:#991b1b}
+.callout-tip{border-color:#10b981;background:#ecfdf5;color:#065f46}
+.callout-success{border-color:#10b981;background:#ecfdf5;color:#065f46}
+
+/* Steps */
+ol.steps{list-style:none;margin:16px 0;padding:0;counter-reset:step-counter}
+ol.steps li{counter-increment:step-counter;padding:16px 16px 16px 60px;position:relative;margin-bottom:10px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa}
+ol.steps li::before{content:counter(step-counter);position:absolute;left:16px;top:16px;width:28px;height:28px;background:#1e3a5f;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;line-height:1}
+ol.steps li p{margin:4px 0 0}
+
+/* Mobile */
+@media(max-width:768px){.sidebar{display:none}.main{margin-left:0;padding:28px 20px}}
+
+</style>
+</head>
+<body>
+<nav class="sidebar">
+<a href="/" class="sidebar-logo">BRZ Public API</a>
+<a href="/" class="sidebar-api-ref">API Reference ↗</a>
+<div class="nav-section">
+<div class="nav-section-title">Getting Started</div>
+<a href="/getting-started/introduction/" class="nav-link">Introduction</a>
+<a href="/getting-started/authentication/" class="nav-link">Authentication</a>
+<a href="/getting-started/rate-limits/" class="nav-link">Rate Limits</a>
+<a href="/getting-started/error-handling/" class="nav-link">Error Handling</a>
+</div>
+<div class="nav-section">
+<div class="nav-section-title">Guides</div>
+<div class="nav-subsection-title">PIX</div>
+<a href="/guides/guide-cash-in/" class="nav-link">Cash-In (Receiving Payments)</a>
+<a href="/guides/guide-cash-out/" class="nav-link">Cash-Out (Sending Payments)</a>
+<a href="/guides/guide-qr-estatico/" class="nav-link">Static QR Code (JWS)</a>
+<a href="/guides/guide-pix-keys/" class="nav-link">PIX Keys Management</a>
+<a href="/guides/guide-med/" class="nav-link active">MED (Special Returns)</a>
+<div class="nav-subsection-title">Accounts & Wallets</div>
+<a href="/guides/guide-accounts/" class="nav-link">Account Management</a>
+<a href="/guides/guide-wallets/" class="nav-link">Wallet Balance & Breakdown</a>
+<div class="nav-subsection-title">Payments</div>
+<a href="/guides/guide-boleto/" class="nav-link">Boleto Payments</a>
+<div class="nav-subsection-title">Platform</div>
+<a href="/guides/webhooks-integration/" class="nav-link">Webhooks Integration</a>
+<a href="/guides/changelog/" class="nav-link">Changelog</a>
+</div>
+</nav>
+<main class="main">
+<div class="page-meta">
+<h1>MED (Special Returns)</h1>
+<p class="page-description">Complete guide to managing MED refund requests and PIX infractions — inbound and outbound flows, step-by-step integration journeys, and webhook payloads.</p>
+</div>
+<h1>MED — Mecanismo Especial de Devolução</h1>
+<p>MED (Special Return Mechanism) is the BACEN process for returning PIX funds in cases of fraud or operational errors. Your system may be involved in two roles:</p>
+<ul>
+<li><strong>Inbound MED</strong> — BACEN requests a return of funds you received (you are the accused party)</li>
+<li><strong>Outbound MED</strong> — You initiate a return request for funds you sent and want back (you are the claimant)</li>
+</ul>
+<p><div class="callout callout-info">ℹ️ <p><strong>Scopes required:</strong> <code>pix:med:read</code> (list, get) and <code>pix:med:write</code> (create, respond, cancel).
+  Infraction endpoints require <code>pix:infractions:read</code> and <code>pix:infractions:write</code>.</p></div></p>
+<hr />
+<h2>Inbound MED Journey</h2>
+<p>This is the flow when BACEN opens a MED against your account — you are being asked to return funds.</p>
+<pre><code>BACEN/JDPI
+    │
+    ▼ (1) MED refund request arrives
+gw-pix-service ──► pix.med_refund.received webhook ──► your system
+    │
+    ▼
+  status: OPEN
+    │
+    ├── (2) You submit a defense (approve or reject)
+    │       POST /api/v1/pix/med/{id}/respond
+    │       action: &quot;approve&quot; | &quot;reject&quot;, reason: &quot;...&quot;
+    │
+    ▼
+  status: UNDER_REVIEW
+    │
+    ▼ pix.med_refund.defense_submitted webhook
+    │
+    ▼ (3) BACEN resolves
+pix.med_refund.resolved webhook
+  status: CANCELLED (rejected/not returned) or COMPLETED (returned)
+</code></pre>
+<h3>Step 1 — Receive the webhook</h3>
+<p>When a MED arrives, your registered endpoint receives a <code>pix.med_refund.received</code> event:</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a&quot;,
+  &quot;source&quot;: &quot;pixgw&quot;,
+  &quot;event&quot;: &quot;pix.med_refund.received&quot;,
+  &quot;timestamp&quot;: &quot;2026-07-23T14:30:00Z&quot;,
+  &quot;data&quot;: {
+    &quot;refund_id&quot;: &quot;a1b2c3d4-e5f6-7890-abcd-ef1234567890&quot;,
+    &quot;external_refund_id&quot;: &quot;JDPI-REF-00123456&quot;,
+    &quot;end_to_end_id&quot;: &quot;E1234567820260723123456789abcdef&quot;,
+    &quot;e2e&quot;: &quot;E1234567820260723123456789abcdef&quot;,
+    &quot;amount&quot;: &quot;1500.00&quot;,
+    &quot;refund_reason&quot;: &quot;FRAUD&quot;,
+    &quot;direction&quot;: &quot;INBOUND&quot;,
+    &quot;status&quot;: &quot;OPEN&quot;,
+    &quot;hold_placed&quot;: false,
+    &quot;data_recebimento&quot;: &quot;23/07/2026&quot;,
+    &quot;hora_recebimento_med&quot;: &quot;11:30:00&quot;,
+    &quot;bancocontestante&quot;: &quot;Banco Bradesco S.A.&quot;
+  }
+}
+</code></pre>
+<p><strong><code>refund_reason</code> values:</strong> <code>FRAUD</code> | <code>OPERATIONAL_FLAW</code> | <code>UNDISCLOSED</code></p>
+<h3>Step 2 — Fetch the MED details</h3>
+<pre><code class="language-bash">curl -X GET &quot;https://api.brzip.com.br/api/v1/pix/med/{refund_id}&quot; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;a1b2c3d4-e5f6-7890-abcd-ef1234567890&quot;,
+  &quot;external_refund_id&quot;: &quot;JDPI-REF-00123456&quot;,
+  &quot;end_to_end_id&quot;: &quot;E1234567820260723123456789abcdef&quot;,
+  &quot;client_id&quot;: &quot;your-client-uuid&quot;,
+  &quot;amount&quot;: &quot;1500.00&quot;,
+  &quot;refund_reason&quot;: 1,
+  &quot;status&quot;: &quot;OPEN&quot;,
+  &quot;direction&quot;: &quot;INBOUND&quot;,
+  &quot;defense_reason&quot;: null,
+  &quot;defense_submitted_at&quot;: null,
+  &quot;created_at&quot;: &quot;2026-07-23T14:30:00Z&quot;,
+  &quot;updated_at&quot;: &quot;2026-07-23T14:30:00Z&quot;
+}
+</code></pre>
+<p><strong><code>refund_reason</code> as integer:</strong> <code>1</code> = FRAUD | <code>2</code> = OPERATIONAL_FLAW | <code>3</code> = UNDISCLOSED</p>
+<h3>Step 3 — Respond (approve or reject the return)</h3>
+<p>Call the respond endpoint. For inbound MEDs, <code>action</code> must be <code>"approve"</code> or <code>"reject"</code> and <code>reason</code> is required:</p>
+<pre><code class="language-bash"># Approve — agree to return the funds
+curl -X POST &quot;https://api.brzip.com.br/api/v1/pix/med/{refund_id}/respond&quot; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;action&quot;: &quot;approve&quot;,
+    &quot;reason&quot;: &quot;Transaction confirmed as fraudulent after internal review&quot;
+  }'
+</code></pre>
+<pre><code class="language-bash"># Reject — dispute the MED request
+curl -X POST &quot;https://api.brzip.com.br/api/v1/pix/med/{refund_id}/respond&quot; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;action&quot;: &quot;reject&quot;,
+    &quot;reason&quot;: &quot;Transaction was authorized by account holder — legitimate purchase confirmed&quot;
+  }'
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;message&quot;: &quot;defense submitted&quot;,
+  &quot;refund_id&quot;: &quot;a1b2c3d4-e5f6-7890-abcd-ef1234567890&quot;,
+  &quot;status&quot;: &quot;UNDER_REVIEW&quot;
+}
+</code></pre>
+<p>After this call, a <code>pix.med_refund.defense_submitted</code> webhook fires and the status moves to <code>UNDER_REVIEW</code>.</p>
+<h3>Step 4 — Await resolution</h3>
+<p>BACEN analyzes the defense and sends a final decision. You receive <code>pix.med_refund.resolved</code>:</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;f7a8b9c0-d1e2-3f4a-5b6c-7d8e9f0a1b2c&quot;,
+  &quot;source&quot;: &quot;pixgw&quot;,
+  &quot;event&quot;: &quot;pix.med_refund.resolved&quot;,
+  &quot;timestamp&quot;: &quot;2026-07-25T09:00:00Z&quot;,
+  &quot;data&quot;: {
+    &quot;refund_id&quot;: &quot;a1b2c3d4-e5f6-7890-abcd-ef1234567890&quot;,
+    &quot;external_refund_id&quot;: &quot;JDPI-REF-00123456&quot;,
+    &quot;end_to_end_id&quot;: &quot;E1234567820260723123456789abcdef&quot;,
+    &quot;e2e&quot;: &quot;E1234567820260723123456789abcdef&quot;,
+    &quot;amount&quot;: &quot;1500.00&quot;,
+    &quot;refund_reason&quot;: &quot;FRAUD&quot;,
+    &quot;direction&quot;: &quot;INBOUND&quot;,
+    &quot;status&quot;: &quot;CANCELLED&quot;,
+    &quot;resolved_by&quot;: &quot;bacen_event&quot;,
+    &quot;data_recebimento&quot;: &quot;25/07/2026&quot;,
+    &quot;hora_recebimento_med&quot;: &quot;06:00:00&quot;,
+    &quot;bancocontestante&quot;: &quot;Banco Bradesco S.A.&quot;
+  }
+}
+</code></pre>
+<p><strong>Final <code>status</code> values:</strong>
+- <code>COMPLETED</code> — funds were returned to the claimant
+- <code>CANCELLED</code> — MED was rejected/dropped; funds remain with you</p>
+<hr />
+<h2>Outbound MED Journey</h2>
+<p>This is the flow when <strong>you</strong> initiate a MED — you sent PIX funds and want them back (fraud or operational error).</p>
+<pre><code>your system
+    │
+    ▼ (1) POST /api/v1/pix/med
+        direction: &quot;OUTBOUND&quot;
+    │
+    ▼
+  status: OPEN → workflow started (JDPI opened)
+    │
+    ▼ (2) Counterparty responds via JDPI (days or weeks)
+    │
+    ▼ (3) You confirm outcome
+        POST /api/v1/pix/med/{id}/respond
+        action: &quot;completed&quot; | &quot;cancelled&quot;
+    │
+    ▼
+pix.med_refund.resolved (status: COMPLETED or CANCELLED)
+</code></pre>
+<h3>Step 1 — Open an outbound MED</h3>
+<pre><code class="language-bash">curl -X POST &quot;https://api.brzip.com.br/api/v1/pix/med&quot; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;end_to_end_id&quot;: &quot;E1234567820260710143022abcdef1234&quot;,
+    &quot;amount&quot;: &quot;850.00&quot;,
+    &quot;refund_reason&quot;: 1,
+    &quot;direction&quot;: &quot;OUTBOUND&quot;,
+    &quot;details&quot;: &quot;Recipient unrecognized — possible fraud&quot;
+  }'
+</code></pre>
+<p><strong>Request fields:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>end_to_end_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>E2E ID of the original PIX transaction</td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Amount to recover (in BRL, decimal string)</td>
+</tr>
+<tr>
+<td><code>refund_reason</code></td>
+<td>integer</td>
+<td>Yes</td>
+<td><code>1</code> = FRAUD, <code>2</code> = OPERATIONAL_FLAW, <code>3</code> = UNDISCLOSED</td>
+</tr>
+<tr>
+<td><code>direction</code></td>
+<td>string</td>
+<td>Yes</td>
+<td><code>"OUTBOUND"</code></td>
+</tr>
+<tr>
+<td><code>details</code></td>
+<td>string</td>
+<td>No</td>
+<td>Free-text description</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response (201):</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;c3d4e5f6-a7b8-9c0d-ef12-34567890abcd&quot;,
+  &quot;external_refund_id&quot;: null,
+  &quot;end_to_end_id&quot;: &quot;E1234567820260710143022abcdef1234&quot;,
+  &quot;client_id&quot;: &quot;your-client-uuid&quot;,
+  &quot;amount&quot;: &quot;850.00&quot;,
+  &quot;refund_reason&quot;: 1,
+  &quot;status&quot;: &quot;OPEN&quot;,
+  &quot;direction&quot;: &quot;OUTBOUND&quot;,
+  &quot;created_at&quot;: &quot;2026-07-23T15:00:00Z&quot;,
+  &quot;updated_at&quot;: &quot;2026-07-23T15:00:00Z&quot;
+}
+</code></pre>
+<h3>Step 2 — Confirm outcome (when BACEN resolves)</h3>
+<p>Once the counterparty responds through JDPI, confirm the outcome:</p>
+<pre><code class="language-bash"># Funds returned successfully
+curl -X POST &quot;https://api.brzip.com.br/api/v1/pix/med/{refund_id}/respond&quot; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;action&quot;: &quot;completed&quot;}'
+
+# Return not obtained
+curl -X POST &quot;https://api.brzip.com.br/api/v1/pix/med/{refund_id}/respond&quot; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;action&quot;: &quot;cancelled&quot;}'
+</code></pre>
+<hr />
+<h2>MED Statuses</h2>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OPEN</code></td>
+<td>MED received or created — awaiting response</td>
+</tr>
+<tr>
+<td><code>WAITING_RETURN</code></td>
+<td>Counterparty acknowledged — awaiting fund transfer</td>
+</tr>
+<tr>
+<td><code>UNDER_REVIEW</code></td>
+<td>Defense submitted — BACEN is analyzing</td>
+</tr>
+<tr>
+<td><code>COMPLETED</code></td>
+<td>Funds returned successfully (final)</td>
+</tr>
+<tr>
+<td><code>CANCELLED</code></td>
+<td>MED closed without return (rejected or dropped) (final)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Listing MEDs</h2>
+<h3>List all MEDs for your account</h3>
+<pre><code class="language-bash">curl -X GET &quot;https://api.brzip.com.br/api/v1/pix/med?page=1&amp;page_size=20&quot; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;data&quot;: [
+    {
+      &quot;id&quot;: &quot;a1b2c3d4-e5f6-7890-abcd-ef1234567890&quot;,
+      &quot;end_to_end_id&quot;: &quot;E1234567820260723123456789abcdef&quot;,
+      &quot;amount&quot;: &quot;1500.00&quot;,
+      &quot;refund_reason&quot;: 1,
+      &quot;status&quot;: &quot;OPEN&quot;,
+      &quot;direction&quot;: &quot;INBOUND&quot;,
+      &quot;created_at&quot;: &quot;2026-07-23T14:30:00Z&quot;,
+      &quot;updated_at&quot;: &quot;2026-07-23T14:30:00Z&quot;
+    }
+  ],
+  &quot;page&quot;: 1,
+  &quot;page_size&quot;: 20
+}
+</code></pre>
+<h3>List by status</h3>
+<pre><code class="language-bash">curl -X GET &quot;https://api.brzip.com.br/api/v1/pix/med/status/OPEN&quot; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<p>Valid statuses: <code>OPEN</code> | <code>WAITING_RETURN</code> | <code>UNDER_REVIEW</code> | <code>COMPLETED</code> | <code>CANCELLED</code></p>
+<h3>Cancel a MED</h3>
+<p>Cancel an open MED before BACEN begins processing:</p>
+<pre><code class="language-bash">curl -X POST &quot;https://api.brzip.com.br/api/v1/pix/med/{refund_id}/cancel&quot; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<hr />
+<h2>Infractions</h2>
+<p>PIX infractions (<code>/infractions</code>) are formal reports to BACEN about suspicious transactions — separate from MED but closely related. Infractions trigger BACEN investigations; MED is the mechanism for the actual fund return.</p>
+<h3>Creating an outbound infraction report</h3>
+<pre><code class="language-bash">curl -X POST &quot;https://api.brzip.com.br/api/v1/pix/infractions&quot; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;end_to_end_id&quot;: &quot;E1234567820260710143022abcdef1234&quot;,
+    &quot;report_type&quot;: &quot;FRAUD&quot;,
+    &quot;reporter_ispb&quot;: &quot;12345678&quot;,
+    &quot;direction&quot;: &quot;OUTBOUND&quot;,
+    &quot;details&quot;: &quot;Suspected fraudulent recipient account&quot;
+  }'
+</code></pre>
+<p><strong>Request fields:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>end_to_end_id</code></td>
+<td>string</td>
+<td>No*</td>
+<td>E2E ID of the flagged transaction</td>
+</tr>
+<tr>
+<td><code>pix_key_id</code></td>
+<td>string</td>
+<td>No*</td>
+<td>PIX key involved (alternative to E2E)</td>
+</tr>
+<tr>
+<td><code>report_type</code></td>
+<td>string</td>
+<td>Yes</td>
+<td><code>FRAUD</code> | <code>AML_CFT</code> | <code>ACCOUNT_CLOSURE</code> | <code>OTHER</code></td>
+</tr>
+<tr>
+<td><code>reporter_ispb</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>ISPB of the reporting institution</td>
+</tr>
+<tr>
+<td><code>reported_ispb</code></td>
+<td>string</td>
+<td>No</td>
+<td>ISPB of the reported institution</td>
+</tr>
+<tr>
+<td><code>direction</code></td>
+<td>string</td>
+<td>Yes</td>
+<td><code>INBOUND</code> | <code>OUTBOUND</code></td>
+</tr>
+<tr>
+<td><code>details</code></td>
+<td>string</td>
+<td>No</td>
+<td>Free-text description</td>
+</tr>
+</tbody>
+</table>
+<p>*At least one of <code>end_to_end_id</code> or <code>pix_key_id</code> is expected.</p>
+<p><strong>Response (201):</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;inf-uuid-here&quot;,
+  &quot;external_report_id&quot;: null,
+  &quot;end_to_end_id&quot;: &quot;E1234567820260710143022abcdef1234&quot;,
+  &quot;report_type&quot;: &quot;FRAUD&quot;,
+  &quot;reporter_ispb&quot;: &quot;12345678&quot;,
+  &quot;status&quot;: &quot;OPEN&quot;,
+  &quot;direction&quot;: &quot;OUTBOUND&quot;,
+  &quot;created_at&quot;: &quot;2026-07-23T15:00:00Z&quot;,
+  &quot;updated_at&quot;: &quot;2026-07-23T15:00:00Z&quot;
+}
+</code></pre>
+<h3>Infraction statuses</h3>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OPEN</code></td>
+<td>Report created — under analysis</td>
+</tr>
+<tr>
+<td><code>ACKNOWLEDGED</code></td>
+<td>Counterparty acknowledged the report</td>
+</tr>
+<tr>
+<td><code>CANCELLED</code></td>
+<td>Report cancelled</td>
+</tr>
+<tr>
+<td><code>CLOSED</code></td>
+<td>Investigation concluded (final)</td>
+</tr>
+</tbody>
+</table>
+<h3>Receiving an inbound infraction (<code>pix.infraction.received</code>)</h3>
+<p>When BACEN reports an infraction against a transaction you received, you get this webhook:</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;e1f2a3b4-c5d6-7e8f-9a0b-1c2d3e4f5a6b&quot;,
+  &quot;source&quot;: &quot;pixgw&quot;,
+  &quot;event&quot;: &quot;pix.infraction.received&quot;,
+  &quot;timestamp&quot;: &quot;2026-07-23T16:00:00Z&quot;,
+  &quot;data&quot;: {
+    &quot;infraction_id&quot;: &quot;inf-a1b2c3d4-e5f6-7890-abcd-ef1234567890&quot;,
+    &quot;external_report_id&quot;: &quot;JDPI-INFR-00456789&quot;,
+    &quot;report_type&quot;: &quot;FRAUD&quot;,
+    &quot;end_to_end_id&quot;: &quot;E1234567820260710143022abcdef1234&quot;,
+    &quot;reporter_ispb&quot;: &quot;60746948&quot;,
+    &quot;direction&quot;: &quot;INBOUND&quot;,
+    &quot;status&quot;: &quot;OPEN&quot;
+  }
+}
+</code></pre>
+<h3>Receiving an infraction notification (<code>pix.infraction_notification.received</code>)</h3>
+<p>JDPI §8.2.21 infraction notifications (separate from the standard infraction flow):</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;b3c4d5e6-f7a8-9b0c-1d2e-3f4a5b6c7d8e&quot;,
+  &quot;source&quot;: &quot;pixgw&quot;,
+  &quot;event&quot;: &quot;pix.infraction_notification.received&quot;,
+  &quot;timestamp&quot;: &quot;2026-07-23T16:05:00Z&quot;,
+  &quot;data&quot;: {
+    &quot;refund_id&quot;: &quot;notif-uuid-here&quot;,
+    &quot;external_report_id&quot;: &quot;JDPI-NOTIF-00789012&quot;,
+    &quot;end_to_end_id&quot;: &quot;E1234567820260710143022abcdef1234&quot;,
+    &quot;e2e&quot;: &quot;E1234567820260710143022abcdef1234&quot;,
+    &quot;report_type&quot;: &quot;FRAUD&quot;,
+    &quot;contested_ispb&quot;: &quot;60746948&quot;,
+    &quot;direction&quot;: &quot;INBOUND&quot;,
+    &quot;status&quot;: &quot;OPEN&quot;,
+    &quot;jdpi_status&quot;: &quot;open&quot;,
+    &quot;data_recebimento&quot;: &quot;23/07/2026&quot;,
+    &quot;hora_recebimento_med&quot;: &quot;13:05:00&quot;,
+    &quot;bancocontestante&quot;: &quot;Itaú Unibanco S.A.&quot;
+  }
+}
+</code></pre>
+<hr />
+<h2>All MED Webhook Events</h2>
+<p>Subscribe to these events on your webhook to cover the full MED lifecycle:</p>
+<pre><code class="language-bash">curl -X POST &quot;https://api.brzip.com.br/api/v1/webhooks&quot; \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;url&quot;: &quot;https://your-system.com/webhooks/med&quot;,
+    &quot;events&quot;: [
+      &quot;pix.med_refund.received&quot;,
+      &quot;pix.med_refund.defense_submitted&quot;,
+      &quot;pix.med_refund.resolved&quot;,
+      &quot;pix.infraction.received&quot;,
+      &quot;pix.infraction_notification.received&quot;
+    ]
+  }'
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>When it fires</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pix.med_refund.received</code></td>
+<td>BACEN opens an inbound MED against you</td>
+</tr>
+<tr>
+<td><code>pix.med_refund.defense_submitted</code></td>
+<td>Your defense was recorded (status → UNDER_REVIEW)</td>
+</tr>
+<tr>
+<td><code>pix.med_refund.resolved</code></td>
+<td>BACEN issued a final decision (COMPLETED or CANCELLED)</td>
+</tr>
+<tr>
+<td><code>pix.infraction.received</code></td>
+<td>BACEN sent an inbound infraction report</td>
+</tr>
+<tr>
+<td><code>pix.infraction_notification.received</code></td>
+<td>JDPI §8.2.21 infraction notification received</td>
+</tr>
+</tbody>
+</table>
+<p>All events arrive as an HTTP POST to your URL with this envelope:</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a&quot;,
+  &quot;source&quot;: &quot;pixgw&quot;,
+  &quot;event&quot;: &quot;pix.med_refund.received&quot;,
+  &quot;timestamp&quot;: &quot;2026-07-23T14:30:00Z&quot;,
+  &quot;data&quot;: { }
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Envelope field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>string (UUID)</td>
+<td>Unique delivery ID</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td>string</td>
+<td>Always <code>pixgw</code></td>
+</tr>
+<tr>
+<td><code>event</code></td>
+<td>string</td>
+<td>Event name (see table above)</td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>string</td>
+<td>ISO 8601 UTC timestamp</td>
+</tr>
+<tr>
+<td><code>data</code></td>
+<td>object</td>
+<td>Event-specific payload — detailed per event below</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3><code>pix.med_refund.received</code></h3>
+<p>Fires when BACEN opens a new MED request targeting funds in your account.</p>
+<p><strong><code>data</code>:</strong></p>
+<pre><code class="language-json">{
+  &quot;refund_id&quot;: &quot;a1b2c3d4-e5f6-7890-abcd-ef1234567890&quot;,
+  &quot;external_refund_id&quot;: &quot;JDPI-REF-00123456&quot;,
+  &quot;end_to_end_id&quot;: &quot;E1234567820260723123456789abcdef&quot;,
+  &quot;e2e&quot;: &quot;E1234567820260723123456789abcdef&quot;,
+  &quot;amount&quot;: &quot;1500.00&quot;,
+  &quot;refund_reason&quot;: &quot;FRAUD&quot;,
+  &quot;direction&quot;: &quot;INBOUND&quot;,
+  &quot;status&quot;: &quot;OPEN&quot;,
+  &quot;hold_placed&quot;: false,
+  &quot;data_recebimento&quot;: &quot;23/07/2026&quot;,
+  &quot;hora_recebimento_med&quot;: &quot;11:30:00&quot;,
+  &quot;bancocontestante&quot;: &quot;Banco Bradesco S.A.&quot;
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>refund_id</code></td>
+<td>string (UUID)</td>
+<td>Internal MED ID — use in subsequent API calls</td>
+</tr>
+<tr>
+<td><code>external_refund_id</code></td>
+<td>string</td>
+<td>JDPI reference ID</td>
+</tr>
+<tr>
+<td><code>end_to_end_id</code></td>
+<td>string</td>
+<td>E2E ID of the original PIX transaction</td>
+</tr>
+<tr>
+<td><code>e2e</code></td>
+<td>string</td>
+<td>Alias for <code>end_to_end_id</code></td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td>Amount requested for return (BRL)</td>
+</tr>
+<tr>
+<td><code>refund_reason</code></td>
+<td>string</td>
+<td><code>FRAUD</code> | <code>OPERATIONAL_FLAW</code> | <code>UNDISCLOSED</code></td>
+</tr>
+<tr>
+<td><code>direction</code></td>
+<td>string</td>
+<td>Always <code>INBOUND</code></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>Always <code>OPEN</code> on receipt</td>
+</tr>
+<tr>
+<td><code>hold_placed</code></td>
+<td>boolean</td>
+<td>Whether a precautionary hold was placed on funds</td>
+</tr>
+<tr>
+<td><code>data_recebimento</code></td>
+<td>string</td>
+<td>Receipt date (DD/MM/YYYY, BRT)</td>
+</tr>
+<tr>
+<td><code>hora_recebimento_med</code></td>
+<td>string</td>
+<td>Receipt time (HH:MM:SS, BRT)</td>
+</tr>
+<tr>
+<td><code>bancocontestante</code></td>
+<td>string</td>
+<td>Name of the contesting institution</td>
+</tr>
+</tbody>
+</table>
+<p><div class="callout callout-info">ℹ️ <p>This event is also enriched with <code>data_transacao</code>, <code>hora_transacao</code>, <code>pix_key</code>, <code>pix_key_type</code>, <code>pagador</code>, and <code>recebedor</code> from the original PIX transaction when the <code>end_to_end_id</code> matches a stored transaction. The <code>valor</code> field (original transaction amount) is also included — note that it may differ from <code>amount</code> if the MED covers only a partial refund.</p></div></p>
+<hr />
+<h3><code>pix.med_refund.defense_submitted</code></h3>
+<p>Fires after your system calls <code>POST /med/{id}/respond</code> with <code>approve</code> or <code>reject</code>. Status moves to <code>UNDER_REVIEW</code>.</p>
+<p><strong><code>data</code>:</strong></p>
+<pre><code class="language-json">{
+  &quot;refund_id&quot;: &quot;a1b2c3d4-e5f6-7890-abcd-ef1234567890&quot;,
+  &quot;end_to_end_id&quot;: &quot;E1234567820260723123456789abcdef&quot;,
+  &quot;e2e&quot;: &quot;E1234567820260723123456789abcdef&quot;,
+  &quot;direction&quot;: &quot;INBOUND&quot;,
+  &quot;status&quot;: &quot;UNDER_REVIEW&quot;,
+  &quot;defense_reason&quot;: &quot;Transaction was authorized by account holder&quot;,
+  &quot;data_recebimento&quot;: &quot;23/07/2026&quot;,
+  &quot;hora_recebimento_med&quot;: &quot;12:45:00&quot;,
+  &quot;bancocontestante&quot;: &quot;Banco Bradesco S.A.&quot;
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>refund_id</code></td>
+<td>string (UUID)</td>
+<td>Internal MED ID</td>
+</tr>
+<tr>
+<td><code>end_to_end_id</code></td>
+<td>string</td>
+<td>E2E ID of the original PIX transaction</td>
+</tr>
+<tr>
+<td><code>e2e</code></td>
+<td>string</td>
+<td>Alias for <code>end_to_end_id</code></td>
+</tr>
+<tr>
+<td><code>direction</code></td>
+<td>string</td>
+<td>Always <code>INBOUND</code></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>Always <code>UNDER_REVIEW</code> after defense</td>
+</tr>
+<tr>
+<td><code>defense_reason</code></td>
+<td>string</td>
+<td>The reason text submitted with the response</td>
+</tr>
+<tr>
+<td><code>data_recebimento</code></td>
+<td>string</td>
+<td>Submission date (DD/MM/YYYY, BRT)</td>
+</tr>
+<tr>
+<td><code>hora_recebimento_med</code></td>
+<td>string</td>
+<td>Submission time (HH:MM:SS, BRT)</td>
+</tr>
+<tr>
+<td><code>bancocontestante</code></td>
+<td>string</td>
+<td>Name of the contesting institution</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3><code>pix.med_refund.resolved</code></h3>
+<p>Fires when BACEN issues the final decision. Terminal event — no further action needed.</p>
+<p><strong><code>data</code>:</strong></p>
+<pre><code class="language-json">{
+  &quot;refund_id&quot;: &quot;a1b2c3d4-e5f6-7890-abcd-ef1234567890&quot;,
+  &quot;external_refund_id&quot;: &quot;JDPI-REF-00123456&quot;,
+  &quot;end_to_end_id&quot;: &quot;E1234567820260723123456789abcdef&quot;,
+  &quot;e2e&quot;: &quot;E1234567820260723123456789abcdef&quot;,
+  &quot;amount&quot;: &quot;1500.00&quot;,
+  &quot;refund_reason&quot;: &quot;FRAUD&quot;,
+  &quot;direction&quot;: &quot;INBOUND&quot;,
+  &quot;status&quot;: &quot;CANCELLED&quot;,
+  &quot;resolved_by&quot;: &quot;bacen_event&quot;,
+  &quot;data_recebimento&quot;: &quot;25/07/2026&quot;,
+  &quot;hora_recebimento_med&quot;: &quot;06:00:00&quot;,
+  &quot;bancocontestante&quot;: &quot;Banco Bradesco S.A.&quot;
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>refund_id</code></td>
+<td>string (UUID)</td>
+<td>Internal MED ID</td>
+</tr>
+<tr>
+<td><code>external_refund_id</code></td>
+<td>string</td>
+<td>JDPI reference ID</td>
+</tr>
+<tr>
+<td><code>end_to_end_id</code></td>
+<td>string</td>
+<td>E2E ID of the original PIX transaction</td>
+</tr>
+<tr>
+<td><code>e2e</code></td>
+<td>string</td>
+<td>Alias for <code>end_to_end_id</code></td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>string</td>
+<td>Amount at stake (BRL)</td>
+</tr>
+<tr>
+<td><code>refund_reason</code></td>
+<td>string</td>
+<td><code>FRAUD</code> | <code>OPERATIONAL_FLAW</code> | <code>UNDISCLOSED</code></td>
+</tr>
+<tr>
+<td><code>direction</code></td>
+<td>string</td>
+<td><code>INBOUND</code> or <code>OUTBOUND</code></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td><code>COMPLETED</code> — funds returned | <code>CANCELLED</code> — not returned</td>
+</tr>
+<tr>
+<td><code>resolved_by</code></td>
+<td>string</td>
+<td>Always <code>bacen_event</code></td>
+</tr>
+<tr>
+<td><code>data_recebimento</code></td>
+<td>string</td>
+<td>Resolution date (DD/MM/YYYY, BRT)</td>
+</tr>
+<tr>
+<td><code>hora_recebimento_med</code></td>
+<td>string</td>
+<td>Resolution time (HH:MM:SS, BRT)</td>
+</tr>
+<tr>
+<td><code>bancocontestante</code></td>
+<td>string</td>
+<td>Name of the contesting institution</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3><code>pix.infraction.received</code></h3>
+<p>Fires when BACEN sends an inbound infraction report for a transaction you received.</p>
+<p><strong><code>data</code>:</strong></p>
+<pre><code class="language-json">{
+  &quot;infraction_id&quot;: &quot;a9b8c7d6-e5f4-3210-fedc-ba9876543210&quot;,
+  &quot;external_report_id&quot;: &quot;JDPI-INFR-00456789&quot;,
+  &quot;report_type&quot;: &quot;FRAUD&quot;,
+  &quot;end_to_end_id&quot;: &quot;E1234567820260710143022abcdef1234&quot;,
+  &quot;reporter_ispb&quot;: &quot;60746948&quot;,
+  &quot;direction&quot;: &quot;INBOUND&quot;,
+  &quot;status&quot;: &quot;OPEN&quot;
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>infraction_id</code></td>
+<td>string (UUID)</td>
+<td>Internal infraction ID — use in <code>GET /infractions/{id}</code></td>
+</tr>
+<tr>
+<td><code>external_report_id</code></td>
+<td>string</td>
+<td>JDPI report reference ID</td>
+</tr>
+<tr>
+<td><code>report_type</code></td>
+<td>string</td>
+<td><code>FRAUD</code> | <code>AML_CFT</code> | <code>ACCOUNT_CLOSURE</code> | <code>OTHER</code></td>
+</tr>
+<tr>
+<td><code>end_to_end_id</code></td>
+<td>string</td>
+<td>E2E ID of the flagged transaction</td>
+</tr>
+<tr>
+<td><code>reporter_ispb</code></td>
+<td>string</td>
+<td>ISPB of the institution that filed the report</td>
+</tr>
+<tr>
+<td><code>direction</code></td>
+<td>string</td>
+<td>Always <code>INBOUND</code></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td>Always <code>OPEN</code> on receipt</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3><code>pix.infraction_notification.received</code></h3>
+<p>Fires on JDPI §8.2.21 infraction notifications — lighter than a formal infraction. No funds held, no action required; use for monitoring and audit.</p>
+<p><strong><code>data</code>:</strong></p>
+<pre><code class="language-json">{
+  &quot;refund_id&quot;: &quot;c1d2e3f4-a5b6-7c8d-9e0f-1a2b3c4d5e6f&quot;,
+  &quot;external_report_id&quot;: &quot;JDPI-NOTIF-00789012&quot;,
+  &quot;end_to_end_id&quot;: &quot;E1234567820260710143022abcdef1234&quot;,
+  &quot;e2e&quot;: &quot;E1234567820260710143022abcdef1234&quot;,
+  &quot;report_type&quot;: &quot;FRAUD&quot;,
+  &quot;contested_ispb&quot;: &quot;60746948&quot;,
+  &quot;direction&quot;: &quot;INBOUND&quot;,
+  &quot;status&quot;: &quot;OPEN&quot;,
+  &quot;jdpi_status&quot;: &quot;open&quot;,
+  &quot;data_recebimento&quot;: &quot;23/07/2026&quot;,
+  &quot;hora_recebimento_med&quot;: &quot;13:05:00&quot;,
+  &quot;bancocontestante&quot;: &quot;Itaú Unibanco S.A.&quot;,
+  &quot;tax_id_contestante&quot;: &quot;60746948000100&quot;,
+  &quot;pix_key_contestante&quot;: &quot;joao@example.com&quot;,
+  &quot;tipo_chave_contestante&quot;: &quot;EMAIL&quot;,
+  &quot;motivo&quot;: &quot;Transação suspeita de fraude relatada pelo PSP originador&quot;,
+  &quot;id_marcacao_fraude&quot;: &quot;FRAUD-MARKER-00123&quot;,
+  &quot;psp_criador&quot;: &quot;60746948&quot;,
+  &quot;psp_contra_parte&quot;: &quot;00416968&quot;,
+  &quot;valor&quot;: &quot;1500.00&quot;,
+  &quot;data_transacao&quot;: &quot;10/07/2026&quot;,
+  &quot;hora_transacao&quot;: &quot;14:30:22&quot;,
+  &quot;pix_key&quot;: &quot;joao@example.com&quot;,
+  &quot;pix_key_type&quot;: &quot;EMAIL&quot;,
+  &quot;pagador&quot;: {
+    &quot;nome&quot;: &quot;João Silva&quot;,
+    &quot;cpf&quot;: &quot;123.456.789-00&quot;,
+    &quot;ispb&quot;: &quot;60746948&quot;,
+    &quot;agencia&quot;: &quot;0001&quot;,
+    &quot;conta&quot;: &quot;12345-6&quot;,
+    &quot;tipoConta&quot;: &quot;CONTA_CORRENTE&quot;
+  },
+  &quot;recebedor&quot;: {
+    &quot;nome&quot;: &quot;Maria Souza&quot;,
+    &quot;cpf&quot;: &quot;987.654.321-00&quot;,
+    &quot;ispb&quot;: &quot;00416968&quot;,
+    &quot;agencia&quot;: &quot;0002&quot;,
+    &quot;conta&quot;: &quot;98765-4&quot;,
+    &quot;tipoConta&quot;: &quot;CONTA_CORRENTE&quot;
+  }
+}
+</code></pre>
+<p><div class="callout callout-info">ℹ️ <p>Fields <code>valor</code>, <code>data_transacao</code>, <code>hora_transacao</code>, <code>pix_key</code>, <code>pix_key_type</code>, <code>pagador</code>, and <code>recebedor</code> are enriched at delivery time from the original PIX transaction record matched by <code>end_to_end_id</code>. If the transaction is not found, these fields are omitted but the notification is still delivered.</p></div></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>refund_id</code></td>
+<td>string (UUID)</td>
+<td>Internal record ID (type <code>INFRACTION_NOTIFICATION</code>)</td>
+</tr>
+<tr>
+<td><code>external_report_id</code></td>
+<td>string</td>
+<td>JDPI notification reference ID</td>
+</tr>
+<tr>
+<td><code>end_to_end_id</code></td>
+<td>string</td>
+<td>E2E ID of the flagged transaction</td>
+</tr>
+<tr>
+<td><code>e2e</code></td>
+<td>string</td>
+<td>Alias for <code>end_to_end_id</code></td>
+</tr>
+<tr>
+<td><code>report_type</code></td>
+<td>string</td>
+<td><code>FRAUD</code> | <code>AML_CFT</code> | <code>ACCOUNT_CLOSURE</code> | <code>OTHER</code></td>
+</tr>
+<tr>
+<td><code>contested_ispb</code></td>
+<td>string</td>
+<td>ISPB of the institution being contested</td>
+</tr>
+<tr>
+<td><code>direction</code></td>
+<td>string</td>
+<td>Always <code>INBOUND</code></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>string</td>
+<td><code>OPEN</code> | <code>COMPLETED</code> | <code>CANCELLED</code> (mapped from JDPI)</td>
+</tr>
+<tr>
+<td><code>jdpi_status</code></td>
+<td>string</td>
+<td>Raw JDPI value: <code>open</code> | <code>accepted</code> | <code>rejected</code> | <code>cancelled</code></td>
+</tr>
+<tr>
+<td><code>data_recebimento</code></td>
+<td>string</td>
+<td>Receipt date (DD/MM/YYYY, BRT)</td>
+</tr>
+<tr>
+<td><code>hora_recebimento_med</code></td>
+<td>string</td>
+<td>Receipt time (HH:MM:SS, BRT)</td>
+</tr>
+<tr>
+<td><code>bancocontestante</code></td>
+<td>string</td>
+<td>Name of the contesting institution</td>
+</tr>
+<tr>
+<td><code>tax_id_contestante</code></td>
+<td>string</td>
+<td>CNPJ/CPF of the contesting institution</td>
+</tr>
+<tr>
+<td><code>pix_key_contestante</code></td>
+<td>string</td>
+<td>PIX key associated with the contesting party</td>
+</tr>
+<tr>
+<td><code>tipo_chave_contestante</code></td>
+<td>string</td>
+<td>PIX key type: <code>CPF</code> | <code>CNPJ</code> | <code>EMAIL</code> | <code>PHONE</code> | <code>EVP</code></td>
+</tr>
+<tr>
+<td><code>motivo</code></td>
+<td>string</td>
+<td>Reason text from the JDPI notification</td>
+</tr>
+<tr>
+<td><code>id_marcacao_fraude</code></td>
+<td>string</td>
+<td>Fraud marker ID from JDPI (when applicable)</td>
+</tr>
+<tr>
+<td><code>psp_criador</code></td>
+<td>string</td>
+<td>ISPB of the PSP that created the notification</td>
+</tr>
+<tr>
+<td><code>psp_contra_parte</code></td>
+<td>string</td>
+<td>ISPB of the counterparty PSP</td>
+</tr>
+<tr>
+<td><code>valor</code></td>
+<td>string</td>
+<td>Original transaction amount (BRL) — enriched from PIX record</td>
+</tr>
+<tr>
+<td><code>data_transacao</code></td>
+<td>string</td>
+<td>Original transaction date (DD/MM/YYYY, BRT) — enriched from PIX record</td>
+</tr>
+<tr>
+<td><code>hora_transacao</code></td>
+<td>string</td>
+<td>Original transaction time (HH:MM:SS, BRT) — enriched from PIX record</td>
+</tr>
+<tr>
+<td><code>pix_key</code></td>
+<td>string</td>
+<td>PIX key used in the original transaction — enriched from PIX record</td>
+</tr>
+<tr>
+<td><code>pix_key_type</code></td>
+<td>string</td>
+<td>Type of PIX key used — enriched from PIX record</td>
+</tr>
+<tr>
+<td><code>pagador</code></td>
+<td>object</td>
+<td>Full payer data from the original PIX transaction — enriched from PIX record</td>
+</tr>
+<tr>
+<td><code>recebedor</code></td>
+<td>object</td>
+<td>Full receiver data from the original PIX transaction — enriched from PIX record</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Quick Reference</h2>
+<h3>MED endpoints</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Scope</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/pix/med</code></td>
+<td><code>pix:med:write</code></td>
+<td>Create outbound MED</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/pix/med</code></td>
+<td><code>pix:med:read</code></td>
+<td>List MEDs for your account</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/pix/med/{id}</code></td>
+<td><code>pix:med:read</code></td>
+<td>Get MED by ID</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/pix/med/{id}/respond</code></td>
+<td><code>pix:med:write</code></td>
+<td>Respond to inbound or confirm outbound</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/pix/med/{id}/cancel</code></td>
+<td><code>pix:med:write</code></td>
+<td>Cancel an open MED</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/pix/med/status/{status}</code></td>
+<td><code>pix:med:read</code></td>
+<td>List MEDs by status</td>
+</tr>
+</tbody>
+</table>
+<h3>Infraction endpoints</h3>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Scope</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/pix/infractions</code></td>
+<td><code>pix:infractions:write</code></td>
+<td>Create infraction report</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/pix/infractions/{id}</code></td>
+<td><code>pix:infractions:read</code></td>
+<td>Get infraction by ID</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/pix/infractions/{id}/cancel</code></td>
+<td><code>pix:infractions:write</code></td>
+<td>Cancel infraction</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/pix/infractions/status/{status}</code></td>
+<td><code>pix:infractions:read</code></td>
+<td>List infractions by status</td>
+</tr>
+</tbody>
+</table>
+</main>
+</body>
+</html>

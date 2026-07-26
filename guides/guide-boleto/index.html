@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boleto Payments — BRZ API Docs</title>
+<meta name="description" content="Pay boletos using the Celcoin provider — decode, authorize, track, and cancel.">
+<link rel="icon" type="image/png" href="/brand-logo.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;font-size:15px;line-height:1.65;color:#1a1a2e;background:#fff;display:flex;min-height:100vh}
+
+/* Sidebar */
+.sidebar{width:260px;min-width:260px;background:#f8f9fb;border-right:1px solid #e5e7eb;padding:24px 0;position:fixed;top:0;left:0;bottom:0;overflow-y:auto}
+.sidebar-logo{display:block;font-size:17px;font-weight:700;color:#1e3a5f;text-decoration:none;padding:0 20px 16px;border-bottom:1px solid #e5e7eb;margin-bottom:12px;letter-spacing:-.02em}
+.sidebar-api-ref{display:block;font-size:12.5px;color:#1e3a5f;text-decoration:none;padding:6px 12px;margin:0 12px 16px;border-radius:6px;border:1px solid #1e3a5f33;font-weight:500;text-align:center}
+.sidebar-api-ref:hover{background:#1e3a5f0d}
+.nav-section{margin-bottom:4px}
+.nav-section-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#9ca3af;padding:8px 20px 3px}
+.nav-subsection-title{font-size:10.5px;font-weight:600;color:#b0b8c4;padding:6px 20px 2px 28px;text-transform:uppercase;letter-spacing:.07em}
+.nav-link{display:block;font-size:13.5px;color:#374151;text-decoration:none;padding:5px 20px;transition:background .1s,color .1s}
+.nav-link:hover{background:#e9ecf0;color:#1e3a5f}
+.nav-link.active{background:#1e3a5f14;color:#1e3a5f;font-weight:600;border-left:3px solid #1e3a5f;padding-left:17px}
+
+/* Main */
+.main{margin-left:260px;flex:1;padding:52px 64px;max-width:960px}
+.page-meta{margin-bottom:32px}
+.page-description{color:#6b7280;font-size:15.5px;margin-top:6px}
+
+/* Typography */
+h1{font-size:28px;font-weight:700;color:#111827;line-height:1.25;margin-bottom:4px}
+h2{font-size:19px;font-weight:700;color:#1f2937;margin-top:44px;margin-bottom:12px;border-bottom:1px solid #e5e7eb;padding-bottom:6px}
+h3{font-size:15.5px;font-weight:600;color:#374151;margin-top:28px;margin-bottom:8px}
+h4{font-size:14px;font-weight:600;color:#4b5563;margin-top:20px;margin-bottom:6px}
+p{margin-bottom:14px}
+a{color:#1e3a5f;text-decoration:underline}
+a:hover{color:#2d5a8e}
+ul,ol{margin:10px 0 16px 24px}
+li{margin-bottom:5px}
+strong{font-weight:600}
+
+/* Code */
+code{font-family:"Menlo","Monaco","Consolas","Courier New",monospace;font-size:13px;background:#f3f4f6;padding:2px 5px;border-radius:4px;color:#c2185b}
+pre{background:#1a1a2e;color:#e2e8f0;border-radius:8px;padding:20px 24px;overflow-x:auto;margin:16px 0;font-size:13px;line-height:1.55}
+pre code{background:none;padding:0;color:inherit;font-size:inherit}
+
+/* Tables */
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px}
+th{background:#f3f4f6;font-weight:600;color:#374151;text-align:left;padding:8px 12px;border:1px solid #d1d5db}
+td{padding:8px 12px;border:1px solid #e5e7eb;color:#4b5563;vertical-align:top}
+tr:nth-child(even) td{background:#fafafa}
+
+/* Callouts */
+.callout{border-left:4px solid;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;font-size:14px;line-height:1.5}
+.callout p{margin:0}
+.callout-info{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8}
+.callout-warning{border-color:#f59e0b;background:#fffbeb;color:#92400e}
+.callout-danger{border-color:#ef4444;background:#fef2f2;color:#991b1b}
+.callout-tip{border-color:#10b981;background:#ecfdf5;color:#065f46}
+.callout-success{border-color:#10b981;background:#ecfdf5;color:#065f46}
+
+/* Steps */
+ol.steps{list-style:none;margin:16px 0;padding:0;counter-reset:step-counter}
+ol.steps li{counter-increment:step-counter;padding:16px 16px 16px 60px;position:relative;margin-bottom:10px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa}
+ol.steps li::before{content:counter(step-counter);position:absolute;left:16px;top:16px;width:28px;height:28px;background:#1e3a5f;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;line-height:1}
+ol.steps li p{margin:4px 0 0}
+
+/* Mobile */
+@media(max-width:768px){.sidebar{display:none}.main{margin-left:0;padding:28px 20px}}
+
+</style>
+</head>
+<body>
+<nav class="sidebar">
+<a href="/" class="sidebar-logo">BRZ Public API</a>
+<a href="/" class="sidebar-api-ref">API Reference ↗</a>
+<div class="nav-section">
+<div class="nav-section-title">Getting Started</div>
+<a href="/getting-started/introduction/" class="nav-link">Introduction</a>
+<a href="/getting-started/authentication/" class="nav-link">Authentication</a>
+<a href="/getting-started/rate-limits/" class="nav-link">Rate Limits</a>
+<a href="/getting-started/error-handling/" class="nav-link">Error Handling</a>
+</div>
+<div class="nav-section">
+<div class="nav-section-title">Guides</div>
+<div class="nav-subsection-title">PIX</div>
+<a href="/guides/guide-cash-in/" class="nav-link">Cash-In (Receiving Payments)</a>
+<a href="/guides/guide-cash-out/" class="nav-link">Cash-Out (Sending Payments)</a>
+<a href="/guides/guide-qr-estatico/" class="nav-link">Static QR Code (JWS)</a>
+<a href="/guides/guide-pix-keys/" class="nav-link">PIX Keys Management</a>
+<a href="/guides/guide-med/" class="nav-link">MED (Special Returns)</a>
+<div class="nav-subsection-title">Accounts & Wallets</div>
+<a href="/guides/guide-accounts/" class="nav-link">Account Management</a>
+<a href="/guides/guide-wallets/" class="nav-link">Wallet Balance & Breakdown</a>
+<div class="nav-subsection-title">Payments</div>
+<a href="/guides/guide-boleto/" class="nav-link active">Boleto Payments</a>
+<div class="nav-subsection-title">Platform</div>
+<a href="/guides/webhooks-integration/" class="nav-link">Webhooks Integration</a>
+<a href="/guides/changelog/" class="nav-link">Changelog</a>
+</div>
+</nav>
+<main class="main">
+<div class="page-meta">
+<h1>Boleto Payments</h1>
+<p class="page-description">Pay boletos using the Celcoin provider — decode, authorize, track, and cancel.</p>
+</div>
+<h1>Boleto Payments</h1>
+<p>The Boleto API allows your clients to pay boletos using funds in their BRZ wallet. The integration uses <strong>Celcoin</strong> as the underlying provider, orchestrated by the payment service.</p>
+<h2>Payment Flow</h2>
+<pre><code>1. Decode barcode       →  retrieve beneficiary + amount
+2. Authorize payment    →  submit payment (deducts from wallet)
+3. Poll status          →  PROCESSING → PAID | FAILED | CANCELLED
+4. (Optional) Cancel    →  before settlement window closes
+</code></pre>
+<p><div class="callout callout-info">ℹ️ <p>Include <code>X-Idempotency-Key</code> on payment requests to safely retry without duplicating charges.</p></div></p>
+<hr />
+<h2>Step 1: Decode a Barcode</h2>
+<p>Before authorizing, decode the boleto barcode to confirm amount, due date, and beneficiary:</p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/payments/boleto/decode \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;barcode&quot;: &quot;34191.09008 61234.678901 23456.789012 1 100000000025000&quot;
+  }'
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;barcode&quot;: &quot;34191090086123467890123456789012110000000002500&quot;,
+    &quot;amount&quot;: &quot;250.00&quot;,
+    &quot;original_amount&quot;: &quot;250.00&quot;,
+    &quot;due_date&quot;: &quot;2026-07-25&quot;,
+    &quot;beneficiary&quot;: {
+      &quot;name&quot;: &quot;EMPRESA EXEMPLO LTDA&quot;,
+      &quot;document&quot;: &quot;12.345.678/0001-90&quot;
+    },
+    &quot;payer&quot;: {
+      &quot;name&quot;: null,
+      &quot;document&quot;: null
+    },
+    &quot;bank_code&quot;: &quot;341&quot;,
+    &quot;bank_name&quot;: &quot;Banco Itaú&quot;,
+    &quot;fine&quot;: &quot;0.00&quot;,
+    &quot;interest&quot;: &quot;0.00&quot;,
+    &quot;discount&quot;: &quot;0.00&quot;,
+    &quot;expires_at&quot;: &quot;2026-07-30T23:59:59Z&quot;
+  }
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>amount</code></td>
+<td>Final amount due (after fine/interest/discount)</td>
+</tr>
+<tr>
+<td><code>original_amount</code></td>
+<td>Face value on the boleto</td>
+</tr>
+<tr>
+<td><code>fine</code></td>
+<td>Late fee applied</td>
+</tr>
+<tr>
+<td><code>interest</code></td>
+<td>Daily interest accrued</td>
+</tr>
+<tr>
+<td><code>discount</code></td>
+<td>Any discount applied</td>
+</tr>
+<tr>
+<td><code>expires_at</code></td>
+<td>Payment deadline — after this, the boleto cannot be paid</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Step 2: Authorize Payment</h2>
+<p>Submit the payment. The wallet is debited immediately:</p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/payments/boleto \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;X-Idempotency-Key: 7e0a1b2c-3d4e-5f6a-7b8c-9d0e1f2a3b4c&quot; \
+  -d '{
+    &quot;account_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+    &quot;barcode&quot;: &quot;34191090086123467890123456789012110000000002500&quot;,
+    &quot;amount&quot;: &quot;250.00&quot;,
+    &quot;description&quot;: &quot;Invoice #1234&quot;
+  }'
+</code></pre>
+<p><strong>Response (<code>202 Accepted</code>):</strong></p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;payment_id&quot;: &quot;pay_9f3d2a1b4c5e6f7a&quot;,
+    &quot;status&quot;: &quot;PROCESSING&quot;,
+    &quot;amount&quot;: &quot;250.00&quot;,
+    &quot;barcode&quot;: &quot;34191090086123467890123456789012110000000002500&quot;,
+    &quot;created_at&quot;: &quot;2026-07-22T14:30:00Z&quot;
+  }
+}
+</code></pre>
+<p><div class="callout callout-warning">⚠️ <p>A <code>202 Accepted</code> response means the payment was accepted for processing — <strong>not</strong> that it has settled. Poll the status endpoint to confirm.</p></div></p>
+<p><strong>Errors:</strong></p>
+<table>
+<thead>
+<tr>
+<th>HTTP</th>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>400</td>
+<td><code>INVALID_BARCODE</code></td>
+<td>Barcode failed checksum validation</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>AMOUNT_MISMATCH</code></td>
+<td>Submitted amount differs from decoded amount</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>BOLETO_EXPIRED</code></td>
+<td>Boleto past its <code>expires_at</code> date</td>
+</tr>
+<tr>
+<td>402</td>
+<td><code>INSUFFICIENT_FUNDS</code></td>
+<td>Wallet balance too low</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>DUPLICATE_PAYMENT</code></td>
+<td>Same barcode already paid by this account</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>IDEMPOTENCY_CONFLICT</code></td>
+<td>Key reused with different parameters</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Step 3: Check Payment Status</h2>
+<pre><code class="language-bash">curl -X GET https://api.brzip.com.br/api/v1/payments/boleto/{paymentId} \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;payment_id&quot;: &quot;pay_9f3d2a1b4c5e6f7a&quot;,
+    &quot;status&quot;: &quot;PAID&quot;,
+    &quot;amount&quot;: &quot;250.00&quot;,
+    &quot;paid_at&quot;: &quot;2026-07-22T14:31:45Z&quot;,
+    &quot;authentication_code&quot;: &quot;B2026072234191341123456&quot;,
+    &quot;barcode&quot;: &quot;34191090086123467890123456789012110000000002500&quot;
+  }
+}
+</code></pre>
+<p><strong>Payment statuses:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PROCESSING</code></td>
+<td>Submitted to Celcoin, awaiting confirmation</td>
+</tr>
+<tr>
+<td><code>PAID</code></td>
+<td>Settlement confirmed — <code>authentication_code</code> is available</td>
+</tr>
+<tr>
+<td><code>FAILED</code></td>
+<td>Provider rejected — funds returned to wallet</td>
+</tr>
+<tr>
+<td><code>CANCELLED</code></td>
+<td>Cancelled before settlement</td>
+</tr>
+</tbody>
+</table>
+<p>Typical settlement time: <strong>30 seconds to 2 minutes</strong> for <code>PROCESSING → PAID</code>.</p>
+<p><strong>Recommended polling strategy:</strong></p>
+<pre><code class="language-javascript">async function waitForPayment(paymentId, token) {
+  const POLLS = 10;
+  const DELAY = 5000; // 5s
+
+  for (let i = 0; i &lt; POLLS; i++) {
+    const resp = await fetch(
+      `https://api.brzip.com.br/api/v1/payments/boleto/${paymentId}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const { data } = await resp.json();
+
+    if (data.status !== &quot;PROCESSING&quot;) return data;
+    await new Promise(r =&gt; setTimeout(r, DELAY));
+  }
+  throw new Error(&quot;Payment still processing after 50s — use webhooks&quot;);
+}
+</code></pre>
+<p><div class="callout callout-info">ℹ️ <p>For production, subscribe to the <code>boleto.payment.paid</code> webhook event instead of polling. See the <a href="./webhooks-integration">Webhooks guide</a>.</p></div></p>
+<hr />
+<h2>Step 4: Cancel a Payment (Optional)</h2>
+<p>Cancellation is only possible while the payment is still in <code>PROCESSING</code>:</p>
+<pre><code class="language-bash">curl -X DELETE https://api.brzip.com.br/api/v1/payments/boleto/{paymentId} \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;message&quot;: &quot;Payment cancelled successfully&quot;
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>HTTP</th>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>409</td>
+<td><code>PAYMENT_NOT_CANCELLABLE</code></td>
+<td>Payment already settled or failed</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Webhook Events</h2>
+<p>Subscribe to these events in your webhook configuration:</p>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>When</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>boleto.payment.paid</code></td>
+<td>Celcoin confirmed settlement</td>
+</tr>
+<tr>
+<td><code>boleto.payment.failed</code></td>
+<td>Provider rejection — funds returned</td>
+</tr>
+<tr>
+<td><code>boleto.payment.cancelled</code></td>
+<td>Cancellation confirmed</td>
+</tr>
+</tbody>
+</table>
+</main>
+</body>
+</html>

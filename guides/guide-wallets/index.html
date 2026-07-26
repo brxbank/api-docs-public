@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wallet Balance & Breakdown — BRZ API Docs</title>
+<meta name="description" content="Query real-time wallet balances and understand multi-wallet breakdowns.">
+<link rel="icon" type="image/png" href="/brand-logo.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;font-size:15px;line-height:1.65;color:#1a1a2e;background:#fff;display:flex;min-height:100vh}
+
+/* Sidebar */
+.sidebar{width:260px;min-width:260px;background:#f8f9fb;border-right:1px solid #e5e7eb;padding:24px 0;position:fixed;top:0;left:0;bottom:0;overflow-y:auto}
+.sidebar-logo{display:block;font-size:17px;font-weight:700;color:#1e3a5f;text-decoration:none;padding:0 20px 16px;border-bottom:1px solid #e5e7eb;margin-bottom:12px;letter-spacing:-.02em}
+.sidebar-api-ref{display:block;font-size:12.5px;color:#1e3a5f;text-decoration:none;padding:6px 12px;margin:0 12px 16px;border-radius:6px;border:1px solid #1e3a5f33;font-weight:500;text-align:center}
+.sidebar-api-ref:hover{background:#1e3a5f0d}
+.nav-section{margin-bottom:4px}
+.nav-section-title{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#9ca3af;padding:8px 20px 3px}
+.nav-subsection-title{font-size:10.5px;font-weight:600;color:#b0b8c4;padding:6px 20px 2px 28px;text-transform:uppercase;letter-spacing:.07em}
+.nav-link{display:block;font-size:13.5px;color:#374151;text-decoration:none;padding:5px 20px;transition:background .1s,color .1s}
+.nav-link:hover{background:#e9ecf0;color:#1e3a5f}
+.nav-link.active{background:#1e3a5f14;color:#1e3a5f;font-weight:600;border-left:3px solid #1e3a5f;padding-left:17px}
+
+/* Main */
+.main{margin-left:260px;flex:1;padding:52px 64px;max-width:960px}
+.page-meta{margin-bottom:32px}
+.page-description{color:#6b7280;font-size:15.5px;margin-top:6px}
+
+/* Typography */
+h1{font-size:28px;font-weight:700;color:#111827;line-height:1.25;margin-bottom:4px}
+h2{font-size:19px;font-weight:700;color:#1f2937;margin-top:44px;margin-bottom:12px;border-bottom:1px solid #e5e7eb;padding-bottom:6px}
+h3{font-size:15.5px;font-weight:600;color:#374151;margin-top:28px;margin-bottom:8px}
+h4{font-size:14px;font-weight:600;color:#4b5563;margin-top:20px;margin-bottom:6px}
+p{margin-bottom:14px}
+a{color:#1e3a5f;text-decoration:underline}
+a:hover{color:#2d5a8e}
+ul,ol{margin:10px 0 16px 24px}
+li{margin-bottom:5px}
+strong{font-weight:600}
+
+/* Code */
+code{font-family:"Menlo","Monaco","Consolas","Courier New",monospace;font-size:13px;background:#f3f4f6;padding:2px 5px;border-radius:4px;color:#c2185b}
+pre{background:#1a1a2e;color:#e2e8f0;border-radius:8px;padding:20px 24px;overflow-x:auto;margin:16px 0;font-size:13px;line-height:1.55}
+pre code{background:none;padding:0;color:inherit;font-size:inherit}
+
+/* Tables */
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:13.5px}
+th{background:#f3f4f6;font-weight:600;color:#374151;text-align:left;padding:8px 12px;border:1px solid #d1d5db}
+td{padding:8px 12px;border:1px solid #e5e7eb;color:#4b5563;vertical-align:top}
+tr:nth-child(even) td{background:#fafafa}
+
+/* Callouts */
+.callout{border-left:4px solid;padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0;font-size:14px;line-height:1.5}
+.callout p{margin:0}
+.callout-info{border-color:#3b82f6;background:#eff6ff;color:#1d4ed8}
+.callout-warning{border-color:#f59e0b;background:#fffbeb;color:#92400e}
+.callout-danger{border-color:#ef4444;background:#fef2f2;color:#991b1b}
+.callout-tip{border-color:#10b981;background:#ecfdf5;color:#065f46}
+.callout-success{border-color:#10b981;background:#ecfdf5;color:#065f46}
+
+/* Steps */
+ol.steps{list-style:none;margin:16px 0;padding:0;counter-reset:step-counter}
+ol.steps li{counter-increment:step-counter;padding:16px 16px 16px 60px;position:relative;margin-bottom:10px;border:1px solid #e5e7eb;border-radius:8px;background:#fafafa}
+ol.steps li::before{content:counter(step-counter);position:absolute;left:16px;top:16px;width:28px;height:28px;background:#1e3a5f;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;line-height:1}
+ol.steps li p{margin:4px 0 0}
+
+/* Mobile */
+@media(max-width:768px){.sidebar{display:none}.main{margin-left:0;padding:28px 20px}}
+
+</style>
+</head>
+<body>
+<nav class="sidebar">
+<a href="/" class="sidebar-logo">BRZ Public API</a>
+<a href="/" class="sidebar-api-ref">API Reference ↗</a>
+<div class="nav-section">
+<div class="nav-section-title">Getting Started</div>
+<a href="/getting-started/introduction/" class="nav-link">Introduction</a>
+<a href="/getting-started/authentication/" class="nav-link">Authentication</a>
+<a href="/getting-started/rate-limits/" class="nav-link">Rate Limits</a>
+<a href="/getting-started/error-handling/" class="nav-link">Error Handling</a>
+</div>
+<div class="nav-section">
+<div class="nav-section-title">Guides</div>
+<div class="nav-subsection-title">PIX</div>
+<a href="/guides/guide-cash-in/" class="nav-link">Cash-In (Receiving Payments)</a>
+<a href="/guides/guide-cash-out/" class="nav-link">Cash-Out (Sending Payments)</a>
+<a href="/guides/guide-qr-estatico/" class="nav-link">Static QR Code (JWS)</a>
+<a href="/guides/guide-pix-keys/" class="nav-link">PIX Keys Management</a>
+<a href="/guides/guide-med/" class="nav-link">MED (Special Returns)</a>
+<div class="nav-subsection-title">Accounts & Wallets</div>
+<a href="/guides/guide-accounts/" class="nav-link">Account Management</a>
+<a href="/guides/guide-wallets/" class="nav-link active">Wallet Balance & Breakdown</a>
+<div class="nav-subsection-title">Payments</div>
+<a href="/guides/guide-boleto/" class="nav-link">Boleto Payments</a>
+<div class="nav-subsection-title">Platform</div>
+<a href="/guides/webhooks-integration/" class="nav-link">Webhooks Integration</a>
+<a href="/guides/changelog/" class="nav-link">Changelog</a>
+</div>
+</nav>
+<main class="main">
+<div class="page-meta">
+<h1>Wallet Balance & Breakdown</h1>
+<p class="page-description">Query real-time wallet balances and understand multi-wallet breakdowns.</p>
+</div>
+<h1>Wallet Balance &amp; Breakdown</h1>
+<p>The Wallet API provides real-time balance information for your clients. Balances are cached (5-minute TTL) and invalidated automatically when the ledger processes a transaction.</p>
+<p><div class="callout callout-info">ℹ️ <p>These endpoints use the <code>/api/v1-1-beta/</code> path prefix. This is a <strong>stable beta contract</strong> — the API is production-ready but the path may change in a future major version.</p></div></p>
+<h2>Get a Single Wallet Balance</h2>
+<pre><code class="language-bash">curl -X GET https://api.brzip.com.br/api/v1-1-beta/wallet/balance/{clientId} \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;client_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+    &quot;available&quot;: &quot;1250.500000&quot;,
+    &quot;blocked&quot;: &quot;50.000000&quot;,
+    &quot;overdraft&quot;: &quot;0.000000&quot;,
+    &quot;total&quot;: &quot;1300.500000&quot;,
+    &quot;currency&quot;: &quot;BRL&quot;,
+    &quot;status&quot;: &quot;active&quot;,
+    &quot;from_cache&quot;: true,
+    &quot;updated_at&quot;: &quot;2026-07-22T10:30:00Z&quot;,
+    &quot;wallet_breakdown&quot;: []
+  }
+}
+</code></pre>
+<h3>Balance fields explained</h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>available</code></td>
+<td>Funds available for immediate use</td>
+</tr>
+<tr>
+<td><code>blocked</code></td>
+<td>Funds held for pending transactions</td>
+</tr>
+<tr>
+<td><code>overdraft</code></td>
+<td>Overdraft amount (typically zero)</td>
+</tr>
+<tr>
+<td><code>total</code></td>
+<td><code>available + blocked</code></td>
+</tr>
+<tr>
+<td><code>from_cache</code></td>
+<td><code>true</code> if served from Redis cache; <code>false</code> = live DB read</td>
+</tr>
+<tr>
+<td><code>updated_at</code></td>
+<td>Timestamp of last balance update</td>
+</tr>
+</tbody>
+</table>
+<h3>Wallet status</h3>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>active</code></td>
+<td>Normal operation</td>
+</tr>
+<tr>
+<td><code>inactive</code></td>
+<td>Not yet initialized</td>
+</tr>
+<tr>
+<td><code>suspended</code></td>
+<td>Temporarily restricted</td>
+</tr>
+<tr>
+<td><code>blocked</code></td>
+<td>All operations halted</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Wallet Breakdown (Multiple Wallets)</h2>
+<p>When a client holds more than one wallet (e.g., a primary wallet and an escrow wallet), the <code>wallet_breakdown</code> array provides per-wallet detail:</p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;client_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+    &quot;available&quot;: &quot;2500.000000&quot;,
+    &quot;blocked&quot;: &quot;100.000000&quot;,
+    &quot;total&quot;: &quot;2600.000000&quot;,
+    &quot;currency&quot;: &quot;BRL&quot;,
+    &quot;status&quot;: &quot;active&quot;,
+    &quot;from_cache&quot;: false,
+    &quot;updated_at&quot;: &quot;2026-07-22T10:30:00Z&quot;,
+    &quot;wallet_breakdown&quot;: [
+      {
+        &quot;wallet_id&quot;: &quot;w1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c&quot;,
+        &quot;wallet_type&quot;: &quot;primary&quot;,
+        &quot;available&quot;: &quot;2000.000000&quot;,
+        &quot;blocked&quot;: &quot;100.000000&quot;,
+        &quot;currency&quot;: &quot;BRL&quot;
+      },
+      {
+        &quot;wallet_id&quot;: &quot;w2b3c4d5-e6f7-8a9b-0c1d-2e3f4a5b6c7d&quot;,
+        &quot;wallet_type&quot;: &quot;escrow&quot;,
+        &quot;available&quot;: &quot;500.000000&quot;,
+        &quot;blocked&quot;: &quot;0.000000&quot;,
+        &quot;currency&quot;: &quot;BRL&quot;
+      }
+    ]
+  }
+}
+</code></pre>
+<hr />
+<h2>Batch Balance Query</h2>
+<p>For dashboards and reconciliation, query up to <strong>100 clients in a single call</strong>:</p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1-1-beta/wallet/balances \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;client_ids&quot;: [
+      &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+      &quot;b723c313-7701-5e35-cb46-3f47d9g4d1df&quot;
+    ]
+  }'
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;balances&quot;: [
+      {
+        &quot;client_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+        &quot;available&quot;: &quot;1250.500000&quot;,
+        &quot;blocked&quot;: &quot;50.000000&quot;,
+        &quot;total&quot;: &quot;1300.500000&quot;,
+        &quot;currency&quot;: &quot;BRL&quot;,
+        &quot;status&quot;: &quot;active&quot;,
+        &quot;from_cache&quot;: true,
+        &quot;updated_at&quot;: &quot;2026-07-22T10:30:00Z&quot;,
+        &quot;wallet_breakdown&quot;: []
+      }
+    ],
+    &quot;total&quot;: 1
+  }
+}
+</code></pre>
+<p><div class="callout callout-warning">⚠️ <p>Maximum <strong>100 client IDs per request</strong>. For larger datasets, paginate in batches of 100.</p></div></p>
+<hr />
+<h2>Cache Behavior</h2>
+<p>Balance is cached in Redis with a 5-minute TTL. Cache is <strong>automatically invalidated</strong> when the ledger processes a transaction event (<code>ledger.hold.created</code>, <code>ledger.capture.created</code>, <code>ledger.debit.created</code>, etc.).</p>
+<p>To detect stale reads, check the <code>from_cache</code> field:</p>
+<pre><code class="language-javascript">const balance = response.data;
+
+if (balance.from_cache) {
+  // Balance may be up to 5 minutes old
+  console.log(`Balance from cache, updated at: ${balance.updated_at}`);
+} else {
+  // Live read from database
+  console.log(`Live balance: ${balance.available} BRL available`);
+}
+</code></pre>
+<hr />
+<h2>Error Reference</h2>
+<table>
+<thead>
+<tr>
+<th>HTTP</th>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>400</td>
+<td><code>INVALID_REQUEST</code></td>
+<td>Empty or invalid <code>clientId</code></td>
+</tr>
+<tr>
+<td>404</td>
+<td><code>WALLET_NOT_FOUND</code></td>
+<td>No wallet exists for this client</td>
+</tr>
+<tr>
+<td>422</td>
+<td><code>WALLET_STATUS_ERROR</code></td>
+<td>Wallet is inactive, suspended, or blocked</td>
+</tr>
+<tr>
+<td>500</td>
+<td><code>INTERNAL_ERROR</code></td>
+<td>Internal error — retry with exponential backoff</td>
+</tr>
+</tbody>
+</table>
+</main>
+</body>
+</html>
