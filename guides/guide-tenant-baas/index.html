@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tenant BaaS — Sub-Client Account Creation — BRZ API Docs</title>
-<meta name="description" content="How tenants create and manage accounts for their sub-clients and transact on their behalf.">
+<meta name="description" content="How tenants create and manage payment accounts for their sub-clients (BaaS integration).">
 <link rel="icon" type="image/png" href="/brand-logo.png">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -103,45 +103,46 @@ ol.steps li p{margin:4px 0 0}
 <main class="main">
 <div class="page-meta">
 <h1>Tenant BaaS — Sub-Client Account Creation</h1>
-<p class="page-description">How tenants create and manage accounts for their sub-clients and transact on their behalf.</p>
+<p class="page-description">How tenants create and manage payment accounts for their sub-clients (BaaS integration).</p>
 </div>
 <h1>Tenant BaaS — Sub-Client Account Creation</h1>
-<p>Tenants operating as Banking-as-a-Service (BaaS) integrators can create and manage accounts for their own end-users (sub-clients). Every API call that creates a sub-client or acts on its behalf must carry the tenant's <code>client_id</code> to establish the ownership chain.</p>
-<h2>Overview</h2>
-<pre><code>Tenant (primary client)
-  ├── Sub-client A  →  Payment Account A
-  ├── Sub-client B  →  Payment Account B
-  └── Sub-client C  →  Payment Account C
-</code></pre>
-<p>A <strong>sub-client</strong> is a client whose <code>parent_client_id</code> is the tenant's <code>client_id</code>. The tenant authenticates with its own credentials and then either delegates to a sub-client via the <code>X-Client-Id</code> header or issues a scoped token via <code>POST /api/v1/auth/assume-client</code>.</p>
+<p>Tenants operating as Banking-as-a-Service (BaaS) integrators can programmatically create accounts for their end-users. The flow has three steps:</p>
+<ol>
+<li>Create a client identity — <code>POST /api/v1/clients</code></li>
+<li>Open a payment account for that client — <code>POST /api/v1/accounts</code></li>
+<li>Activate the account — <code>POST /api/v1/accounts/{id}/activate</code></li>
+</ol>
+<p>All endpoints accept either a <strong>Bearer JWT</strong> (<code>Authorization: Bearer &lt;token&gt;</code>) or direct <strong>API Key</strong> authentication (<code>x-key-id</code> + <code>x-secret-key</code> headers).</p>
+<p>The ownership link is established automatically: the <code>client_id</code> from your authentication token becomes the <code>parent_client_id</code> of every sub-client you create. You can later act on accounts you own without any extra parameters.</p>
 <hr />
-<h2>Step 1 — Create a Sub-Client Account</h2>
-<p>Call <code>POST /api/v1/auth/signup</code> with the <code>X-Tenant-ID</code> header set to <strong>your own <code>client_id</code></strong>. This links the new account to you as the parent tenant.</p>
-<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/auth/signup \
-  -H &quot;X-Tenant-ID: &lt;your-client-id&gt;&quot; \
+<h2>Step 1 — Create Client Identity</h2>
+<p><code>POST /api/v1/clients</code> creates a new end-user identity in the platform. The account is created in <strong>active</strong> status immediately — no OTP or document verification is required in the programmatic BaaS flow.</p>
+<p><strong>Required scope:</strong> <code>clients:write</code></p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/clients \
+  -H &quot;Authorization: Bearer &lt;your-bearer-token&gt;&quot; \
   -H &quot;Content-Type: application/json&quot; \
   -d '{
     &quot;person_type&quot;: &quot;individual&quot;,
     &quot;name&quot;: &quot;João Silva&quot;,
     &quot;email&quot;: &quot;joao@example.com&quot;,
     &quot;password&quot;: &quot;s3cur3P@ssword&quot;,
-    &quot;phone&quot;: &quot;+5511999999999&quot;,
-    &quot;cpf&quot;: &quot;12345678900&quot;
+    &quot;cpf&quot;: &quot;12345678900&quot;,
+    &quot;phone&quot;: &quot;+5511999999999&quot;
   }'
 </code></pre>
-<p>For company accounts, replace <code>cpf</code> with <code>cnpj</code> and add <code>company_name</code>:</p>
-<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/auth/signup \
-  -H &quot;X-Tenant-ID: &lt;your-client-id&gt;&quot; \
+<p>For company accounts:</p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/clients \
+  -H &quot;Authorization: Bearer &lt;your-bearer-token&gt;&quot; \
   -H &quot;Content-Type: application/json&quot; \
   -d '{
     &quot;person_type&quot;: &quot;company&quot;,
     &quot;name&quot;: &quot;Acme Pagamentos Ltda&quot;,
     &quot;email&quot;: &quot;financeiro@acme.com.br&quot;,
     &quot;password&quot;: &quot;s3cur3P@ssword&quot;,
-    &quot;phone&quot;: &quot;+5511933334444&quot;,
     &quot;cnpj&quot;: &quot;12345678000195&quot;,
     &quot;company_name&quot;: &quot;Acme Pagamentos Ltda&quot;,
-    &quot;trade_name&quot;: &quot;Acme Pay&quot;
+    &quot;trade_name&quot;: &quot;Acme Pay&quot;,
+    &quot;phone&quot;: &quot;+5511933334444&quot;
   }'
 </code></pre>
 <p><strong>Request fields:</strong></p>
@@ -180,22 +181,16 @@ ol.steps li p{margin:4px 0 0}
 <td>Minimum 8 characters</td>
 </tr>
 <tr>
-<td><code>phone</code></td>
-<td>string</td>
-<td>Yes</td>
-<td>International format, e.g. <code>+5511999999999</code></td>
-</tr>
-<tr>
 <td><code>cpf</code></td>
 <td>string</td>
 <td>If <code>individual</code></td>
-<td>11-digit CPF (digits only or formatted)</td>
+<td>11-digit CPF</td>
 </tr>
 <tr>
 <td><code>cnpj</code></td>
 <td>string</td>
 <td>If <code>company</code></td>
-<td>14-digit CNPJ (digits only or formatted)</td>
+<td>14-digit CNPJ</td>
 </tr>
 <tr>
 <td><code>company_name</code></td>
@@ -209,142 +204,36 @@ ol.steps li p{margin:4px 0 0}
 <td>No</td>
 <td>Trade name / fantasy name</td>
 </tr>
-</tbody>
-</table>
-<p><strong>Response (201):</strong></p>
-<pre><code class="language-json">{
-  &quot;message&quot;: &quot;Registration successful under tenant. Please complete the onboarding process.&quot;,
-  &quot;clientId&quot;: &quot;b7c4e902-1a2b-4f3d-9c8e-112233445566&quot;,
-  &quot;status&quot;: &quot;inactive&quot;,
-  &quot;tenantId&quot;: &quot;&lt;your-tenant-id&gt;&quot;,
-  &quot;verification&quot;: {
-    &quot;provider&quot;: &quot;internal&quot;,
-    &quot;emailRequired&quot;: true,
-    &quot;phoneRequired&quot;: true,
-    &quot;emailSent&quot;: true,
-    &quot;smsSent&quot;: true,
-    &quot;expiresInMinutes&quot;: 15
-  },
-  &quot;apiKey&quot;: {
-    &quot;keyId&quot;: &quot;key_abc123def456&quot;,
-    &quot;secretKey&quot;: &quot;sec_xyz789ghi012&quot;,
-    &quot;environment&quot;: &quot;production&quot;,
-    &quot;warning&quot;: &quot;Save these credentials securely. The secret key will not be shown again.&quot;
-  }
-}
-</code></pre>
-<p><div class="callout callout-warning">⚠️ <p>Save the <code>keyId</code> and <code>secretKey</code> returned in <code>apiKey</code>. They are shown <strong>only once</strong> at creation. If lost, the sub-client cannot be recovered via API — contact support to rotate credentials.</p></div></p>
-<p><strong>Validation errors:</strong></p>
-<table>
-<thead>
 <tr>
-<th>HTTP</th>
-<th>Code</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>400</td>
-<td><code>INVALID_CPF</code></td>
-<td>CPF is invalid or missing for individual accounts</td>
-</tr>
-<tr>
-<td>400</td>
-<td><code>INVALID_CNPJ</code></td>
-<td>CNPJ is invalid or missing for company accounts</td>
-</tr>
-<tr>
-<td>403</td>
-<td><code>TENANT_INACTIVE</code></td>
-<td>Your tenant account is not active</td>
-</tr>
-<tr>
-<td>403</td>
-<td><code>TENANT_NOT_PRIMARY</code></td>
-<td>Your <code>client_id</code> is itself a sub-client, not a primary tenant</td>
-</tr>
-<tr>
-<td>404</td>
-<td><code>TENANT_NOT_FOUND</code></td>
-<td>The <code>X-Tenant-ID</code> value does not match a known client</td>
-</tr>
-<tr>
-<td>409</td>
-<td><code>EMAIL_EXISTS</code></td>
-<td>Email address is already registered</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2>Step 2 — OTP Verification (if required by tenant config)</h2>
-<p>Depending on your tenant's onboarding configuration, the sub-client may need to verify their email and phone before the account becomes active. Check <code>verification.emailRequired</code> / <code>verification.phoneRequired</code> in the signup response.</p>
-<p>If verification is required, the sub-client uses the OTP codes sent to their email/SMS:</p>
-<pre><code class="language-bash"># Verify email
-curl -X POST https://api.brzip.com.br/api/v1/auth/verify-email \
-  -H &quot;Content-Type: application/json&quot; \
-  -d '{&quot;email&quot;: &quot;joao@example.com&quot;, &quot;code&quot;: &quot;123456&quot;}'
-
-# Verify phone
-curl -X POST https://api.brzip.com.br/api/v1/auth/verify-phone \
-  -H &quot;Content-Type: application/json&quot; \
-  -d '{&quot;phone&quot;: &quot;+5511999999999&quot;, &quot;code&quot;: &quot;654321&quot;}'
-</code></pre>
-<p>If the sub-client did not receive a code, resend it before retrying verification:</p>
-<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/auth/resend-otp \
-  -H &quot;Content-Type: application/json&quot; \
-  -d '{&quot;email&quot;: &quot;joao@example.com&quot;, &quot;type&quot;: &quot;email&quot;}'
-</code></pre>
-<p>Rate limit: 5 resend requests per hour.</p>
-<p><div class="callout callout-info">ℹ️ <p>If your tenant is configured with <code>skip_otp: true</code> or <code>auto_approve_on_verification: true</code>, verification steps are skipped and the account goes directly to <code>active</code> status after signup.</p></div></p>
-<hr />
-<h2>Step 3 — Reserve a Payment Account Number</h2>
-<p>Once the sub-client account exists (even before it is fully active), you can reserve a payment account number on its behalf. Pass the sub-client's <code>client_id</code> in <code>X-Client-ID</code>.</p>
-<p>Use your own Bearer Token for this call — the <code>X-Client-ID</code> header tells the system which sub-client you are acting on behalf of.</p>
-<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/accounts/reserve \
-  -H &quot;Authorization: Bearer &lt;your-bearer-token&gt;&quot; \
-  -H &quot;X-Client-ID: &lt;sub-client-id&gt;&quot; \
-  -H &quot;Content-Type: application/json&quot; \
-  -d '{
-    &quot;onboarding_application_id&quot;: &quot;onb_550e8400e29b41d4a716&quot;
-  }'
-</code></pre>
-<p><strong>Request fields:</strong></p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>account_number</code></td>
+<td><code>phone</code></td>
 <td>string</td>
 <td>No</td>
-<td>Specific account number to reserve (leave blank for auto-assignment)</td>
-</tr>
-<tr>
-<td><code>onboarding_application_id</code></td>
-<td>string</td>
-<td>Recommended</td>
-<td>Idempotency key — prevents duplicate reservations for the same onboarding flow. Falls back to <code>"tenant_res:&lt;clientId&gt;"</code> if omitted</td>
+<td>International format, e.g. <code>+5511999999999</code></td>
 </tr>
 </tbody>
 </table>
+<p><div class="callout callout-info">ℹ️ <p>You do not need to pass your <code>client_id</code> anywhere in this request. The platform derives it from your authentication token and automatically sets it as the sub-client's parent.</p></div></p>
 <p><strong>Response (201):</strong></p>
 <pre><code class="language-json">{
   &quot;success&quot;: true,
+  &quot;message&quot;: &quot;client created&quot;,
   &quot;data&quot;: {
-    &quot;account_number&quot;: &quot;9876543&quot;,
-    &quot;reservation_id&quot;: &quot;res_3fa85f64-5717-4562-b3fc-2c963f66afa6&quot;,
-    &quot;branch_code&quot;: &quot;0001&quot;
+    &quot;client_id&quot;: &quot;b7c4e902-1a2b-4f3d-9c8e-112233445566&quot;,
+    &quot;status&quot;: &quot;active&quot;,
+    &quot;provisioning&quot;: {
+      &quot;wallet&quot;: true,
+      &quot;apiKey&quot;: true,
+      &quot;modules&quot;: true,
+      &quot;onboarding&quot;: true
+    },
+    &quot;api_key&quot;: {
+      &quot;key_id&quot;: &quot;key_abc123def456&quot;,
+      &quot;secret_key&quot;: &quot;sec_xyz789ghi012&quot;
+    }
   }
 }
 </code></pre>
-<p><div class="callout callout-warning">⚠️ <p>The <code>reservation_id</code> is returned <strong>once</strong> and is required to complete account creation. Store it alongside the <code>account_number</code>.</p></div></p>
+<p><div class="callout callout-warning">⚠️ <p>Save the <code>api_key.key_id</code> and <code>api_key.secret_key</code> from the response. The secret key is shown <strong>only once</strong> at creation and cannot be retrieved later.</p></div></p>
 <p><strong>Errors:</strong></p>
 <table>
 <thead>
@@ -357,196 +246,56 @@ curl -X POST https://api.brzip.com.br/api/v1/auth/verify-phone \
 <tbody>
 <tr>
 <td>400</td>
-<td><code>MISSING_CLIENT_ID</code></td>
-<td><code>X-Client-ID</code> header is absent</td>
+<td><code>MISSING_PERSON_TYPE</code></td>
+<td><code>person_type</code> is absent or invalid</td>
 </tr>
 <tr>
-<td>403</td>
-<td><code>DELEGATION_DENIED</code></td>
-<td>Sub-client does not belong to your tenant, or is suspended</td>
+<td>400</td>
+<td><code>WEAK_PASSWORD</code></td>
+<td>Password has fewer than 8 characters</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>MISSING_CPF</code></td>
+<td>CPF required for <code>individual</code> but not provided</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>MISSING_CNPJ</code></td>
+<td>CNPJ required for <code>company</code> but not provided</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>MISSING_COMPANY_NAME</code></td>
+<td><code>company_name</code> required for <code>company</code></td>
 </tr>
 <tr>
 <td>409</td>
-<td><code>ACCOUNT_EXISTS</code></td>
-<td>An active reservation already exists for this <code>onboarding_application_id</code></td>
+<td><code>EMAIL_EXISTS</code></td>
+<td>Email address is already registered</td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h2>Step 4 — Create the Payment Account</h2>
-<p>After reserving the account number, create the actual payment account using the reservation:</p>
+<h2>Step 2 — Create Payment Account</h2>
+<p><code>POST /api/v1/accounts</code> opens a payment account for the sub-client created in Step 1.</p>
+<p><strong>Required scope:</strong> <code>accounts:write</code></p>
+<p>When you provide <code>client_id</code>, the identity fields (<code>person_type</code>, <code>document</code>, <code>name</code>, <code>email</code>) are <strong>optional</strong> — the platform fetches them automatically from the client record. Pass them explicitly only if you want to override.</p>
 <pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/accounts \
   -H &quot;Authorization: Bearer &lt;your-bearer-token&gt;&quot; \
   -H &quot;Content-Type: application/json&quot; \
   -d '{
-    &quot;client_id&quot;: &quot;&lt;sub-client-id&gt;&quot;,
-    &quot;person_type&quot;: &quot;individual&quot;,
-    &quot;document&quot;: &quot;12345678900&quot;,
-    &quot;name&quot;: &quot;João Silva&quot;,
-    &quot;email&quot;: &quot;joao@example.com&quot;,
-    &quot;phone&quot;: &quot;+5511999999999&quot;,
-    &quot;account_number&quot;: &quot;9876543&quot;,
-    &quot;reservation_id&quot;: &quot;res_3fa85f64-5717-4562-b3fc-2c963f66afa6&quot;,
-    &quot;branch_code&quot;: &quot;0001&quot;,
-    &quot;account_type&quot;: &quot;personal&quot;,
-    &quot;kyc_level&quot;: 2,
-    &quot;set_as_default&quot;: true
+    &quot;client_id&quot;: &quot;b7c4e902-1a2b-4f3d-9c8e-112233445566&quot;
   }'
 </code></pre>
-<p><strong>Key request fields:</strong></p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Type</th>
-<th>Required</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>client_id</code></td>
-<td>string (UUID)</td>
-<td>Yes</td>
-<td>The sub-client's <code>clientId</code> from Step 1</td>
-</tr>
-<tr>
-<td><code>person_type</code></td>
-<td>string</td>
-<td>Yes</td>
-<td><code>"individual"</code> or <code>"company"</code></td>
-</tr>
-<tr>
-<td><code>document</code></td>
-<td>string</td>
-<td>Yes</td>
-<td>CPF (11 digits) or CNPJ (14 digits)</td>
-</tr>
-<tr>
-<td><code>name</code></td>
-<td>string</td>
-<td>Yes</td>
-<td>Full name</td>
-</tr>
-<tr>
-<td><code>email</code></td>
-<td>string</td>
-<td>Yes</td>
-<td>Contact email</td>
-</tr>
-<tr>
-<td><code>account_number</code></td>
-<td>string</td>
-<td>No</td>
-<td>From reservation — required if <code>reservation_id</code> is provided</td>
-</tr>
-<tr>
-<td><code>reservation_id</code></td>
-<td>string</td>
-<td>If <code>account_number</code> set</td>
-<td>Possession key from reserve step</td>
-</tr>
-<tr>
-<td><code>branch_code</code></td>
-<td>string</td>
-<td>No</td>
-<td>From reservation</td>
-</tr>
-<tr>
-<td><code>account_type</code></td>
-<td>string</td>
-<td>No</td>
-<td><code>"personal"</code> (default) or <code>"business"</code></td>
-</tr>
-<tr>
-<td><code>kyc_level</code></td>
-<td>integer</td>
-<td>No</td>
-<td><code>0</code> = anonymous, <code>1</code> = basic, <code>2</code> = complete. Use <code>2</code> when BKO has already approved KYC</td>
-</tr>
-<tr>
-<td><code>set_as_default</code></td>
-<td>boolean</td>
-<td>No</td>
-<td>Marks this as the default account for the sub-client</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Response (201):</strong></p>
-<pre><code class="language-json">{
-  &quot;success&quot;: true,
-  &quot;data&quot;: {
-    &quot;id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
-    &quot;client_id&quot;: &quot;&lt;sub-client-id&gt;&quot;,
-    &quot;account_number&quot;: &quot;9876543&quot;,
-    &quot;branch_code&quot;: &quot;0001&quot;,
-    &quot;account_type&quot;: &quot;personal&quot;,
-    &quot;state&quot;: &quot;active&quot;,
-    &quot;kyc_level&quot;: 2,
-    &quot;person_type&quot;: &quot;individual&quot;,
-    &quot;document&quot;: &quot;12345678900&quot;,
-    &quot;name&quot;: &quot;João Silva&quot;,
-    &quot;email&quot;: &quot;joao@example.com&quot;,
-    &quot;is_default&quot;: true,
-    &quot;account_kind_code&quot;: &quot;CHECKING&quot;,
-    &quot;created_at&quot;: &quot;2026-07-26T14:30:00Z&quot;,
-    &quot;updated_at&quot;: &quot;2026-07-26T14:30:00Z&quot;
-  }
-}
-</code></pre>
-<hr />
-<h2>Step 5 — Transact on Behalf of a Sub-Client</h2>
-<p>There are two ways to perform operations as a sub-client: the <strong>delegation header</strong> (simpler) and the <strong>assume-client token</strong> (more controlled).</p>
-<h3>Option A — X-Client-Id Delegation Header</h3>
-<p>Add <code>X-Client-Id: &lt;sub-client-id&gt;</code> to any PIX or balance request while using your own Bearer Token. The platform validates that the sub-client belongs to your tenant and re-routes the call as if the sub-client was the caller.</p>
-<pre><code class="language-bash"># Send a PIX cashout on behalf of a sub-client
-curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
+<p>The platform will look up the sub-client's CPF/CNPJ, name, and email and use them to open the account. If you pre-reserved an account number, include it:</p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/accounts \
   -H &quot;Authorization: Bearer &lt;your-bearer-token&gt;&quot; \
-  -H &quot;X-Client-Id: &lt;sub-client-id&gt;&quot; \
-  -H &quot;X-Idempotency-Key: $(uuidgen)&quot; \
   -H &quot;Content-Type: application/json&quot; \
   -d '{
-    &quot;amount&quot;: 5000,
-    &quot;pix_key&quot;: &quot;destinatario@email.com&quot;,
-    &quot;description&quot;: &quot;Pagamento referência 12345&quot;
-  }'
-</code></pre>
-<p><strong>Delegation rules:</strong>
-- Your account must be a <strong>primary client</strong> (not itself a sub-client)
-- The target <code>client_id</code> must have your <code>client_id</code> as its <code>parent_client_id</code>
-- Sub-clients with status <code>suspended</code> or <code>blocked</code> cannot be delegated to</p>
-<p><strong>Delegation errors:</strong></p>
-<table>
-<thead>
-<tr>
-<th>HTTP</th>
-<th>Code</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>403</td>
-<td><code>DELEGATION_DENIED</code></td>
-<td>Sub-client not found, not yours, or blocked</td>
-</tr>
-<tr>
-<td>403</td>
-<td><code>DELEGATION_DENIED</code></td>
-<td>Your account is itself a sub-client</td>
-</tr>
-</tbody>
-</table>
-<h3>Option B — assume-client Token</h3>
-<p>Get a scoped, time-limited Bearer Token that acts <strong>as</strong> the sub-client. Requires the <code>auth:assume-client</code> scope on your API key.</p>
-<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/auth/assume-client \
-  -H &quot;x-key-id: &lt;your-key-id&gt;&quot; \
-  -H &quot;x-secret-key: &lt;your-secret-key&gt;&quot; \
-  -H &quot;Content-Type: application/json&quot; \
-  -d '{
-    &quot;client_id&quot;: &quot;&lt;sub-client-id&gt;&quot;,
-    &quot;scopes&quot;: [&quot;pix:cashout:write&quot;, &quot;pix:balance:read&quot;],
-    &quot;expires_in&quot;: 900
+    &quot;client_id&quot;: &quot;b7c4e902-1a2b-4f3d-9c8e-112233445566&quot;,
+    &quot;account_number&quot;: &quot;9876543&quot;,
+    &quot;reservation_id&quot;: &quot;res_3fa85f64-5717-4562-b3fc-2c963f66afa6&quot;
   }'
 </code></pre>
 <p><strong>Request fields:</strong></p>
@@ -563,44 +312,81 @@ curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
 <tr>
 <td><code>client_id</code></td>
 <td>string (UUID)</td>
-<td>Yes</td>
-<td>Sub-client to impersonate</td>
+<td>No¹</td>
+<td>The sub-client's <code>client_id</code> from Step 1. If omitted, creates an account for your own credentials</td>
 </tr>
 <tr>
-<td><code>scopes</code></td>
-<td>string[]</td>
-<td>Yes</td>
-<td>Scopes for the issued token — cannot exceed your own API key scopes</td>
-</tr>
-<tr>
-<td><code>expires_in</code></td>
-<td>integer</td>
+<td><code>account_number</code></td>
+<td>string</td>
 <td>No</td>
-<td>Token TTL in seconds — max 3600 (1 hour), default 900 (15 min)</td>
+<td>Pre-reserved account number (from <code>/accounts/reserve</code>)</td>
+</tr>
+<tr>
+<td><code>reservation_id</code></td>
+<td>string</td>
+<td>If <code>account_number</code> set</td>
+<td>Possession key returned by <code>/accounts/reserve</code></td>
+</tr>
+<tr>
+<td><code>account_type</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"personal"</code> (default) or <code>"business"</code></td>
+</tr>
+<tr>
+<td><code>person_type</code></td>
+<td>string</td>
+<td>No¹</td>
+<td>Auto-filled from client record when <code>client_id</code> is provided</td>
+</tr>
+<tr>
+<td><code>document</code></td>
+<td>string</td>
+<td>No¹</td>
+<td>CPF or CNPJ — auto-filled when <code>client_id</code> is provided</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>No¹</td>
+<td>Auto-filled when <code>client_id</code> is provided</td>
+</tr>
+<tr>
+<td><code>email</code></td>
+<td>string</td>
+<td>No¹</td>
+<td>Auto-filled when <code>client_id</code> is provided</td>
+</tr>
+<tr>
+<td><code>phone</code></td>
+<td>string</td>
+<td>No</td>
+<td>Contact phone</td>
 </tr>
 </tbody>
 </table>
+<p>¹ Required when <code>client_id</code> is not provided.</p>
 <p><strong>Response (201):</strong></p>
 <pre><code class="language-json">{
-  &quot;token&quot;: &quot;eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...&quot;,
-  &quot;token_type&quot;: &quot;Bearer&quot;,
-  &quot;expires_in&quot;: 900,
-  &quot;expires_at&quot;: &quot;2026-07-26T15:30:00Z&quot;,
-  &quot;scopes&quot;: [&quot;pix:cashout:write&quot;, &quot;pix:balance:read&quot;],
-  &quot;assumed_client_id&quot;: &quot;&lt;sub-client-id&gt;&quot;
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+    &quot;client_id&quot;: &quot;b7c4e902-1a2b-4f3d-9c8e-112233445566&quot;,
+    &quot;account_number&quot;: &quot;9876543&quot;,
+    &quot;branch_code&quot;: &quot;0001&quot;,
+    &quot;account_type&quot;: &quot;personal&quot;,
+    &quot;state&quot;: &quot;pending&quot;,
+    &quot;kyc_level&quot;: 0,
+    &quot;person_type&quot;: &quot;individual&quot;,
+    &quot;document&quot;: &quot;12345678900&quot;,
+    &quot;name&quot;: &quot;João Silva&quot;,
+    &quot;email&quot;: &quot;joao@example.com&quot;,
+    &quot;created_at&quot;: &quot;2026-07-26T14:30:00Z&quot;,
+    &quot;updated_at&quot;: &quot;2026-07-26T14:30:00Z&quot;
+  }
 }
 </code></pre>
-<p>Use the returned <code>token</code> as the Bearer Token for subsequent calls — no <code>X-Client-Id</code> header needed:</p>
-<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
-  -H &quot;Authorization: Bearer &lt;assumed-token&gt;&quot; \
-  -H &quot;X-Idempotency-Key: $(uuidgen)&quot; \
-  -H &quot;Content-Type: application/json&quot; \
-  -d '{
-    &quot;amount&quot;: 5000,
-    &quot;pix_key&quot;: &quot;destinatario@email.com&quot;
-  }'
-</code></pre>
-<p><strong>assume-client errors:</strong></p>
+<p><strong>Errors:</strong></p>
 <table>
 <thead>
 <tr>
@@ -611,52 +397,258 @@ curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
 </thead>
 <tbody>
 <tr>
-<td>401</td>
-<td><code>MISSING_CREDENTIALS</code></td>
-<td><code>x-key-id</code> or <code>x-secret-key</code> header absent</td>
+<td>400</td>
+<td><code>MISSING_RESERVATION_ID</code></td>
+<td><code>account_number</code> was provided but <code>reservation_id</code> was not</td>
+</tr>
+<tr>
+<td>404</td>
+<td><code>CLIENT_NOT_FOUND</code></td>
+<td><code>client_id</code> does not exist or does not belong to you</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>DOCUMENT_IN_USE</code></td>
+<td>CPF/CNPJ already has an account in the platform</td>
 </tr>
 <tr>
 <td>403</td>
-<td><code>MISSING_ASSUME_SCOPE</code></td>
-<td>Your API key lacks <code>auth:assume-client</code> scope</td>
-</tr>
-<tr>
-<td>403</td>
-<td><code>TENANT_MISMATCH</code></td>
-<td>Target sub-client does not belong to your tenant</td>
-</tr>
-<tr>
-<td>403</td>
-<td><code>SCOPE_ESCALATION</code></td>
-<td>Requested scopes exceed your API key's allowed scopes</td>
-</tr>
-<tr>
-<td>403</td>
-<td><code>TARGET_CLIENT_NOT_FOUND</code></td>
-<td>Sub-client not found or not active</td>
+<td><code>RESERVATION_INVALID</code></td>
+<td><code>reservation_id</code> is invalid, expired, or does not match the <code>account_number</code></td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h2>Complete Flow Reference</h2>
-<pre><code>1. POST /api/v1/auth/signup            (X-Tenant-ID: &lt;your-client-id&gt;)
-   → sub-client created, linked to you via parent_client_id
-   → save clientId, keyId, secretKey
+<h2>Step 3 — Activate the Account</h2>
+<p><code>POST /api/v1/accounts/{id}/activate</code> transitions the account from <code>pending</code> to <code>active</code>. After activation, the account can receive and send PIX and boleto.</p>
+<p><strong>Required scope:</strong> <code>accounts:activate</code></p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/accounts/a612b202-6690-4d24-ba35-2e36c8f3c0ce/activate \
+  -H &quot;Authorization: Bearer &lt;your-bearer-token&gt;&quot;
+</code></pre>
+<p>No request body is required.</p>
+<p><strong>Response (200):</strong></p>
+<pre><code class="language-json">{
+  &quot;account_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+  &quot;status&quot;: &quot;active&quot;
+}
+</code></pre>
+<p>After activation, a <code>account.activated</code> webhook event is fired to your configured webhook endpoint.</p>
+<p><strong>Errors:</strong></p>
+<table>
+<thead>
+<tr>
+<th>HTTP</th>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>404</td>
+<td><code>ACCOUNT_NOT_FOUND</code></td>
+<td>Account does not exist or does not belong to you</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>INVALID_STATE_TRANSITION</code></td>
+<td>Account is not in a state that allows activation</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>(Optional) Pre-Reserve an Account Number</h2>
+<p>If you need to assign a specific account number before creating the account, use the reserve endpoint:</p>
+<p><strong>Required scope:</strong> <code>accounts:reserve</code></p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/accounts/reserve \
+  -H &quot;Authorization: Bearer &lt;your-bearer-token&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;reference_id&quot;: &quot;onb_my-idempotency-key-for-this-client&quot;
+  }'
+</code></pre>
+<p><strong>Request fields:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>account_number</code></td>
+<td>string</td>
+<td>No</td>
+<td>Specific number to reserve — omit for auto-assignment</td>
+</tr>
+<tr>
+<td><code>reference_id</code></td>
+<td>string</td>
+<td>Recommended</td>
+<td>Idempotency key; if omitted a random UUID is generated per call</td>
+</tr>
+<tr>
+<td><code>account_type</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"PF"</code> for individual, <code>"PJ"</code> for company</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response (201):</strong></p>
+<pre><code class="language-json">{
+  &quot;account_number&quot;: &quot;9876543&quot;,
+  &quot;reservation_id&quot;: &quot;res_3fa85f64-5717-4562-b3fc-2c963f66afa6&quot;,
+  &quot;branch_code&quot;: &quot;0001&quot;,
+  &quot;reference_id&quot;: &quot;onb_my-idempotency-key-for-this-client&quot;
+}
+</code></pre>
+<p><div class="callout callout-warning">⚠️ <p>The <code>reservation_id</code> is returned <strong>once</strong> and is the possession key needed in Step 2. Store it alongside the <code>account_number</code>.</p></div></p>
+<p><strong>Errors:</strong></p>
+<table>
+<thead>
+<tr>
+<th>HTTP</th>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>409</td>
+<td><code>ACCOUNT_NUMBER_UNAVAILABLE</code></td>
+<td>Requested <code>account_number</code> is already in use or reserved</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Checking Account Status</h2>
+<p><code>GET /api/v1/accounts/{id}</code> returns the current state and metadata of an account. You can query accounts belonging to your sub-clients.</p>
+<p><strong>Required scope:</strong> <code>accounts:read</code></p>
+<pre><code class="language-bash">curl https://api.brzip.com.br/api/v1/accounts/a612b202-6690-4d24-ba35-2e36c8f3c0ce \
+  -H &quot;Authorization: Bearer &lt;your-bearer-token&gt;&quot;
+</code></pre>
+<p><strong>Response (200):</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+  &quot;account_number&quot;: &quot;9876543&quot;,
+  &quot;branch_code&quot;: &quot;0001&quot;,
+  &quot;account_type&quot;: &quot;personal&quot;,
+  &quot;state&quot;: &quot;active&quot;,
+  &quot;kyc_level&quot;: 0,
+  &quot;created_at&quot;: &quot;2026-07-26T14:30:00Z&quot;,
+  &quot;updated_at&quot;: &quot;2026-07-26T14:30:01Z&quot;,
+  &quot;activated_at&quot;: &quot;2026-07-26T14:30:01Z&quot;
+}
+</code></pre>
+<p><strong>Account states:</strong></p>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pending</code></td>
+<td>Account created, not yet activated</td>
+</tr>
+<tr>
+<td><code>active</code></td>
+<td>Fully operational</td>
+</tr>
+<tr>
+<td><code>suspended</code></td>
+<td>Temporarily restricted</td>
+</tr>
+<tr>
+<td><code>blocked</code></td>
+<td>All operations halted</td>
+</tr>
+<tr>
+<td><code>closed</code></td>
+<td>Terminal — cannot be reopened</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Transacting on Behalf of a Sub-Client</h2>
+<p>To perform PIX or balance operations as a sub-client, use one of two approaches:</p>
+<h3>Option A — assume-client token (recommended)</h3>
+<p>Exchange your API key credentials for a scoped Bearer Token that acts as the sub-client. Requires <code>auth:assume-client</code> scope on your API key.</p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/auth/assume-client \
+  -H &quot;x-key-id: &lt;your-key-id&gt;&quot; \
+  -H &quot;x-secret-key: &lt;your-secret-key&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;client_id&quot;: &quot;b7c4e902-1a2b-4f3d-9c8e-112233445566&quot;,
+    &quot;scopes&quot;: [&quot;pix:cashout:write&quot;, &quot;pix:balance:read&quot;],
+    &quot;expires_in&quot;: 900
+  }'
+</code></pre>
+<p><strong>Response (201):</strong></p>
+<pre><code class="language-json">{
+  &quot;token&quot;: &quot;eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...&quot;,
+  &quot;token_type&quot;: &quot;Bearer&quot;,
+  &quot;expires_in&quot;: 900,
+  &quot;expires_at&quot;: &quot;2026-07-26T15:30:00Z&quot;,
+  &quot;scopes&quot;: [&quot;pix:cashout:write&quot;, &quot;pix:balance:read&quot;],
+  &quot;assumed_client_id&quot;: &quot;b7c4e902-1a2b-4f3d-9c8e-112233445566&quot;
+}
+</code></pre>
+<p>Use the <code>token</code> directly in subsequent calls — no extra headers needed:</p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
+  -H &quot;Authorization: Bearer &lt;assumed-token&gt;&quot; \
+  -H &quot;X-Idempotency-Key: $(uuidgen)&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;amount&quot;: 5000, &quot;pix_key&quot;: &quot;destinatario@email.com&quot;}'
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scopes</code></td>
+<td>Cannot exceed your own API key's scopes</td>
+</tr>
+<tr>
+<td><code>expires_in</code></td>
+<td>Max 3600 seconds (1 hour), default 900 (15 min)</td>
+</tr>
+</tbody>
+</table>
+<h3>Option B — Sub-client's own Bearer Token</h3>
+<p>Use the <code>api_key</code> returned in Step 1 to generate a Bearer Token for the sub-client directly:</p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/auth/bearer-token \
+  -H &quot;x-key-id: &lt;sub-client-key-id&gt;&quot; \
+  -H &quot;x-secret-key: &lt;sub-client-secret-key&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;scopes&quot;: [&quot;pix:cashout:write&quot;, &quot;pix:balance:read&quot;]}'
+</code></pre>
+<p>The returned <code>token</code> is a Bearer Token authenticated as the sub-client. Use it in the <code>Authorization</code> header for PIX operations.</p>
+<hr />
+<h2>Complete Flow</h2>
+<pre><code>1. POST /api/v1/clients
+   Body: { person_type, name, email, password, cpf/cnpj }
+   → Returns: client_id, api_key.key_id, api_key.secret_key
 
-2. POST /api/v1/auth/verify-email      (if tenant config requires OTP)
-   POST /api/v1/auth/verify-phone      (if tenant config requires OTP)
+2. POST /api/v1/accounts
+   Body: { client_id }
+   → Returns: account.id, account_number, branch_code, state: &quot;pending&quot;
 
-3. POST /api/v1/accounts/reserve       (Authorization: Bearer &lt;your-token&gt;)
-                                        (X-Client-ID: &lt;sub-client-id&gt;)
-   → account_number + reservation_id
+3. POST /api/v1/accounts/{account.id}/activate
+   → Returns: { account_id, status: &quot;active&quot; }
+   → Fires: account.activated webhook
 
-4. POST /api/v1/accounts               (Authorization: Bearer &lt;your-token&gt;)
-   body: { client_id, account_number, reservation_id, ... }
-   → payment account created and active
-
-5. Any PIX/balance operation:
-   Option A: add X-Client-Id: &lt;sub-client-id&gt; to your own calls
-   Option B: POST /api/v1/auth/assume-client → get scoped token → call directly
+To transact as the sub-client:
+   POST /api/v1/auth/assume-client  →  scoped Bearer Token
 </code></pre>
 </main>
 </body>
