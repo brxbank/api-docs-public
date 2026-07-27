@@ -69,19 +69,24 @@ curl -X POST https://api.brzip.com.br/api/v1/webhooks \
 
 ## Step 2 — Validate Signatures
 
-Every webhook delivery includes two headers for signature verification:
+Every webhook delivery includes the following headers:
 
 | Header | Description |
 |--------|-------------|
+| `x-webhook-signature` | HMAC-SHA256 signature of the payload, in the format `sha256=<hex>` |
 | `x-webhook-timestamp` | Unix timestamp of when the webhook was sent |
-| `x-webhook-signature` | HMAC-SHA256 signature of the payload |
+| `x-webhook-id` | Unique delivery ID (use it to deduplicate retries) |
+| `x-webhook-event` | Event type of the notification (e.g. `pix.cash_in.received`) |
+| `x-webhook-source` | Origin identifier of the notification |
+
+Signature verification uses `x-webhook-signature` and `x-webhook-timestamp`.
 
 The signing process works as follows:
 
-1. Remove the `whsec_` prefix from the signing key (the `secret` returned at creation time)
+1. Use the `secret` exactly as returned at creation time, **including the `whsec_` prefix**
 2. Concatenate the timestamp header value + `"."` + raw request body
 3. Compute HMAC-SHA256 of the concatenated string using the secret
-4. Compare the result with the `x-webhook-signature` header
+4. Prefix the resulting hex digest with `sha256=` and compare it with the `x-webhook-signature` header
 
 <Callout intent="info">
   Always use the **raw request body** (not a parsed/re-serialized JSON) to compute the signature. Re-serializing may change field ordering and break validation.
@@ -91,8 +96,8 @@ The signing process works as follows:
 const crypto = require('crypto');
 
 function verifyWebhookSignature(rawBody, signingKey, headers) {
-  // 1. Remove "whsec_" prefix from the key
-  const secret = signingKey.replace('whsec_', '');
+  // 1. Use the secret exactly as returned at creation (keep the "whsec_" prefix)
+  const secret = signingKey;
 
   // 2. Get timestamp from header
   const timestamp = headers['x-webhook-timestamp'];
@@ -120,8 +125,8 @@ import hmac
 import hashlib
 
 def verify_webhook_signature(raw_body: str, signing_key: str, headers: dict) -> bool:
-    # 1. Remove "whsec_" prefix from the key
-    secret = signing_key.replace('whsec_', '')
+    # 1. Use the secret exactly as returned at creation (keep the "whsec_" prefix)
+    secret = signing_key
 
     # 2. Get timestamp from header
     timestamp = headers['x-webhook-timestamp']

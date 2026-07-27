@@ -69,11 +69,11 @@ See the [Account Management guide](./guide-accounts).
 
 ---
 
-### 2026-05-20 — Webhook Authentication (INTERNAL_SERVICE_KEY)
+### 2026-05-20 — Webhook Signature Verification
 
-Webhook signing migrated from `X-Webhook-Secret` to `HMAC-SHA256` with `X-BRZ-Signature` header.
+Webhook deliveries are signed with **HMAC-SHA256** and carry the signature in the `x-webhook-signature` header (format `sha256=<hex>`), alongside `x-webhook-timestamp`, `x-webhook-id`, `x-webhook-event`, and `x-webhook-source`.
 
-**Action required:** Update your webhook consumer to verify `X-BRZ-Signature` using the shared secret from your tenant configuration. The old `X-Webhook-Secret` header is deprecated and will be removed in Q4 2026.
+**Action required:** Verify `x-webhook-signature` by computing HMAC-SHA256 over `timestamp + "." + raw_body` using the `secret` returned when the webhook was created (used as-is, including its `whsec_` prefix).
 
 See the [Webhooks guide](./webhooks-integration).
 
