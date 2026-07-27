@@ -697,70 +697,57 @@ components:
           format: uuid
           description: Request correlation ID for support tracing
           example: "550e8400-e29b-41d4-a716-446655440000"
-    WalletBalance:
+    WalletListResponse:
       type: object
       properties:
-        client_id:
-          type: string
-          format: uuid
-          description: Client identifier
-          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
-        available:
-          type: string
-          description: Available balance (6 decimal places)
-          example: "1250.500000"
-        blocked:
-          type: string
-          description: Blocked/held balance
-          example: "50.000000"
-        overdraft:
-          type: string
-          description: Overdraft amount (usually zero)
-          example: "0.000000"
-        total:
-          type: string
-          description: Total balance (available + blocked)
-          example: "1300.500000"
-        currency:
-          type: string
-          example: "BRL"
-        status:
-          type: string
-          enum: [active, inactive, suspended, blocked]
-          description: Wallet status
-          example: "active"
-        from_cache:
+        success:
           type: boolean
-          description: Indicates if the balance was served from cache
           example: true
-        updated_at:
-          type: string
-          format: date-time
-          description: Last balance update timestamp (RFC3339)
-          example: "2026-07-22T10:30:00Z"
-        wallet_breakdown:
-          type: array
-          description: Per-wallet breakdown (present when client holds multiple wallets)
-          items:
-            type: object
-            properties:
-              wallet_id:
-                type: string
-                format: uuid
-                example: "w1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c"
-              wallet_type:
-                type: string
-                description: Wallet type identifier
-                example: "primary"
-              available:
-                type: string
-                example: "1250.500000"
-              blocked:
-                type: string
-                example: "50.000000"
-              currency:
-                type: string
-                example: "BRL"
+        data:
+          type: object
+          properties:
+            wallets:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    description: Wallet identifier
+                    example: "b1c2d3e4-f5a6-7890-bcde-1234567890ab"
+                  account_id:
+                    type: string
+                    description: Account the wallet belongs to
+                    example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+                  wallet_type:
+                    type: string
+                    description: Wallet type (e.g. `checking`)
+                    example: "checking"
+                  benefit_code:
+                    type: string
+                    description: Benefit code, present only for benefit-pocket wallets
+                    example: "VR"
+                  available:
+                    type: string
+                    description: Funds available for immediate use
+                    example: "1250.50"
+                  blocked:
+                    type: string
+                    description: Funds held for pending transactions
+                    example: "50.00"
+                  total:
+                    type: string
+                    description: available + blocked
+                    example: "1300.50"
+                  currency:
+                    type: string
+                    description: Currency code (e.g. `BRL`)
+                    example: "BRL"
+                  updated_at:
+                    type: string
+                    format: date-time
+                    description: Timestamp of last balance update
+                    example: "2026-07-22T10:30:00Z"
     bearerAuth:
       type: http
       scheme: bearer
@@ -939,19 +926,13 @@ tags:
       **Idempotency:** Always include `X-Idempotency-Key` when creating payments.
   - name: Wallets
     description: >-
-      Query wallet balances and validate funds availability.
+      List the wallets owned by the authenticated client (checking plus any
+      benefit pockets) with real-time balances. Ownership is scoped to the
+      `client_id` in your token. Balances are cached (5-minute TTL) and
+      invalidated automatically by ledger events.
 
 
-      The Wallet API (`v1-1-beta`) provides real-time balance information with
-      cache invalidation driven by ledger events. The `wallet_breakdown` field
-      shows a per-wallet breakdown when a client holds multiple wallets.
-
-
-      > **Note:** The `v1-1-beta` path prefix indicates this contract is stable
-      but may evolve. Plan for a future migration to `/api/v1/wallet/*`.
-
-
-      **Authentication:** Bearer token
+      **Authentication:** Bearer token or API Key. **Scope:** `pix:balance:read`.
   - name: Participants
     description: >-
       Query the list of financial institutions participating in the PIX network
@@ -3792,234 +3773,66 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/accounts/client/{clientId}:
-    get:
-      tags:
-        - Accounts
-      summary: Get account by client ID
-      operationId: getAccountByClientId
-      description: Returns the account associated with a given client ID. **Authentication:** Bearer token
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: clientId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Client identifier
-          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
-      responses:
-        '200':
-          description: Account found
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    $ref: '#/components/schemas/PaymentAccount'
-        '404':
-          description: Account not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/v1/accounts/{accountId}/suspend:
-    post:
-      tags:
-        - Accounts
-      summary: Suspend account
-      operationId: suspendAccount
-      description: >-
-        Temporarily suspends an account, restricting financial operations.
-        Unlike `block`, a suspended account may be reactivated.
-
-        **Authentication:** Bearer token
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: accountId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Account identifier
-          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - reason
-                - changed_by
-              properties:
-                reason:
-                  type: string
-                  description: Reason for suspension
-                  example: "Pending compliance review"
-                changed_by:
-                  type: string
-                  description: Identifier of the operator triggering the suspension
-                  example: "admin-user-001"
-                correlation_id:
-                  type: string
-                  format: uuid
-                  description: Optional correlation ID
-                  example: "550e8400-e29b-41d4-a716-446655440000"
-      responses:
-        '200':
-          description: Account suspended
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: "Account suspended successfully"
-        '400':
-          description: Invalid state transition
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Account not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/v1/accounts/{accountId}/history:
-    get:
-      tags:
-        - Accounts
-      summary: Get account state history
-      operationId: getAccountHistory
-      description: Returns the full state transition history for an account. **Authentication:** Bearer token
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: accountId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Account identifier
-          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 20
-            maximum: 100
-          description: Max results to return
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            default: 0
-      responses:
-        '200':
-          description: State history
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        account_id:
-                          type: string
-                        from_state:
-                          type: string
-                          nullable: true
-                        to_state:
-                          type: string
-                        reason:
-                          type: string
-                        changed_by:
-                          type: string
-                        created_at:
-                          type: string
-                          format: date-time
-        '404':
-          description: Account not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
   /api/v1/accounts/wallets:
     get:
       tags:
         - Wallets
       summary: List wallets for authenticated client
       operationId: listWallets
-      description: Returns all wallets for the authenticated client with balances. **Authentication:** Bearer token
+      description: >-
+        Returns every user-visible wallet owned by the authenticated client
+        (checking plus any benefit pockets) with balances. Ownership is scoped
+        to the `client_id` in your token.
+
+        **Authentication:** Bearer token or API Key. **Scope:** `pix:balance:read`.
       security:
         - bearerAuth: []
+        - apiKeyAuth: []
       responses:
         '200':
           description: Wallet list
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  wallets:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                          description: Wallet ID
-                        wallet_type:
-                          type: string
-                          description: Wallet type code (e.g. primary, escrow)
-                        available:
-                          type: string
-                          description: Available balance in BRL
-                          example: "1250.50"
-                        blocked:
-                          type: string
-                          description: Blocked balance in BRL
-                          example: "50.00"
-                        total:
-                          type: string
-                          description: Total balance (available + blocked)
-                          example: "1300.50"
-                        currency:
-                          type: string
-                          example: "BRL"
-                        updated_at:
-                          type: string
-                          format: date-time
+                $ref: '#/components/schemas/WalletListResponse'
+
+  /api/v1/accounts/{accountId}/wallets:
+    get:
+      tags:
+        - Wallets
+      summary: List wallets for a specific account
+      operationId: listWalletsByAccount
+      description: >-
+        Returns the wallets that belong to one `accountId`. Ownership is still
+        enforced by the `client_id` in your token — an account owned by another
+        client returns no rows.
+
+        **Authentication:** Bearer token or API Key. **Scope:** `pix:balance:read`.
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Account identifier
+          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+      responses:
+        '200':
+          description: Wallet list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletListResponse'
+        '400':
+          description: Invalid account ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   # ── Boleto ────────────────────────────────────────────────────────────────
 
@@ -4347,134 +4160,6 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Payment not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ── Wallets ───────────────────────────────────────────────────────────────
-
-  /api/v1-1-beta/wallet/balance/{clientId}:
-    get:
-      tags:
-        - Wallets
-      summary: Get wallet balance
-      operationId: getWalletBalance
-      description: >-
-        Retrieve the real-time wallet balance for a client. The response
-        includes `available`, `blocked`, and `total` amounts, plus a
-        `wallet_breakdown` array when the client holds multiple wallets.
-
-
-        Balance is cached (default TTL: 5 minutes) and invalidated by ledger
-        events. Use the `from_cache` field to detect stale reads.
-
-
-        **Path prefix:** `/api/v1-1-beta/` — stable beta contract.
-
-
-        **Authentication:** Bearer token
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: clientId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Client identifier
-          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
-      responses:
-        '200':
-          description: Wallet balance retrieved
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    $ref: '#/components/schemas/WalletBalance'
-        '400':
-          description: Invalid client ID
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Wallet not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: Wallet inactive, suspended or blocked
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /api/v1-1-beta/wallet/balances:
-    post:
-      tags:
-        - Wallets
-      summary: Get wallet balances (batch)
-      operationId: getWalletBalances
-      description: >-
-        Retrieve wallet balances for multiple clients in a single request.
-        Useful for dashboards and reconciliation flows. Maximum 100 client IDs
-        per request.
-
-
-        **Authentication:** Bearer token
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - client_ids
-              properties:
-                client_ids:
-                  type: array
-                  items:
-                    type: string
-                    format: uuid
-                  maxItems: 100
-                  description: List of client IDs (max 100)
-                  example:
-                    - "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
-                    - "b723c313-7701-5e35-cb46-3f47d9g4d1df"
-      responses:
-        '200':
-          description: Batch balance results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      balances:
-                        type: array
-                        items:
-                          $ref: '#/components/schemas/WalletBalance'
-                      total:
-                        type: integer
-                        description: Total number of wallets returned
-                        example: 2
-        '400':
-          description: Empty list or list exceeds 100 items
           content:
             application/json:
               schema:

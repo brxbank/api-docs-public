@@ -51,8 +51,11 @@ No request body is required.
 
 ```json
 {
-  "account_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
-  "status": "active"
+  "success": true,
+  "data": {
+    "account_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+    "status": "active"
+  }
 }
 ```
 
@@ -84,8 +87,11 @@ curl -X POST https://api.brzip.com.br/api/v1/accounts/{accountId}/block \
 
 ```json
 {
-  "account_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
-  "status": "blocked"
+  "success": true,
+  "data": {
+    "account_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+    "status": "blocked"
+  }
 }
 ```
 
@@ -137,10 +143,13 @@ curl -X POST https://api.brzip.com.br/api/v1/accounts/reserve \
 
 ```json
 {
-  "account_number": "9876543",
-  "reservation_id": "res_3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "branch_code": "0001",
-  "reference_id": "onb_my-idempotency-key"
+  "success": true,
+  "data": {
+    "account_number": "9876543",
+    "reservation_id": "res_3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "branch_code": "0001",
+    "reference_id": "onb_my-idempotency-key"
+  }
 }
 ```
 
@@ -149,21 +158,3 @@ curl -X POST https://api.brzip.com.br/api/v1/accounts/reserve \
 | HTTP | Code | Meaning |
 |------|------|---------|
 | 409 | `ACCOUNT_NUMBER_UNAVAILABLE` | Requested `account_number` is already in use or reserved |
-
----
-
-## Account Capabilities
-
-Once an account is active, its capabilities depend on the KYC level. Higher KYC levels unlock higher limits and additional operations.
-
-| Capability | KYC Level 1 | KYC Level 2 | KYC Level 3 |
-|------------|:-----------:|:-----------:|:-----------:|
-| Receive PIX | ✓ | ✓ | ✓ |
-| Send PIX (low value) | ✓ | ✓ | ✓ |
-| Send PIX (high value) | — | ✓ | ✓ |
-| TED | — | — | ✓ |
-| Boleto payments | ✓ | ✓ | ✓ |
-
-<Callout intent="info">
-  PIX cash-out requires **step-up authentication** (`X-Step-Up-Token`) for amounts above the configured threshold. See the [Cash-Out guide](./guide-cash-out) for details.
-</Callout>

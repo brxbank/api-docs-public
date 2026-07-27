@@ -2,7 +2,7 @@
   "openapi": "3.0.0",
   "info": {
     "title": "BRZ API",
-    "description": "Complete PIX gateway API by BRZ. Direct integration with BACEN — no external providers.\n\n## Base URLs\n\n**Base URL:** `https://api.brzip.com.br`\n\nAll endpoints use the base path `/api/v1/`.\n\n## Authentication\n\nThe API uses two authentication methods:\n\n### 1. Bearer Token (JWT) — Most endpoints\n\nAll endpoints **except Cash-In** use a Bearer Token:\n``` Authorization: Bearer <your-jwt-token> ```\nObtain a JWT by calling `POST /api/v1/auth/bearer-token` with your API Key credentials.\n\n### 2. API Key — Cash-In endpoints only\n\nCash-In endpoints (`/api/v1/pix/cash-in/*`) use two headers:\n``` x-key-id: <your-key-id> x-secret-key: <your-secret-key> ```\n\n\n## Rate Limits\n\n- Default: 50 req/s per client, burst up to 100.\n- When exceeded, returns HTTP 429 with `Retry-After` header.\n\n## Common Headers\n\n| Header | Required | Description | |--------|----------|-------------| | `Authorization` | Yes (Bearer) | `Bearer <jwt>` for PIX endpoints | | `x-key-id` | Yes (Cash-In) | API Key ID | | `x-secret-key` | Yes (Cash-In) | API Key Secret | | `X-Idempotency-Key` | Recommended | Prevents duplicate operations (UUID) | | `Content-Type` | Yes (POST/PUT) | Always `application/json` |\n\n---\n\n## Onboarding Flow (Step by Step)\n\n### Step 1 — Create Account\n\nCreate your account with `POST /api/v1/auth/signup`. Save the returned `keyId` and `secretKey`. OTP codes will be sent via email and SMS.\n\n### Step 1b — Verify Email\n\nVerify your email with `POST /api/v1/auth/verify-email` using the OTP code received.\n\n### Step 1c — Verify Phone\n\nVerify your phone with `POST /api/v1/auth/verify-phone` using the OTP code received via SMS.\n\n### Step 1d — Resend OTP (optional)\n\nIf needed, resend the code with `POST /api/v1/auth/resend-otp` (max 5 per hour).\n\n### Step 2 — Login\n\nLog in with `POST /api/v1/auth/login` to obtain a session token.\n\n### Step 3 — Submit Documents (3 stages)\n\n1. Get pre-signed URLs with `POST /api/v1/auth/documents/presigned-urls`\n2. `PUT` each file directly to the S3 URL (raw binary, no FormData)\n3. Confirm uploads with `POST /api/v1/auth/documents/confirm`\n\n**Individual documents:** `cpf_frente`, `cpf_verso`, `selfie_com_cpf`, `comprovante_residencia`\n**Business documents:** `cnpj`, `contrato_social`, `comprovante_residencia_empresa`\n\n### Step 4 — Wait for Approval\n\nTrack your status with `GET /api/v1/auth/status`. Wait for team approval.\n\n### Step 5 — Generate Bearer Token\n\nAfter approval, generate your Bearer Token with `POST /api/v1/auth/bearer-token` using your credentials.\n\n### Step 6 — Register PIX Key\n\nRegister a PIX key in DICT/BACEN with `POST /api/v1/pix/keys`. Just send `{\"key_type\": \"EVP\"}` — account data is automatically populated from your onboarding!\n\n### Step 7 — Ready to Operate!\n\nNow you can create charges (Cash-In), make transfers, and check your balance.\n\n---",
+    "description": "Complete PIX gateway API by BRZ. Direct integration with BACEN — no external providers.\n\n## Base URLs\n\n**Base URL:** `https://api.brzip.com.br`\n\nAll endpoints use the base path `/api/v1/`.\n\n## Authentication\n\nThe API uses two authentication methods:\n\n### 1. Bearer Token (JWT) — Most endpoints\n\nAll endpoints **except Cash-In** use a Bearer Token:\n``` Authorization: Bearer <your-jwt-token> ```\nObtain a JWT by calling `POST /api/v1/auth/bearer-token` with your API Key credentials.\n\n### 2. API Key — Cash-In endpoints only\n\nCash-In endpoints (`/api/v1/pix/cash-in/*`) use two headers:\n``` x-key-id: <your-key-id> x-secret-key: <your-secret-key> ```\n\n\n## Rate Limits\n\n- Default: 50 req/s per client, burst up to 100.\n- When exceeded, returns HTTP 429 with `Retry-After` header.\n\n## Common Headers\n\n| Header | Required | Description | |--------|----------|-------------| | `Authorization` | Yes (Bearer) | `Bearer <jwt>` for PIX endpoints | | `x-key-id` | Yes (Cash-In) | API Key ID | | `x-secret-key` | Yes (Cash-In) | API Key Secret | | `X-Idempotency-Key` | Recommended | Prevents duplicate operations (UUID) | | `Content-Type` | Yes (POST/PUT) | Always `application/json` |\n\n---\n\n## Onboarding Flow (Step by Step)\n\n### Step 1 — Create Account\n\nCreate your account with `POST /api/v1/auth/signup`. The response includes your `keyId` and `secretKey` — save them securely, the secret is shown only once. OTP codes will be sent via email and SMS.\n\n### Step 1b — Verify Email\n\nVerify your email with `POST /api/v1/auth/verify-email` using the OTP code received. If you did not receive the code, resend it with `POST /api/v1/auth/resend-otp` (max 5 per hour) before retrying.\n\n### Step 1c — Verify Phone\n\nVerify your phone with `POST /api/v1/auth/verify-phone` using the OTP code received via SMS. If you did not receive the code, use `POST /api/v1/auth/resend-otp` to request a new one.\n\n### Step 2 — Log In to Continue Onboarding\n\nLog in with `POST /api/v1/auth/login` (email + password) to obtain a session token. This token is required to access the document upload endpoints below. It is a temporary onboarding token, not the production Bearer Token you will use to call the API.\n\n### Step 3 — Submit Documents (3 stages)\n\n1. Get pre-signed URLs with `POST /api/v1/auth/documents/presigned-urls`\n2. `PUT` each file directly to the S3 URL (raw binary, no FormData)\n3. Confirm uploads with `POST /api/v1/auth/documents/confirm`\n\n**Individual documents:** `cpf_frente`, `cpf_verso`, `selfie_com_cpf`, `comprovante_residencia`\n**Business documents:** `cnpj`, `contrato_social`, `comprovante_residencia_empresa`\n\n### Step 4 — Wait for Approval\n\nTrack your status with `GET /api/v1/auth/status`. Wait for team approval.\n\n### Step 5 — Generate Bearer Token\n\nAfter approval, generate your production Bearer Token with `POST /api/v1/auth/bearer-token` using your `keyId` and `secretKey` as headers (`x-key-id` / `x-secret-key`). This is the JWT you will use in the `Authorization: Bearer <token>` header for all API calls.\n\n### Step 6 — Register PIX Key\n\nRegister a PIX key in DICT/BACEN with `POST /api/v1/pix/keys`. Just send `{\"key_type\": \"EVP\"}` — account data is automatically populated from your onboarding!\n\n### Step 7 — Ready to Operate!\n\nNow you can create charges (Cash-In), make transfers, and check your balance.\n\n---",
     "version": "1.0.0"
   },
   "servers": [
@@ -763,88 +763,68 @@
           }
         }
       },
-      "WalletBalance": {
+      "WalletListResponse": {
         "type": "object",
         "properties": {
-          "client_id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Client identifier",
-            "example": "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
-          },
-          "available": {
-            "type": "string",
-            "description": "Available balance (6 decimal places)",
-            "example": "1250.500000"
-          },
-          "blocked": {
-            "type": "string",
-            "description": "Blocked/held balance",
-            "example": "50.000000"
-          },
-          "overdraft": {
-            "type": "string",
-            "description": "Overdraft amount (usually zero)",
-            "example": "0.000000"
-          },
-          "total": {
-            "type": "string",
-            "description": "Total balance (available + blocked)",
-            "example": "1300.500000"
-          },
-          "currency": {
-            "type": "string",
-            "example": "BRL"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "active",
-              "inactive",
-              "suspended",
-              "blocked"
-            ],
-            "description": "Wallet status",
-            "example": "active"
-          },
-          "from_cache": {
+          "success": {
             "type": "boolean",
-            "description": "Indicates if the balance was served from cache",
             "example": true
           },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Last balance update timestamp (RFC3339)",
-            "example": "2026-07-22T10:30:00Z"
-          },
-          "wallet_breakdown": {
-            "type": "array",
-            "description": "Per-wallet breakdown (present when client holds multiple wallets)",
-            "items": {
-              "type": "object",
-              "properties": {
-                "wallet_id": {
-                  "type": "string",
-                  "format": "uuid",
-                  "example": "w1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c"
-                },
-                "wallet_type": {
-                  "type": "string",
-                  "description": "Wallet type identifier",
-                  "example": "primary"
-                },
-                "available": {
-                  "type": "string",
-                  "example": "1250.500000"
-                },
-                "blocked": {
-                  "type": "string",
-                  "example": "50.000000"
-                },
-                "currency": {
-                  "type": "string",
-                  "example": "BRL"
+          "data": {
+            "type": "object",
+            "properties": {
+              "wallets": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Wallet identifier",
+                      "example": "b1c2d3e4-f5a6-7890-bcde-1234567890ab"
+                    },
+                    "account_id": {
+                      "type": "string",
+                      "description": "Account the wallet belongs to",
+                      "example": "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+                    },
+                    "wallet_type": {
+                      "type": "string",
+                      "description": "Wallet type (e.g. `checking`)",
+                      "example": "checking"
+                    },
+                    "benefit_code": {
+                      "type": "string",
+                      "description": "Benefit code, present only for benefit-pocket wallets",
+                      "example": "VR"
+                    },
+                    "available": {
+                      "type": "string",
+                      "description": "Funds available for immediate use",
+                      "example": "1250.50"
+                    },
+                    "blocked": {
+                      "type": "string",
+                      "description": "Funds held for pending transactions",
+                      "example": "50.00"
+                    },
+                    "total": {
+                      "type": "string",
+                      "description": "available + blocked",
+                      "example": "1300.50"
+                    },
+                    "currency": {
+                      "type": "string",
+                      "description": "Currency code (e.g. `BRL`)",
+                      "example": "BRL"
+                    },
+                    "updated_at": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "Timestamp of last balance update",
+                      "example": "2026-07-22T10:30:00Z"
+                    }
+                  }
                 }
               }
             }
@@ -906,7 +886,7 @@
     },
     {
       "name": "Webhooks",
-      "description": "Manage webhook notification endpoints. Allows clients to register URLs to receive real-time notifications about PIX events.\n\n## Overview\n\nThe webhook system sends HTTP POST notifications to URLs registered by the client when events occur (PIX received, transfer confirmed, etc.).\n\n## Authentication\n\nAll endpoints use Bearer Token JWT with the following scopes:\n- `webhooks:read` — List, search webhooks and deliveries\n- `webhooks:write` — Create, update, delete webhooks and resend deliveries\n\n**IMPORTANT:** Tokens must explicitly include `webhooks:read` and/or `webhooks:write` in the scopes requested during token generation. API Keys created by the system include these scopes by default.\n\n## Supported Events\n\n| Event | Description | |-------|-------------| | `*` | All events | | `pix.cash_in.received` | Charge confirmed — QR Code generated and ready for payment | | `pix.cash_in.confirmed` | Payment received — funds credited to account | | `pix.cash_in.expired` | PIX Cash-In expired | | `pix.cash_in.refunded` | PIX Cash-In refunded | | `pix.cash_out.created` | PIX Cash-Out created | | `pix.cash_out.completed` | PIX Cash-Out completed | | `pix.cash_out.failed` | PIX Cash-Out failed | | `pix.cash_out.returned` | PIX Cash-Out returned | | `pix.reversal.created` | PIX Reversal created | | `pix.reversal.completed` | PIX Reversal completed | | `pix.reversal.failed` | PIX Reversal failed | | `pix.inbound.received` | PIX inbound received (direct) | | `onboarding.status_changed` | Onboarding status changed (approved/rejected) | | `limits.request_approved` | Limit change request approved | | `limits.request_rejected` | Limit change request rejected | | `pix.infraction.received` | PIX infraction notification received | | `pix.med_refund.received` | MED refund request received | | `balance.updated` | Balance updated | | `payment_link.paid` | Payment link paid | | `payment_link.expired` | Payment link expired |\n\n## Notification Payload\n\nEach notification sent to your URL uses the legacy-compatible format:\n```json {\n  \"id\": \"transaction-uuid\",\n  \"source\": \"pixgw\",\n  \"event\": \"pix.cash_in.confirmed\",\n  \"timestamp\": \"2025-01-15T10:30:00Z\",\n  \"correlation_id\": \"transaction-uuid\",\n  \"data\": {\n    \"transaction\": {\n      \"id\": \"internal-uuid\",\n      \"amount\": \"150.00\",\n      \"status\": \"completed\",\n      \"reference\": \"ref-001\",\n      \"pix_key\": \"key@pix.com\",\n      \"pix_key_type\": \"EMAIL\",\n      \"payer\": {\n        \"name\": \"John Doe\",\n        \"document\": \"123.456.789-00\"\n      }\n    }\n  }\n} ```\n\nThe notification includes an `X-Webhook-Signature` header with HMAC-SHA256 using the webhook `secret` for validation.\n\n### Internal Payload Statuses\n\n| Status | Meaning | |--------|---------| | `pending` | Received, awaiting processing | | `processing` | Being processed | | `completed` | Successfully completed | | `failed` | Failed | | `expired` | Expired | | `cancelled` | Cancelled | | `refunded` | Refunded | | `returned` | Returned (cash-out) |\n\n## Retries\n\nIf your URL returns an error (status >= 400 or timeout), the system automatically retries with exponential backoff:\n- 1st retry: 1 minute\n- 2nd retry: 5 minutes\n- 3rd retry: 30 minutes\n- 4th retry: 1 hour\n- 5th retry: sent to DLQ (Dead Letter Queue)\n\n## Temporal Workflow\n\nCash-in events with `completed` status and cash-out events with final status are processed by the Temporal Workflow before webhook delivery. The workflow manages:\n- Ledger capture (balance)\n- Retention check (cash-in)\n- Webhook delivery to client\n\nThis ensures consistency between balance and notification.\n\n---"
+      "description": "Register URLs to receive real-time HTTP POST notifications when events occur in your account — PIX payments, MED requests, onboarding updates, and more.\n\n**Scopes:** `webhooks:read` (list, search) · `webhooks:write` (create, update, delete, resend)\n\nFor the full integration guide including supported events, payload examples, signature verification and retry behaviour, see the [Webhooks Integration guide](/guides/webhooks-integration)."
     },
     {
       "name": "P2P",
@@ -922,7 +902,7 @@
     },
     {
       "name": "Wallets",
-      "description": "Query wallet balances and validate funds availability.\n\nThe Wallet API (`v1-1-beta`) provides real-time balance information with cache invalidation driven by ledger events. The `wallet_breakdown` field shows a per-wallet breakdown when a client holds multiple wallets.\n\n> **Note:** The `v1-1-beta` path prefix indicates this contract is stable but may evolve. Plan for a future migration to `/api/v1/wallet/*`.\n\n**Authentication:** Bearer token"
+      "description": "List the wallets owned by the authenticated client (checking plus any benefit pockets) with real-time balances. Ownership is scoped to the `client_id` in your token. Balances are cached (5-minute TTL) and invalidated automatically by ledger events.\n\n**Authentication:** Bearer token or API Key. **Scope:** `pix:balance:read`."
     },
     {
       "name": "Participants",
@@ -3611,26 +3591,62 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": { "type": "boolean", "example": true },
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
                     "data": {
                       "type": "object",
                       "properties": {
                         "webhook": {
                           "type": "object",
                           "properties": {
-                            "id": { "type": "string", "format": "uuid", "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6" },
-                            "url": { "type": "string", "format": "uri", "example": "https://api.example.com/webhooks/pix" },
-                            "events": { "type": "array", "items": { "type": "string" }, "example": ["pix.cash_in.confirmed"] },
-                            "status": { "type": "string", "example": "active" },
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri",
+                              "example": "https://api.example.com/webhooks/pix"
+                            },
+                            "events": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "example": [
+                                "pix.cash_in.confirmed"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "example": "active"
+                            },
                             "secret": {
                               "type": "string",
-                              "description": "HMAC-SHA256 signing secret. Returned **only at creation time** — store it securely. Use it to verify the `X-Webhook-Signature` header on incoming notifications.",
-                              "example": "whsec_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2"
+                              "description": "HMAC-SHA256 signing secret. Returned **only at creation time** — store it securely. Use it to verify the `x-webhook-signature` header on incoming notifications. To regenerate, call `POST /api/v1/webhooks/{id}/rotate-secret`.",
+                              "example": "whsec_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6"
                             },
-                            "created_at": { "type": "string", "format": "date-time" },
-                            "updated_at": { "type": "string", "format": "date-time" }
+                            "created_at": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "updated_at": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
                           },
-                          "required": ["id", "url", "events", "status", "secret", "created_at", "updated_at"]
+                          "required": [
+                            "id",
+                            "url",
+                            "events",
+                            "status",
+                            "secret",
+                            "created_at",
+                            "updated_at"
+                          ]
                         }
                       }
                     }
@@ -3809,58 +3825,6 @@
         }
       }
     },
-    "/api/v1/webhooks/{webhook_id}/rotate-secret": {
-      "post": {
-        "tags": [
-          "Webhooks"
-        ],
-        "summary": "Rotate Webhook Secret",
-        "operationId": "rotateWebhookSecret",
-        "description": "Generates a new signing secret for the webhook, immediately invalidating the old one.\n\nUse this if your secret was compromised or as a periodic rotation practice. After rotation, update your signature verification logic with the new secret before deliveries resume.",
-        "parameters": [
-          {
-            "name": "webhook_id",
-            "in": "path",
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "required": true,
-            "description": "Webhook ID"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Secret rotated successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": { "type": "boolean", "example": true },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "webhook_id": { "type": "string", "format": "uuid" },
-                        "secret": {
-                          "type": "string",
-                          "description": "New signing secret. Store it securely — it will not be shown again.",
-                          "example": "whsec_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2"
-                        }
-                      },
-                      "required": ["webhook_id", "secret"]
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Webhook not found"
-          }
-        }
-      }
-    },
     "/api/v1/webhooks/deliveries": {
       "get": {
         "tags": [
@@ -4026,6 +3990,72 @@
           },
           "404": {
             "description": "Delivery not found"
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/{webhook_id}/rotate-secret": {
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "Rotate Webhook Secret",
+        "operationId": "rotateWebhookSecret",
+        "description": "Generates a new signing secret for the webhook, immediately invalidating the old one.\n\nUse this if your secret was compromised or as a periodic rotation practice. After rotation, update your signature verification logic with the new secret before deliveries resume.",
+        "parameters": [
+          {
+            "name": "webhook_id",
+            "in": "path",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "required": true,
+            "description": "Webhook ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "New secret generated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "webhook": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "secret": {
+                              "type": "string",
+                              "description": "New signing secret. Store it securely — it will not be shown again.",
+                              "example": "whsec_z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6b5a4"
+                            },
+                            "updated_at": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Webhook not found"
           }
         }
       }
@@ -4561,272 +4591,6 @@
         }
       }
     },
-    "/api/v1/accounts/client/{clientId}": {
-      "get": {
-        "tags": [
-          "Accounts"
-        ],
-        "summary": "Get account by client ID",
-        "operationId": "getAccountByClientId",
-        "description": "Returns the account associated with a given client ID. **Authentication:** Bearer token",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "clientId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Client identifier",
-            "example": "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Account found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "$ref": "#/components/schemas/PaymentAccount"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Account not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/accounts/{accountId}/suspend": {
-      "post": {
-        "tags": [
-          "Accounts"
-        ],
-        "summary": "Suspend account",
-        "operationId": "suspendAccount",
-        "description": "Temporarily suspends an account, restricting financial operations. Unlike `block`, a suspended account may be reactivated.\n**Authentication:** Bearer token",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "accountId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Account identifier",
-            "example": "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "reason",
-                  "changed_by"
-                ],
-                "properties": {
-                  "reason": {
-                    "type": "string",
-                    "description": "Reason for suspension",
-                    "example": "Pending compliance review"
-                  },
-                  "changed_by": {
-                    "type": "string",
-                    "description": "Identifier of the operator triggering the suspension",
-                    "example": "admin-user-001"
-                  },
-                  "correlation_id": {
-                    "type": "string",
-                    "format": "uuid",
-                    "description": "Optional correlation ID",
-                    "example": "550e8400-e29b-41d4-a716-446655440000"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Account suspended",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "message": {
-                      "type": "string",
-                      "example": "Account suspended successfully"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid state transition",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Account not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/accounts/{accountId}/history": {
-      "get": {
-        "tags": [
-          "Accounts"
-        ],
-        "summary": "Get account state history",
-        "operationId": "getAccountHistory",
-        "description": "Returns the full state transition history for an account. **Authentication:** Bearer token",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "accountId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Account identifier",
-            "example": "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 20,
-              "maximum": 100
-            },
-            "description": "Max results to return"
-          },
-          {
-            "name": "offset",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "default": 0
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "State history",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string"
-                          },
-                          "account_id": {
-                            "type": "string"
-                          },
-                          "from_state": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "to_state": {
-                            "type": "string"
-                          },
-                          "reason": {
-                            "type": "string"
-                          },
-                          "changed_by": {
-                            "type": "string"
-                          },
-                          "created_at": {
-                            "type": "string",
-                            "format": "date-time"
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Account not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/accounts/wallets": {
       "get": {
         "tags": [
@@ -4834,10 +4598,13 @@
         ],
         "summary": "List wallets for authenticated client",
         "operationId": "listWallets",
-        "description": "Returns all wallets for the authenticated client with balances. **Authentication:** Bearer token",
+        "description": "Returns every user-visible wallet owned by the authenticated client (checking plus any benefit pockets) with balances. Ownership is scoped to the `client_id` in your token.\n**Authentication:** Bearer token or API Key. **Scope:** `pix:balance:read`.",
         "security": [
           {
             "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
           }
         ],
         "responses": {
@@ -4846,52 +4613,60 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "wallets": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "id": {
-                            "type": "string",
-                            "description": "Wallet ID"
-                          },
-                          "wallet_type": {
-                            "type": "string",
-                            "description": "Wallet type code (e.g. primary, escrow)"
-                          },
-                          "available": {
-                            "type": "string",
-                            "description": "Available balance in BRL",
-                            "example": "1250.50"
-                          },
-                          "blocked": {
-                            "type": "string",
-                            "description": "Blocked balance in BRL",
-                            "example": "50.00"
-                          },
-                          "total": {
-                            "type": "string",
-                            "description": "Total balance (available + blocked)",
-                            "example": "1300.50"
-                          },
-                          "currency": {
-                            "type": "string",
-                            "example": "BRL"
-                          },
-                          "updated_at": {
-                            "type": "string",
-                            "format": "date-time"
-                          }
-                        }
-                      }
-                    }
-                  }
+                  "$ref": "#/components/schemas/WalletListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/accounts/{accountId}/wallets": {
+      "get": {
+        "tags": [
+          "Wallets"
+        ],
+        "summary": "List wallets for a specific account",
+        "operationId": "listWalletsByAccount",
+        "description": "Returns the wallets that belong to one `accountId`. Ownership is still enforced by the `client_id` in your token — an account owned by another client returns no rows.\n**Authentication:** Bearer token or API Key. **Scope:** `pix:balance:read`.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Account identifier",
+            "example": "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wallet list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid account ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -5070,7 +4845,7 @@
                   "amount": {
                     "type": "number",
                     "description": "Payment amount (must match or override boleto amount for flex boletos)",
-                    "example": 100.00
+                    "example": 100.0
                   },
                   "cpf_cnpj": {
                     "type": "string",
@@ -5343,172 +5118,6 @@
           },
           "404": {
             "description": "Payment not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1-1-beta/wallet/balance/{clientId}": {
-      "get": {
-        "tags": [
-          "Wallets"
-        ],
-        "summary": "Get wallet balance",
-        "operationId": "getWalletBalance",
-        "description": "Retrieve the real-time wallet balance for a client. The response includes `available`, `blocked`, and `total` amounts, plus a `wallet_breakdown` array when the client holds multiple wallets.\n\nBalance is cached (default TTL: 5 minutes) and invalidated by ledger events. Use the `from_cache` field to detect stale reads.\n\n**Path prefix:** `/api/v1-1-beta/` — stable beta contract.\n\n**Authentication:** Bearer token",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "clientId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "description": "Client identifier",
-            "example": "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Wallet balance retrieved",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "$ref": "#/components/schemas/WalletBalance"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid client ID",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Wallet not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Wallet inactive, suspended or blocked",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1-1-beta/wallet/balances": {
-      "post": {
-        "tags": [
-          "Wallets"
-        ],
-        "summary": "Get wallet balances (batch)",
-        "operationId": "getWalletBalances",
-        "description": "Retrieve wallet balances for multiple clients in a single request. Useful for dashboards and reconciliation flows. Maximum 100 client IDs per request.\n\n**Authentication:** Bearer token",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "client_ids"
-                ],
-                "properties": {
-                  "client_ids": {
-                    "type": "array",
-                    "items": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "maxItems": 100,
-                    "description": "List of client IDs (max 100)",
-                    "example": [
-                      "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
-                      "b723c313-7701-5e35-cb46-3f47d9g4d1df"
-                    ]
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Batch balance results",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "balances": {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/components/schemas/WalletBalance"
-                          }
-                        },
-                        "total": {
-                          "type": "integer",
-                          "description": "Total number of wallets returned",
-                          "example": 2
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Empty list or list exceeds 100 items",
             "content": {
               "application/json": {
                 "schema": {
