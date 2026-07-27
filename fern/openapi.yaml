@@ -1023,11 +1023,21 @@ paths:
                     enum:
                       - pix:keys:read
                       - pix:keys:write
+                      - pix:charges:read
+                      - pix:charges:write
+                      - pix:transfers:read
+                      - pix:transfers:write
                       - pix:balance:read
                       - pix:cashin:read
                       - pix:cashin:write
                       - pix:cashout:read
                       - pix:cashout:write
+                      - pix:p2p:read
+                      - pix:p2p:write
+                      - pix:claims:read
+                      - pix:claims:write
+                      - pix:infractions:read
+                      - pix:infractions:write
                       - pix:limits:read
                       - pix:limits:write
                       - pix:med:read
@@ -1036,6 +1046,15 @@ paths:
                       - pix:reversals:write
                       - webhooks:read
                       - webhooks:write
+                      - clients:write
+                      - accounts:reserve
+                      - accounts:write
+                      - accounts:read
+                      - accounts:activate
+                      - accounts:block
+                      - payments:boleto:read
+                      - payments:boleto:write
+                      - charges:boleto:write
                   example:
                     - pix:keys:read
                     - pix:keys:write
@@ -1044,7 +1063,7 @@ paths:
                     - webhooks:read
                     - webhooks:write
       responses:
-        '200':
+        '201':
           description: Token generated successfully
           content:
             application/json:
@@ -1055,10 +1074,19 @@ paths:
                     type: string
                     description: JWT Bearer Token to use in the Authorization header.
                     example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  tokenType:
+                    type: string
+                    description: Token type — always `Bearer`.
+                    example: "Bearer"
                   expiresIn:
                     type: integer
                     description: Token expiration time in seconds.
                     example: 3600
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    description: Absolute expiration timestamp (ISO 8601).
+                    example: "2026-07-26T15:30:00Z"
                   scopes:
                     type: array
                     description: List of scopes included in the token.

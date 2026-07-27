@@ -19,7 +19,7 @@ The ownership link is established automatically: the `client_id` from your authe
 
 ## Step 1 — Create Client Identity
 
-`POST /api/v1/clients` creates a new end-user identity in the platform. The account is created in **active** status immediately — no OTP or document verification is required in the programmatic BaaS flow.
+`POST /api/v1/clients` creates a new end-user identity in the platform. In the programmatic BaaS flow no OTP or interactive step is required — you create the identity directly with your tenant credentials. The payment account itself is opened in Step 2 and starts in `pending_kyc`, then you activate it in Step 3.
 
 **Required scope:** `clients:write`
 
@@ -78,26 +78,33 @@ curl -X POST https://api.brzip.com.br/api/v1/clients \
 ```json
 {
   "success": true,
-  "message": "client created",
   "data": {
-    "client_id": "b7c4e902-1a2b-4f3d-9c8e-112233445566",
-    "status": "active",
-    "provisioning": {
-      "wallet": true,
-      "apiKey": true,
-      "modules": true,
-      "onboarding": true
-    },
-    "api_key": {
-      "key_id": "key_abc123def456",
-      "secret_key": "sec_xyz789ghi012"
+    "success": true,
+    "message": "client created",
+    "data": {
+      "client_id": "b7c4e902-1a2b-4f3d-9c8e-112233445566",
+      "status": "active",
+      "provisioning": {
+        "wallet": true,
+        "apiKey": true,
+        "modules": true,
+        "onboarding": true
+      },
+      "api_key": {
+        "key_id": "key_abc123def456",
+        "secret_key": "sec_xyz789ghi012"
+      }
     }
   }
 }
 ```
 
+<Callout intent="info">
+  The gateway wraps the response in its standard `{ "success", "data" }` envelope, and the created client payload sits under `data.data`. Read the `client_id` and `api_key` from `data.data`.
+</Callout>
+
 <Callout intent="warning">
-  Save the `api_key.key_id` and `api_key.secret_key` from the response. The secret key is shown **only once** at creation and cannot be retrieved later.
+  Save the `data.data.api_key.key_id` and `data.data.api_key.secret_key` from the response. The secret key is shown **only once** at creation and cannot be retrieved later.
 </Callout>
 
 **Errors:**
@@ -153,7 +160,7 @@ curl -X POST https://api.brzip.com.br/api/v1/accounts \
 | `client_id` | string (UUID) | No¹ | The sub-client's `client_id` from Step 1. If omitted, creates an account for your own credentials |
 | `account_number` | string | No | Pre-reserved account number (from `/accounts/reserve`) |
 | `reservation_id` | string | If `account_number` set | Possession key returned by `/accounts/reserve` |
-| `account_type` | string | No | `"personal"` (default) or `"business"` |
+| `account_type` | string | No | Account type — `"PF"` (individual), `"PJ"` (company), or `"ESCROW"` |
 | `person_type` | string | No¹ | Auto-filled from client record when `client_id` is provided |
 | `document` | string | No¹ | CPF or CNPJ — auto-filled when `client_id` is provided |
 | `name` | string | No¹ | Auto-filled when `client_id` is provided |
@@ -168,22 +175,29 @@ curl -X POST https://api.brzip.com.br/api/v1/accounts \
 {
   "success": true,
   "data": {
-    "id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
-    "client_id": "b7c4e902-1a2b-4f3d-9c8e-112233445566",
-    "account_number": "9876543",
-    "branch_code": "0001",
-    "account_type": "personal",
-    "state": "pending_kyc",
-    "kyc_level": 0,
-    "person_type": "individual",
-    "document": "12345678900",
-    "name": "João Silva",
-    "email": "joao@example.com",
-    "created_at": "2026-07-26T14:30:00Z",
-    "updated_at": "2026-07-26T14:30:00Z"
+    "success": true,
+    "data": {
+      "id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+      "client_id": "b7c4e902-1a2b-4f3d-9c8e-112233445566",
+      "account_number": "9876543",
+      "branch_code": "0001",
+      "account_type": "PF",
+      "state": "pending_kyc",
+      "kyc_level": 0,
+      "person_type": "individual",
+      "document": "12345678900",
+      "name": "João Silva",
+      "email": "joao@example.com",
+      "created_at": "2026-07-26T14:30:00Z",
+      "updated_at": "2026-07-26T14:30:00Z"
+    }
   }
 }
 ```
+
+<Callout intent="info">
+  As with client creation, the account payload is nested under `data.data` — the gateway envelope wraps the account service's own `{ "success", "data" }` response.
+</Callout>
 
 **Errors:**
 
@@ -213,8 +227,11 @@ No request body is required.
 
 ```json
 {
-  "account_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
-  "status": "active"
+  "success": true,
+  "data": {
+    "account_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+    "status": "active"
+  }
 }
 ```
 
@@ -256,10 +273,13 @@ curl -X POST https://api.brzip.com.br/api/v1/accounts/reserve \
 
 ```json
 {
-  "account_number": "9876543",
-  "reservation_id": "res_3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "branch_code": "0001",
-  "reference_id": "onb_my-idempotency-key-for-this-client"
+  "success": true,
+  "data": {
+    "account_number": "9876543",
+    "reservation_id": "res_3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "branch_code": "0001",
+    "reference_id": "onb_my-idempotency-key-for-this-client"
+  }
 }
 ```
 
@@ -290,15 +310,18 @@ curl https://api.brzip.com.br/api/v1/accounts/a612b202-6690-4d24-ba35-2e36c8f3c0
 
 ```json
 {
-  "id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
-  "account_number": "9876543",
-  "branch_code": "0001",
-  "account_type": "personal",
-  "state": "active",
-  "kyc_level": 0,
-  "created_at": "2026-07-26T14:30:00Z",
-  "updated_at": "2026-07-26T14:30:01Z",
-  "activated_at": "2026-07-26T14:30:01Z"
+  "success": true,
+  "data": {
+    "id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+    "account_number": "9876543",
+    "branch_code": "0001",
+    "account_type": "PF",
+    "state": "active",
+    "kyc_level": 0,
+    "created_at": "2026-07-26T14:30:00Z",
+    "updated_at": "2026-07-26T14:30:01Z",
+    "activated_at": "2026-07-26T14:30:01Z"
+  }
 }
 ```
 
