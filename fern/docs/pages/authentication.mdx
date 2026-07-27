@@ -29,24 +29,25 @@ curl -X POST https://api.brzip.com.br/api/v1/auth/bearer-token \
       "pix:keys:read",
       "pix:keys:write",
       "pix:balance:read",
-      "pix:cashout:write",
-      "webhooks:read",
-      "webhooks:write"
+      "pix:cashout:write"
     ]
   }'
 ```
 
-**Response:**
+**Response (201):**
 
 ```json
 {
-  "success": true,
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expires_in": 3600
+  "tokenType": "Bearer",
+  "expiresIn": 3600,
+  "expiresAt": "2026-07-26T15:30:00Z",
+  "scopes": ["pix:keys:read", "pix:keys:write", "pix:balance:read", "pix:cashout:write"],
+  "refreshToken": "rt_9f8e7d6c5b4a..."
 }
 ```
 
-The returned JWT token should be included in the `Authorization` header as `Bearer <token>` for all subsequent requests.
+The returned JWT `token` should be included in the `Authorization` header as `Bearer <token>` for all subsequent requests. The response also returns `expiresIn` (seconds until expiry), `expiresAt` (ISO-8601 timestamp), the granted `scopes`, and a `refreshToken`.
 
 ## 2. API Key — Cash-In Endpoints
 
@@ -89,5 +90,3 @@ When generating a Bearer Token, you can request specific scopes to control acces
 | `pix:med:write` | Respond to MED requests |
 | `pix:reversals:read` | Query reversals |
 | `pix:reversals:write` | Create reversals |
-| `webhooks:read` | List and search webhooks |
-| `webhooks:write` | Create, update, delete webhooks |

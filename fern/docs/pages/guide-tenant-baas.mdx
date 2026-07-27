@@ -104,7 +104,10 @@ curl -X POST https://api.brzip.com.br/api/v1/clients \
 
 | HTTP | Code | Meaning |
 |------|------|---------|
-| 400 | `MISSING_PERSON_TYPE` | `person_type` is absent or invalid |
+| 400 | `MISSING_PERSON_TYPE` | `person_type` is absent |
+| 400 | `INVALID_PERSON_TYPE` | `person_type` is not `individual` or `company` |
+| 400 | `MISSING_NAME` | `name` is absent |
+| 400 | `MISSING_EMAIL` | `email` is absent |
 | 400 | `WEAK_PASSWORD` | Password has fewer than 8 characters |
 | 400 | `MISSING_CPF` | CPF required for `individual` but not provided |
 | 400 | `MISSING_CNPJ` | CNPJ required for `company` but not provided |
@@ -170,7 +173,7 @@ curl -X POST https://api.brzip.com.br/api/v1/accounts \
     "account_number": "9876543",
     "branch_code": "0001",
     "account_type": "personal",
-    "state": "pending",
+    "state": "pending_kyc",
     "kyc_level": 0,
     "person_type": "individual",
     "document": "12345678900",
@@ -195,7 +198,7 @@ curl -X POST https://api.brzip.com.br/api/v1/accounts \
 
 ## Step 3 — Activate the Account
 
-`POST /api/v1/accounts/{id}/activate` transitions the account from `pending` to `active`. After activation, the account can receive and send PIX and boleto.
+`POST /api/v1/accounts/{id}/activate` transitions the account from `pending_kyc` to `active`. After activation, the account can receive and send PIX and boleto.
 
 **Required scope:** `accounts:activate`
 
@@ -303,7 +306,7 @@ curl https://api.brzip.com.br/api/v1/accounts/a612b202-6690-4d24-ba35-2e36c8f3c0
 
 | State | Description |
 |-------|-------------|
-| `pending` | Account created, not yet activated |
+| `pending_kyc` | Account created, awaiting KYC approval / not yet activated |
 | `active` | Fully operational |
 | `suspended` | Temporarily restricted |
 | `blocked` | All operations halted |
@@ -384,7 +387,7 @@ The returned `token` is a Bearer Token authenticated as the sub-client. Use it i
 
 2. POST /api/v1/accounts
    Body: { client_id }
-   → Returns: account.id, account_number, branch_code, state: "pending"
+   → Returns: account.id, account_number, branch_code, state: "pending_kyc"
 
 3. POST /api/v1/accounts/{account.id}/activate
    → Returns: { account_id, status: "active" }

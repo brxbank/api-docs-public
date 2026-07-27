@@ -42,29 +42,28 @@ After KYC documents are approved, transition the account from `pending_kyc` to `
 
 ```bash
 curl -X POST https://api.brzip.com.br/api/v1/accounts/{accountId}/activate \
-  -H "Authorization: Bearer <your-jwt>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "reason": "KYC documents approved",
-    "correlation_id": "550e8400-e29b-41d4-a716-446655440000"
-  }'
+  -H "Authorization: Bearer <your-jwt>"
 ```
 
-**Response:**
+No request body is required.
+
+**Response (200):**
 
 ```json
 {
-  "success": true,
-  "message": "Account activated successfully"
+  "account_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+  "status": "active"
 }
 ```
+
+After activation, an `account.activated` webhook event is fired to your configured endpoint.
 
 **Errors:**
 
 | HTTP | Code | Meaning |
 |------|------|---------|
-| 400 | `INVALID_TRANSITION` | Account is not in `pending_kyc` state |
 | 404 | `ACCOUNT_NOT_FOUND` | Account ID does not exist |
+| 409 | `INVALID_STATE_TRANSITION` | Account is not in a state that allows activation |
 
 ---
 
@@ -77,19 +76,26 @@ curl -X POST https://api.brzip.com.br/api/v1/accounts/{accountId}/block \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -d '{
-    "reason": "Suspicious activity detected",
-    "correlation_id": "550e8400-e29b-41d4-a716-446655440001"
+    "reason": "Suspicious activity detected"
   }'
 ```
 
-**Response:**
+**Response (200):**
 
 ```json
 {
-  "success": true,
-  "message": "Account blocked successfully"
+  "account_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+  "status": "blocked"
 }
 ```
+
+**Errors:**
+
+| HTTP | Code | Meaning |
+|------|------|---------|
+| 400 | `MISSING_REASON` | `reason` field is empty or absent |
+| 404 | `ACCOUNT_NOT_FOUND` | Account ID does not exist |
+| 409 | `INVALID_STATE_TRANSITION` | Account is not in a state that allows blocking |
 
 <Callout intent="info">
   Blocked accounts stop all PIX, boleto, and P2P operations immediately. Pending transactions already in flight will complete normally.
@@ -106,12 +112,18 @@ curl -X POST https://api.brzip.com.br/api/v1/accounts/reserve \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
   -d '{
-    "document": "123.456.789-00",
-    "account_type": "PF",
-    "name": "Maria Silva",
-    "email": "maria@example.com"
+    "reference_id": "onb_my-idempotency-key",
+    "account_type": "PF"
   }'
 ```
+
+**Request fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `account_number` | string | No | Specific number to reserve — omit for auto-assignment |
+| `reference_id` | string | Recommended | Idempotency key; if omitted a random UUID is generated per call |
+| `account_type` | string | No | `"PF"`, `"PJ"`, or `"ESCROW"` |
 
 **Account types:**
 
@@ -121,16 +133,14 @@ curl -X POST https://api.brzip.com.br/api/v1/accounts/reserve \
 | `PJ` | Business (Pessoa Jurídica) — requires CNPJ |
 | `ESCROW` | Escrow account for holding funds |
 
-**Response:**
+**Response (201):**
 
 ```json
 {
-  "success": true,
-  "data": {
-    "account_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
-    "state": "pending_kyc",
-    "document": "123.456.789-00"
-  }
+  "account_number": "9876543",
+  "reservation_id": "res_3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "branch_code": "0001",
+  "reference_id": "onb_my-idempotency-key"
 }
 ```
 
@@ -138,8 +148,7 @@ curl -X POST https://api.brzip.com.br/api/v1/accounts/reserve \
 
 | HTTP | Code | Meaning |
 |------|------|---------|
-| 400 | `INVALID_REQUEST` | Missing required fields |
-| 409 | `ACCOUNT_EXISTS` | A document with this CPF/CNPJ already has an account |
+| 409 | `ACCOUNT_NUMBER_UNAVAILABLE` | Requested `account_number` is already in use or reserved |
 
 ---
 
