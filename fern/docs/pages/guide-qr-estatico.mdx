@@ -80,15 +80,18 @@ async function verifyQR(jws) {
 
 ```json
 {
-  "pixCopiaECola": "00001.11110 22222.222222 33333.333333 4 00000000000100",
-  "infoAditivais": [
-    { "nome": "destinatario", "valor": "João da Silva" },
-    { "nome": "valor", "valor": "10.00" }
-  ],
-  "revisao": 0,
   "calendario": {
-    "criacao": "2026-07-22T00:00:00Z",
+    "apresentacao": "2026-07-22T00:00:00.000000000Z",
+    "criacao": "2026-07-22T00:00:00.000Z",
     "expiracao": 86400
+  },
+  "chave": "26318747000186",
+  "revisao": 0,
+  "status": "ATIVA",
+  "txid": "***",
+  "valor": {
+    "modalidadeAlteracao": 0,
+    "original": "10.00"
   }
 }
 ```
@@ -107,21 +110,29 @@ curl -X GET https://qrcode.brzip.com.br/pix/cobv/{accessToken}
 
 ```json
 {
-  "pixCopiaECola": "...",
-  "cobv": {
-    "valor": {
-      "original": "100.00",
-      "multa": { "modalidade": 2, "valorPerc": "2.00" },
-      "juros": { "modalidade": 1, "valorPerc": "1.00" },
-      "desconto": { "modalidade": 1, "valorPerc": "5.00", "descontoDataFixa": [] }
-    },
-    "calendario": {
-      "dataDeVencimento": "2026-07-30",
-      "validadeAposVencimento": 30
-    }
+  "calendario": {
+    "apresentacao": "2026-07-22T00:00:00.000000000Z",
+    "criacao": "2026-07-22T00:00:00Z",
+    "dataDeVencimento": "2026-07-30",
+    "validadeAposVencimento": 30
+  },
+  "chave": "26318747000186",
+  "txid": "***",
+  "revisao": 0,
+  "status": "ATIVA",
+  "valor": {
+    "original": "100.00",
+    "final": "103.00",
+    "multa": "2.00",
+    "juros": "1.00",
+    "desconto": "5.00"
   }
 }
 ```
+
+<Callout intent="info">
+  For CobV, the amounts under `valor` (`multa`, `juros`, `desconto`, `abatimento`) are already **computed monetary values** (formatted as `"%.2f"` strings), not the modality/percentage rules used to configure the charge. `final` is the total after applying penalty/interest/discount/rebate.
+</Callout>
 
 ---
 
@@ -141,10 +152,13 @@ curl https://qrcode.brzip.com.br/pix/jwks
     {
       "kty": "RSA",
       "use": "sig",
+      "key_ops": ["verify"],
       "alg": "PS256",
       "kid": "brz-2026-01",
       "n": "...",
       "e": "AQAB",
+      "x5c": ["MIID..."],
+      "x5t": "abcdefg1234567890ABCDEFGH1",
       "x5t#S256": "abcdefg1234567890ABCDEFGH1234567890A"
     }
   ]
