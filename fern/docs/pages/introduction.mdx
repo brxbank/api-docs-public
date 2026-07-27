@@ -44,10 +44,12 @@ Follow these steps to get started:
 
 ## Common Headers
 
+Every request must authenticate with **either** a Bearer token **or** API Key credentials — both methods are accepted on the PIX and payments endpoints (dual authentication).
+
 | Header | Required | Description |
 |--------|----------|-------------|
-| `Authorization` | Yes (Bearer) | `Bearer <token>` for PIX endpoints |
-| `x-key-id` | Yes (Cash-In) | API Key ID |
-| `x-secret-key` | Yes (Cash-In) | API Key Secret |
+| `Authorization` | Conditional | `Bearer <token>` — use this **or** the API Key headers below |
+| `x-key-id` | Conditional | API Key ID — alternative to Bearer; sent together with `x-secret-key` |
+| `x-secret-key` | Conditional | API Key Secret — sent together with `x-key-id` |
 | `X-Idempotency-Key` | Recommended | Prevents duplicate operations (UUID) |
 | `Content-Type` | Yes (POST/PUT) | Always `application/json` |

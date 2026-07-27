@@ -23,15 +23,22 @@ The BRZ API uses standard HTTP status codes and returns structured JSON error re
 
 ## Error Response Format
 
-All error responses follow this structure:
+Most endpoints return errors in this structure, where `error` is an object containing a machine-readable `code` and a human-readable `message`:
 
 ```json
 {
   "success": false,
-  "error": "Human-readable error message",
-  "code": "MACHINE_READABLE_ERROR_CODE"
+  "error": {
+    "code": "MACHINE_READABLE_ERROR_CODE",
+    "message": "Human-readable error message",
+    "details": "Optional additional context"
+  }
 }
 ```
+
+<Note>
+Authentication and rate-limit errors are emitted by middleware before the handler runs and use a flatter shape (top-level `error`, `message`, and `code` fields) rather than the nested `error` object above. Always branch on the HTTP status code first, and treat the error body as best-effort context.
+</Note>
 
 ## Common Error Codes
 
@@ -39,26 +46,30 @@ All error responses follow this structure:
 
 | Code | Description |
 |------|-------------|
-| `UNAUTHORIZED` | Missing or invalid Bearer Token |
+| `MISSING_BEARER_TOKEN` | No `Authorization: Bearer <token>` header sent |
+| `INVALID_BEARER_TOKEN` | Bearer Token is malformed or has an invalid signature |
+| `EXPIRED_BEARER_TOKEN` | Bearer Token has expired |
+| `MISSING_API_CREDENTIALS` | `x-key-id` and/or `x-secret-key` header missing |
 | `INVALID_API_KEY` | Invalid `x-key-id` or `x-secret-key` |
-| `TOKEN_EXPIRED` | JWT token has expired |
+| `MISSING_CREDENTIALS` | Neither a Bearer token nor API Key credentials were provided |
+| `INSUFFICIENT_PERMISSIONS` | Token/key lacks a required scope |
 
 ### Validation Errors
 
 | Code | Description |
 |------|-------------|
-| `validation_error` | Request body validation failed |
-| `missing_fields` | Required fields are missing |
-| `invalid_key_type` | PIX key type must be CPF, CNPJ, EMAIL, PHONE, or EVP |
+| `VALIDATION_ERROR` | Request body validation failed |
+| `MISSING_FIELDS` | Required fields are missing |
+| `INVALID_KEY_TYPE` | PIX key type must be CPF, CNPJ, EMAIL, PHONE, or EVP |
 
 ### Transaction Errors
 
 | Code | Description |
 |------|-------------|
-| `TRANSACTION_NOT_FOUND` | Transaction ID does not exist |
-| `INSUFFICIENT_BALANCE` | Not enough balance for the operation |
-| `DUPLICATE_EXTERNAL_ID` | Duplicate `external_id` for this client |
-| `receiver_not_found` | Receiver PIX key not found internally |
+| `INSUFFICIENT_FUNDS` | Not enough balance for the operation |
+| `RECEIVER_NOT_FOUND` | Receiver PIX key not found internally |
+| `CHARGE_NOT_FOUND` | Charge ID does not exist |
+| `ACCOUNT_NOT_FOUND` | Bank account does not exist |
 
 ### Limit Errors
 
