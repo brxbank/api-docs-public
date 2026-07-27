@@ -2136,7 +2136,7 @@
                     "example": "123.45"
                   },
                   "change_agent_mode": {
-                    "type": "string"
+                    "type": "integer"
                   }
                 }
               }
@@ -3809,7 +3809,7 @@
         }
       }
     },
-    "/api/v1/webhooks/{id}/rotate-secret": {
+    "/api/v1/webhooks/{webhook_id}/rotate-secret": {
       "post": {
         "tags": [
           "Webhooks"
@@ -3819,7 +3819,7 @@
         "description": "Generates a new signing secret for the webhook, immediately invalidating the old one.\n\nUse this if your secret was compromised or as a periodic rotation practice. After rotation, update your signature verification logic with the new secret before deliveries resume.",
         "parameters": [
           {
-            "name": "id",
+            "name": "webhook_id",
             "in": "path",
             "schema": {
               "type": "string",
@@ -5051,34 +5051,41 @@
               "schema": {
                 "type": "object",
                 "required": [
+                  "external_id",
                   "barcode",
-                  "amount"
+                  "amount",
+                  "cpf_cnpj"
                 ],
                 "properties": {
+                  "external_id": {
+                    "type": "string",
+                    "description": "Your internal reference for the payment (required, used for idempotency/reconciliation)",
+                    "example": "boleto-pay-001"
+                  },
                   "barcode": {
                     "type": "string",
                     "description": "Boleto barcode decoded via /boleto/decode",
                     "example": "34191752343567861502346019000000986690000010000"
                   },
                   "amount": {
-                    "type": "string",
+                    "type": "number",
                     "description": "Payment amount (must match or override boleto amount for flex boletos)",
-                    "example": "100.00"
+                    "example": 100.00
+                  },
+                  "cpf_cnpj": {
+                    "type": "string",
+                    "description": "Payer CPF/CNPJ (required)",
+                    "example": "12345678909"
                   },
                   "description": {
                     "type": "string",
                     "description": "Payment description for statement",
                     "example": "Conta de energia - julho 2026"
                   },
-                  "reference": {
-                    "type": "string",
-                    "description": "Your internal reference for reconciliation",
-                    "example": "boleto-pay-001"
-                  },
-                  "scheduled_date": {
+                  "scheduled_for": {
                     "type": "string",
                     "format": "date",
-                    "description": "Optional scheduled payment date (ISO 8601, must be >= today and <= due_date)",
+                    "description": "Optional scheduled payment date (YYYY-MM-DD)",
                     "example": "2026-07-30"
                   }
                 }
