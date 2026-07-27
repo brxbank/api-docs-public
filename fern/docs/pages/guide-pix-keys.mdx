@@ -34,24 +34,26 @@ curl -X POST https://api.brzip.com.br/api/v1/pix/keys \
 
 ```json
 {
-  "key_type": "EVP",
-  "key": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "account": {
-    "participant": "12345678",
-    "branch": "0001",
-    "account_number": "12345678",
-    "account_type": "CACC",
-    "opening_date": "2026-02-23"
-  },
-  "owner": {
-    "type": "NATURAL_PERSON",
-    "tax_id_number": "22768368067",
-    "name": "Ana Paula Oliveira"
-  },
-  "created_at": "2026-02-23T21:10:00.000Z",
-  "status": "REGISTERED"
+  "success": true,
+  "data": {
+    "registered": true,
+    "key": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "type": "EVP",
+    "keyStatus": "REGISTERED",
+    "createdAt": "2026-02-23T21:10:00.000Z",
+    "dictTransactionId": "d1c7-..."
+  }
 }
 ```
+
+| Field | Description |
+|-------|-------------|
+| `registered` | `true` when the key was accepted by DICT |
+| `key` | The registered key value (for EVP, the generated UUID) |
+| `type` | Key type: `CPF` \| `CNPJ` \| `EMAIL` \| `PHONE` \| `EVP` |
+| `keyStatus` | DICT registration status |
+| `createdAt` | Registration timestamp |
+| `dictTransactionId` | DICT transaction reference |
 
 <Callout intent="tip">
   For EVP keys, just send `{"key_type": "EVP"}`. For other types, include the `key` field with the actual value (e.g., CPF number, email address).
@@ -96,11 +98,13 @@ curl -X DELETE https://api.brzip.com.br/api/v1/pix/keys/a1b2c3d4-e5f6-7890-abcd-
   }'
 ```
 
-### Deletion Reasons
+### Deletion Reason
+
+The `reason` field is optional free text stored for audit; it is **not** a validated enum. If omitted, it defaults to `USER_REQUESTED`. Common values used by convention:
 
 | Reason | Description |
 |--------|-------------|
-| `USER_REQUESTED` | User requested the deletion |
+| `USER_REQUESTED` | User requested the deletion (default) |
 | `ACCOUNT_CLOSURE` | Account is being closed |
 | `BRANCH_TRANSFER` | Transferring to another branch |
 | `FRAUD` | Key involved in fraud |
