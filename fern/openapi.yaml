@@ -541,6 +541,83 @@ components:
         pix_key_value:
           type: string
           example: "maria@exemplo.com"
+    P2PTransferResponse:
+      type: object
+      description: >-
+        Result of a P2P transfer. Returned flat (no `success`/`data` wrapper) —
+        the orchestrator response is passed through verbatim.
+      properties:
+        transaction_id:
+          type: string
+          example: "f1e2d3c4-b5a6-7890-1234-567890abcdef"
+        external_id:
+          type: string
+          example: "p2p-transfer-001"
+        status:
+          type: string
+          description: Transfer status (starts as `pending`).
+          example: "pending"
+        amount:
+          type: string
+          description: Decimal amount with two decimal places.
+          example: "150.00"
+        currency:
+          type: string
+          example: "BRL"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-03-23T14:30:00Z"
+    P2PAuthorization:
+      type: object
+      description: >-
+        A P2P authorization (hold + capture flow). Returned flat (no
+        `success`/`data` wrapper) — the orchestrator response is passed through
+        verbatim.
+      properties:
+        id:
+          type: string
+          description: Authorization identifier (use it in capture/cancel/get calls).
+          example: "a3f1c9d2-7b4e-4f8a-9d3e-2b5c6f7a8e9d"
+        external_id:
+          type: string
+          example: "p2p-auth-001"
+        status:
+          type: string
+          description: Authorization status.
+          enum:
+            - pending
+            - authorized
+            - capturing
+            - cancelling
+            - captured
+            - partially_captured
+            - cancelled
+            - expired
+            - failed
+          example: "authorized"
+        amount:
+          type: string
+          description: Authorized amount, two decimal places.
+          example: "150.00"
+        captured_amount:
+          type: string
+          description: Amount already captured, two decimal places.
+          example: "0.00"
+        currency:
+          type: string
+          example: "BRL"
+        receiver_account_id:
+          type: string
+          example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+        expires_at:
+          type: string
+          format: date-time
+          example: "2026-03-24T14:30:00Z"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-03-23T14:30:00Z"
     MedRefund:
       type: object
       description: >-
@@ -3651,9 +3728,15 @@ paths:
       summary: Transfer
       operationId: p2pTransfer
       description: >-
-        Create a P2P transfer
+        Create a P2P transfer. Provide the receiver either by `receiver_account_id`
+        (from the [lookup](api:POST/api/v1/pix/p2p/lookup) flow) or by `receiver_pix_key`
+        (resolved internally to an account). The response is the orchestrator body
+        returned verbatim (flat, no `success`/`data` wrapper).
 
         **Scope:** `pix:p2p:write`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -3674,38 +3757,42 @@ paths:
                   example: "123.45"
                 receiver_account_id:
                   type: string
-                  description: Account id of the receiver. Obtained from field `account_id` of the [lookup](api:POST/api/v1/pix/p2p/lookup) flow
+                  description: >-
+                    Account id of the receiver. Obtained from field `account_id`
+                    of the [lookup](api:POST/api/v1/pix/p2p/lookup) flow. Provide
+                    this OR `receiver_pix_key`.
                   example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+                receiver_pix_key:
+                  type: string
+                  description: >-
+                    Receiver PIX key. Resolved internally to the receiver account.
+                    Provide this OR `receiver_account_id`.
+                  example: maria@exemplo.com
                 description:
                   type: string
                   description: Description of the transfer
                   example: Paying back lunch
+                metadata:
+                  type: object
+                  additionalProperties: true
+                  description: Optional free-form metadata attached to the transfer
+                  example:
+                    order_id: "order-12345"
       responses:
-        '200':
-          description: Success
+        '201':
+          description: Transfer created
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  transaction_id:
-                    type: string
-                    example: "f1e2d3c4-b5a6-7890-1234-567890abcdef"
-                  external_id:
-                    type: string
-                    example: "p2p-transfer-001"
-                  status:
-                    type: string
-                    example: "pending"
-                  amount:
-                    type: string
-                    example: "150.00"
-                  currency:
-                    type: string
-                    example: "BRL"
-                  created_at:
-                    type: string
-                    example: "2026-03-23T14:30:00Z"
+                $ref: '#/components/schemas/P2PTransferResponse'
+        '200':
+          description: >-
+            Idempotent replay — an in-flight transfer already exists for this
+            `external_id`; the same result is returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/P2PTransferResponse'
         '404':
           description: Receiver not found
           content:
@@ -3745,9 +3832,13 @@ paths:
       summary: Lookup
       operationId: p2pLookup
       description: >-
-        Looks up a user's account by their PIX key or account number
+        Looks up a user's account by their PIX key or account number. Returns an
+        envelope `{ "success": true, "data": [ ... ] }`.
 
         **Scope:** `pix:p2p:read`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -3797,6 +3888,345 @@ paths:
                   code:
                     type: string
                     example: "VALIDATION_ERROR"
+
+  /api/v1/pix/p2p/authorize:
+    post:
+      tags:
+        - P2P
+      summary: Authorize (hold)
+      operationId: p2pAuthorize
+      description: >-
+        Authorize a P2P transfer, placing a hold on the payer that can later be
+        captured or cancelled (card-style). The response is the orchestrator body
+        returned verbatim (flat, no `success`/`data` wrapper).
+
+
+        Returns `201` when the authorization resolves synchronously, or `202`
+        when it is still being processed asynchronously (poll with
+        [Get authorization](api:GET/api/v1/pix/p2p/{id})). A prior `external_id`
+        returns `200` with the existing authorization.
+
+
+        Provide the receiver by `receiver_account_id` or `receiver_pix_key`.
+
+        **Scope:** `pix:p2p:write`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - external_id
+                - amount
+              properties:
+                external_id:
+                  type: string
+                  description: External reference ID
+                  example: a9ae38b8-bdfc-4637-909e-af1495f62a4b
+                amount:
+                  type: string
+                  description: Decimal amount to authorize
+                  example: "123.45"
+                receiver_account_id:
+                  type: string
+                  description: Receiver account id (provide this OR `receiver_pix_key`).
+                  example: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+                receiver_pix_key:
+                  type: string
+                  description: Receiver PIX key, resolved internally (provide this OR `receiver_account_id`).
+                  example: maria@exemplo.com
+                description:
+                  type: string
+                  description: Description of the authorization
+                  example: Reserva de valor
+                ttl_seconds:
+                  type: integer
+                  format: int64
+                  description: >-
+                    Time-to-live of the hold in seconds. Default 86400 (24h),
+                    minimum 60, maximum 604800 (7 days).
+                  example: 3600
+                metadata:
+                  type: object
+                  additionalProperties: true
+                  description: Optional free-form metadata
+                  example:
+                    order_id: "order-12345"
+      responses:
+        '201':
+          description: Authorization created and resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/P2PAuthorization'
+        '202':
+          description: >-
+            Authorization accepted and being processed asynchronously; poll
+            [Get authorization](api:GET/api/v1/pix/p2p/{id}) for the final state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/P2PAuthorization'
+        '200':
+          description: Idempotent replay — authorization already exists for this `external_id`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/P2PAuthorization'
+        '409':
+          description: Conflict, duplicate external_id
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: Duplicate external_id for this client
+                  code:
+                    type: string
+                    example: DUPLICATE_EXTERNAL_ID
+        '422':
+          description: >-
+            Business rule rejection (e.g. `INVALID_RECEIVER`,
+            `SELF_TRANSFER_NOT_ALLOWED`, `WALLET_KIND_MISMATCH`,
+            `ELIGIBILITY_CHECK_FAILED`, `LIMIT_EXCEEDED`, `HOLD_FAILED`).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: Eligibility check failed
+                  code:
+                    type: string
+                    example: ELIGIBILITY_CHECK_FAILED
+
+  /api/v1/pix/p2p/{id}/capture:
+    post:
+      tags:
+        - P2P
+      summary: Capture
+      operationId: p2pCapture
+      description: >-
+        Capture a previously authorized P2P hold, in full or partially. Only an
+        authorization in `authorized` state can be captured. The response is the
+        orchestrator body returned verbatim (flat).
+
+
+        Returns `200` when capture resolves synchronously, or `202` when it is
+        being processed asynchronously.
+
+        **Scope:** `pix:p2p:write`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Authorization identifier
+          example: a3f1c9d2-7b4e-4f8a-9d3e-2b5c6f7a8e9d
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: string
+                  description: >-
+                    Amount to capture (two decimals). Omit to capture the full
+                    authorized amount. Must not exceed the hold.
+                  example: "100.00"
+      responses:
+        '200':
+          description: Captured (or partially captured)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/P2PAuthorization'
+        '202':
+          description: Capture accepted and being processed asynchronously.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/P2PAuthorization'
+        '404':
+          description: Authorization not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: Authorization not found
+                  code:
+                    type: string
+                    example: NOT_FOUND
+        '409':
+          description: Invalid state — capture is only allowed for `authorized` holds.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: Authorization is not in a capturable state
+                  code:
+                    type: string
+                    example: INVALID_STATE
+
+  /api/v1/pix/p2p/{id}/cancel:
+    post:
+      tags:
+        - P2P
+      summary: Cancel
+      operationId: p2pCancel
+      description: >-
+        Cancel a P2P authorization, releasing the hold. The response is the
+        orchestrator body returned verbatim (flat).
+
+
+        Returns `200` when the cancellation resolves synchronously, or `202`
+        when it is being processed asynchronously.
+
+        **Scope:** `pix:p2p:write`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Authorization identifier
+          example: a3f1c9d2-7b4e-4f8a-9d3e-2b5c6f7a8e9d
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Optional cancellation reason
+                  example: Customer gave up
+      responses:
+        '200':
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/P2PAuthorization'
+        '202':
+          description: Cancellation accepted and being processed asynchronously.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/P2PAuthorization'
+        '404':
+          description: Authorization not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: Authorization not found
+                  code:
+                    type: string
+                    example: NOT_FOUND
+        '409':
+          description: Invalid state — the authorization cannot be cancelled in its current state.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: Authorization is not in a cancellable state
+                  code:
+                    type: string
+                    example: INVALID_STATE
+
+  /api/v1/pix/p2p/{id}:
+    get:
+      tags:
+        - P2P
+      summary: Get authorization
+      operationId: p2pGetAuthorization
+      description: >-
+        Retrieve the current state of a P2P authorization. The response is the
+        orchestrator body returned verbatim (flat).
+
+        **Scope:** `pix:p2p:read`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Authorization identifier
+          example: a3f1c9d2-7b4e-4f8a-9d3e-2b5c6f7a8e9d
+      responses:
+        '200':
+          description: Authorization state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/P2PAuthorization'
+        '404':
+          description: Authorization not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: Authorization not found
+                  code:
+                    type: string
+                    example: NOT_FOUND
 
   # ── Accounts ──────────────────────────────────────────────────────────────
 
