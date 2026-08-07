@@ -625,6 +625,92 @@ components:
           format: uuid
           description: Request correlation ID for support tracing
           example: "550e8400-e29b-41d4-a716-446655440000"
+    AccountReasonRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          description: Reason for the state change (required, max 500 characters)
+          example: "Suspicious activity detected"
+    AccountStateChangeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            account_id:
+              type: string
+              format: uuid
+              example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+            status:
+              type: string
+              description: Resulting account status (lowercase)
+              enum: [active, blocked, closed, inactive]
+              example: "active"
+    AccountStatusResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+        account_number:
+          type: string
+          example: "98765432"
+        branch_code:
+          type: string
+          example: "0001"
+        account_type:
+          type: string
+          example: "CHECKING"
+        state:
+          type: string
+          description: Account state (uppercase, from the account service)
+          enum: [RESERVED, ACTIVE, SUSPENDED, BLOCKED, CLOSED, INACTIVE]
+          example: "ACTIVE"
+        state_reason:
+          type: string
+          description: Present only when a reason was recorded for the current state
+          example: "KYC approved"
+        kyc_level:
+          type: integer
+          example: 2
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-07-22T14:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-07-22T14:30:00Z"
+        activated_at:
+          type: string
+          format: date-time
+          description: Present only once the account has been activated
+          example: "2026-07-22T15:00:00Z"
+    BenefitFundRequest:
+      type: object
+      required:
+        - amount
+      properties:
+        amount:
+          type: string
+          description: Amount to fund, as a string with 2 decimals (must be > 0)
+          example: "10000.00"
+        transaction_id:
+          type: string
+          description: Optional idempotency/reference id (echoed back)
+          example: "fund_2026_08_001"
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Optional free-form metadata
     WalletListResponse:
       type: object
       properties:
@@ -3679,20 +3765,121 @@ paths:
 
   # ── Accounts ──────────────────────────────────────────────────────────────
 
-  /api/v1/accounts/{accountId}/activate:
+  /api/v1/accounts:
     post:
       tags:
         - Accounts
-      summary: Activate account
-      operationId: activateAccount
+      summary: Create account
+      operationId: createAccount
       description: >-
-        Transition an account from `pending_kyc` to `active` state after KYC
-        approval. Only accounts in `pending_kyc` state can be activated.
+        Create a payment account. If `client_id` is supplied and the identity
+        fields (`name`, `document`, `person_type`, `email`) are omitted, they are
+        fetched from the client record automatically. If you pass an
+        `account_number` (from `POST /api/v1/accounts/reserve`), you must also
+        pass the matching `reservation_id`.
 
 
-        **Authentication:** Bearer token
+        **Authentication:** Bearer token or API Key. **Scope:** `accounts:write`.
       security:
         - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                client_id:
+                  type: string
+                  description: Owning client; when set, missing identity fields are pulled from the client record
+                  example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+                account_type:
+                  type: string
+                  description: Account type
+                  example: "CHECKING"
+                person_type:
+                  type: string
+                  description: Holder person type
+                  enum: [individual, company]
+                  example: "individual"
+                document:
+                  type: string
+                  description: Holder CPF or CNPJ
+                  example: "12345678909"
+                name:
+                  type: string
+                  description: Holder full name
+                  example: "João da Silva"
+                email:
+                  type: string
+                  format: email
+                  example: "joao@example.com"
+                phone:
+                  type: string
+                  description: Optional holder phone
+                  example: "+5511998765432"
+                account_number:
+                  type: string
+                  description: Reserved account number (requires reservation_id)
+                  example: "98765432"
+                reservation_id:
+                  type: string
+                  description: Reservation token from POST /api/v1/accounts/reserve — required when account_number is set
+                  example: "res_7a3b2c1d4e5f"
+      responses:
+        '201':
+          description: >-
+            Account created. Note the nested envelope: the outer object is the
+            standard `{success, data}` wrapper; the inner `data` echoes the
+            created account plus resolved holder fields.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    description: Created account payload (envelope from the account service, passed through)
+                    additionalProperties: true
+        '400':
+          description: Missing required field (name, document, person_type, email, or reservation_id)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Reservation invalid for this client
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Document already in use
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{accountId}:
+    get:
+      tags:
+        - Accounts
+      summary: Get account
+      operationId: getAccount
+      description: >-
+        Return the status and metadata of one account. Ownership is enforced by
+        the `client_id` in your token (owner or parent); an account owned by
+        another client returns `404`.
+
+
+        **Authentication:** Bearer token or API Key. **Scope:** `accounts:read`.
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
       parameters:
         - name: accountId
           in: path
@@ -3702,31 +3889,9 @@ paths:
             format: uuid
           description: Account identifier
           example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - changed_by
-              properties:
-                changed_by:
-                  type: string
-                  description: Identifier of the operator or system triggering the activation
-                  example: "admin-user-001"
-                reason:
-                  type: string
-                  description: Optional reason for activation
-                  example: "KYC documents approved"
-                correlation_id:
-                  type: string
-                  format: uuid
-                  description: Optional correlation ID for audit trail
-                  example: "550e8400-e29b-41d4-a716-446655440000"
       responses:
         '200':
-          description: Account activated successfully
+          description: Account status
           content:
             application/json:
               schema:
@@ -3735,17 +3900,60 @@ paths:
                   success:
                     type: boolean
                     example: true
-                  message:
-                    type: string
-                    example: "Account activated successfully"
-        '400':
-          description: Invalid state transition
+                  data:
+                    $ref: '#/components/schemas/AccountStatusResponse'
+        '404':
+          description: Account not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{accountId}/activate:
+    post:
+      tags:
+        - Accounts
+      summary: Activate account
+      operationId: activateAccount
+      description: >-
+        Transition an account to `active` after KYC approval. Takes no request
+        body — the operator identity is derived from your token. Ownership is
+        enforced by the `client_id` in your token.
+
+
+        **Authentication:** Bearer token or API Key. **Scope:** `accounts:activate`.
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Account identifier
+          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+      responses:
+        '200':
+          description: Account activated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountStateChangeResponse'
+              example:
+                success: true
+                data:
+                  account_id: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+                  status: "active"
         '404':
           description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Invalid state transition
           content:
             application/json:
               schema:
@@ -3758,13 +3966,14 @@ paths:
       summary: Block account
       operationId: blockAccount
       description: >-
-        Block an account, preventing all financial operations. A blocked account
-        can be suspended or closed but cannot be reactivated directly.
+        Block an account, preventing all financial operations. Requires a
+        `reason`. Ownership is enforced by the `client_id` in your token.
 
 
-        **Authentication:** Bearer token
+        **Authentication:** Bearer token or API Key. **Scope:** `accounts:block`.
       security:
         - bearerAuth: []
+        - apiKeyAuth: []
       parameters:
         - name: accountId
           in: path
@@ -3779,46 +3988,155 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - reason
-                - changed_by
-              properties:
-                reason:
-                  type: string
-                  description: Reason for blocking the account
-                  example: "Suspicious activity detected"
-                changed_by:
-                  type: string
-                  description: Identifier of the operator or system triggering the block
-                  example: "admin-user-001"
-                correlation_id:
-                  type: string
-                  format: uuid
-                  description: Optional correlation ID for audit trail
-                  example: "550e8400-e29b-41d4-a716-446655440000"
+              $ref: '#/components/schemas/AccountReasonRequest'
       responses:
         '200':
-          description: Account blocked successfully
+          description: Account blocked
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: "Account blocked successfully"
+                $ref: '#/components/schemas/AccountStateChangeResponse'
+              example:
+                success: true
+                data:
+                  account_id: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+                  status: "blocked"
         '400':
-          description: Invalid state transition or missing reason
+          description: Missing or invalid reason (empty or longer than 500 characters)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{accountId}/close:
+    post:
+      tags:
+        - Accounts
+      summary: Close account
+      operationId: closeAccount
+      description: >-
+        Permanently close an account. Requires a `reason`. Ownership is enforced
+        by the `client_id` in your token.
+
+
+        **Authentication:** Bearer token or API Key. **Scope:** `accounts:close`.
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Account identifier
+          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountReasonRequest'
+      responses:
+        '200':
+          description: Account closed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountStateChangeResponse'
+              example:
+                success: true
+                data:
+                  account_id: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+                  status: "closed"
+        '400':
+          description: Missing or invalid reason (empty or longer than 500 characters)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{accountId}/deactivate:
+    post:
+      tags:
+        - Accounts
+      summary: Deactivate account
+      operationId: deactivateAccount
+      description: >-
+        Deactivate (suspend to `inactive`) an account. Requires a `reason`.
+        Ownership is enforced by the `client_id` in your token.
+
+
+        **Authentication:** Bearer token or API Key. **Scope:** `accounts:deactivate`.
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Account identifier
+          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountReasonRequest'
+      responses:
+        '200':
+          description: Account deactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountStateChangeResponse'
+              example:
+                success: true
+                data:
+                  account_id: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+                  status: "inactive"
+        '400':
+          description: Missing or invalid reason (empty or longer than 500 characters)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Invalid state transition
           content:
             application/json:
               schema:
@@ -3833,23 +4151,14 @@ paths:
       description: >-
         Reserves an account number slot before the full account is created.
         Call this during onboarding to obtain a `reservation_id` and
-        `account_number` that you pass later to `POST /api/v1/accounts`.
+        `account_number` that you pass later to `POST /api/v1/accounts`. The
+        client is taken from your token — there is no `X-Client-ID` header.
 
 
-        **Required header:** `X-Client-ID` (the client for whom to reserve)
-
-
-        **Authentication:** Bearer token
+        **Authentication:** Bearer token or API Key. **Scope:** `accounts:reserve`.
       security:
         - bearerAuth: []
-      parameters:
-        - name: X-Client-ID
-          in: header
-          required: true
-          schema:
-            type: string
-          description: Client ID for whom to reserve the account number
-          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+        - apiKeyAuth: []
       requestBody:
         required: false
         content:
@@ -3861,12 +4170,16 @@ paths:
                   type: string
                   description: Specific account number to reserve (optional — auto-assigned if omitted)
                   example: "12345678"
-                onboarding_application_id:
+                reference_id:
                   type: string
-                  description: Onboarding application reference (optional)
+                  description: Your reference for the reservation (optional — echoed back; a UUID is generated if omitted)
                   example: "onb_abc123"
+                account_type:
+                  type: string
+                  description: Account type (optional)
+                  example: "CHECKING"
       responses:
-        '200':
+        '201':
           description: Account number reserved successfully
           content:
             application/json:
@@ -3891,12 +4204,10 @@ paths:
                         type: string
                         description: Branch code associated with the reservation
                         example: "0001"
-        '400':
-          description: Invalid request or missing X-Client-ID header
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                      reference_id:
+                        type: string
+                        description: The reference you sent (or the generated UUID)
+                        example: "onb_abc123"
         '409':
           description: Account number already reserved or in use
           content:
@@ -3960,6 +4271,197 @@ paths:
                 $ref: '#/components/schemas/WalletListResponse'
         '400':
           description: Invalid account ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/{accountId}/benefit/recharge:
+    post:
+      tags:
+        - Accounts
+      summary: Recharge a benefit pocket
+      operationId: rechargeBenefit
+      description: >-
+        Credit funds into a specific benefit pocket (identified by `benefit_code`)
+        of an account. Used by employers/benefit providers to top up an
+        employee's benefit balance.
+
+
+        **Authentication:** Bearer token or API Key. **Scope:** `accounts:benefit:recharge`.
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Account identifier
+          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - benefit_code
+                - amount
+              properties:
+                benefit_code:
+                  type: string
+                  description: Benefit pocket to credit
+                  example: "VR"
+                amount:
+                  type: string
+                  description: Amount to credit, as a string with 2 decimals (must be > 0)
+                  example: "250.00"
+                transaction_id:
+                  type: string
+                  description: Optional idempotency/reference id (echoed back)
+                  example: "recharge_2026_08_001"
+                metadata:
+                  type: object
+                  additionalProperties: true
+                  description: Optional free-form metadata
+      responses:
+        '200':
+          description: Benefit pocket recharged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    description: Ledger movement result, plus the transaction_id
+                    additionalProperties: true
+        '400':
+          description: Missing benefit_code or invalid amount
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/benefit/fund:
+    post:
+      tags:
+        - Accounts
+      summary: Fund the tenant benefit source
+      operationId: fundBenefit
+      description: >-
+        Add funds to the tenant-level benefit funding source that backs benefit
+        recharges. The tenant is resolved from your token. Default funding mode
+        is `external`; `pix` funding is not yet implemented.
+
+
+        **Authentication:** Bearer token or API Key. **Scope:** `accounts:tenant:benefit:fund`.
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BenefitFundRequest'
+      responses:
+        '200':
+          description: Benefit source funded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    additionalProperties: true
+        '400':
+          description: Invalid amount
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: PIX funding mode requested but not implemented
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/accounts/tenant/{tenantId}/benefit/fund:
+    post:
+      tags:
+        - Accounts
+      summary: Fund the tenant benefit source (legacy alias)
+      operationId: fundBenefitByTenant
+      description: >-
+        Legacy alias for `POST /api/v1/accounts/benefit/fund`. The `tenantId` in
+        the path must match the tenant in your token, otherwise `404` is
+        returned. Prefer the canonical path.
+
+
+        **Authentication:** Bearer token or API Key. **Scope:** `accounts:tenant:benefit:fund`.
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Tenant identifier (must match the tenant in your token)
+          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BenefitFundRequest'
+      responses:
+        '200':
+          description: Benefit source funded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    additionalProperties: true
+        '400':
+          description: Invalid amount
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Tenant mismatch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: PIX funding mode requested but not implemented
           content:
             application/json:
               schema:
