@@ -711,6 +711,41 @@ components:
           type: object
           additionalProperties: true
           description: Optional free-form metadata
+    BoletoPaymentResponse:
+      type: object
+      description: >-
+        Flat boleto payment response proxied verbatim from the payment
+        orchestrator. Used by pay (POST) and get (GET).
+      properties:
+        transaction_id:
+          type: string
+          format: uuid
+          description: Payment/transaction identifier (use to check status)
+          example: "7f3c2a1b-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
+        external_id:
+          type: string
+          description: Your internal reference echoed back
+          example: "boleto-pay-001"
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, cancelled, blocked, refunded, pending_manual_review, expired]
+          example: "pending"
+        amount:
+          type: string
+          description: Amount as a string with 2 decimals
+          example: "100.00"
+        currency:
+          type: string
+          example: "BRL"
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-07-22T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Present on GET responses
+          example: "2026-07-22T10:45:00Z"
     WalletListResponse:
       type: object
       properties:
@@ -4485,9 +4520,17 @@ paths:
         with your user.
 
 
-        **Authentication:** Bearer token
+        The `data` payload is returned **verbatim from the boleto provider**
+        (Celcoin), so its exact fields depend on the boleto and provider — treat
+        it as an opaque object rather than a fixed schema. `settlement_mode`
+        indicates how the payment will be funded (currently always `prefunded`).
+
+
+        **Authentication:** Bearer token or API key.
+        **Required scope:** `payments:boleto:read`
       security:
         - bearerAuth: []
+        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -4514,45 +4557,43 @@ paths:
                     example: true
                   data:
                     type: object
+                    description: >-
+                      Double-enveloped payload. `data.data` is the raw provider
+                      decode response (opaque, provider-dependent fields).
                     properties:
-                      barcode:
+                      data:
+                        type: object
+                        description: Raw boleto data as returned by the provider (opaque).
+                        additionalProperties: true
+                        example:
+                          amount: "100.00"
+                          due_date: "2026-07-31"
+                          recipient_name: "Empresa ABC Ltda"
+                          recipient_document: "12.345.678/0001-90"
+                      settlement_mode:
                         type: string
-                        description: Normalized barcode
-                        example: "34191752343567861502346019000000986690000010000"
-                      amount:
-                        type: string
-                        description: Payment amount in BRL
-                        example: "100.00"
-                      due_date:
-                        type: string
-                        format: date
-                        description: Boleto due date
-                        example: "2026-07-31"
-                      recipient_name:
-                        type: string
-                        description: Boleto issuer / recipient name
-                        example: "Empresa ABC Ltda"
-                      recipient_document:
-                        type: string
-                        description: Recipient CNPJ/CPF
-                        example: "12.345.678/0001-90"
-                      bank_name:
-                        type: string
-                        description: Issuing bank name
-                        example: "Banco Bradesco S.A."
-                      type:
-                        type: string
-                        enum: [normal, concessionaria, taxa_publica]
-                        description: Boleto type
-                        example: "normal"
+                        description: How the payment is funded.
+                        example: "prefunded"
         '400':
-          description: Invalid barcode format
+          description: Invalid JSON or missing barcode
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: Barcode valid but payment not allowed (e.g., expired)
+          description: Provider rejected the barcode (e.g., invalid or expired)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Boleto provider unavailable (CELCOIN_UNAVAILABLE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: No boleto provider configured (NO_PROVIDER)
           content:
             application/json:
               schema:
@@ -4569,22 +4610,21 @@ paths:
         `GET /api/v1/payments/boleto/{paymentId}` to track the status.
 
 
-        Always include `X-Idempotency-Key` to prevent duplicate payments. The key
-        is scoped to your client and expires after 24 hours.
+        Idempotency is keyed on `external_id` per client: re-submitting the same
+        `external_id` while a payment is still in a non-final state returns the
+        existing payment (HTTP 200); re-submitting after it reached a final
+        non-failed state returns `409 DUPLICATE_EXTERNAL_ID`.
 
 
-        **Authentication:** Bearer token
+        The response body is returned **flat** (not enveloped) — it is proxied
+        verbatim from the payment orchestrator.
+
+
+        **Authentication:** Bearer token or API key.
+        **Required scope:** `payments:boleto:write`
       security:
         - bearerAuth: []
-      parameters:
-        - name: X-Idempotency-Key
-          in: header
-          required: false
-          schema:
-            type: string
-            format: uuid
-          description: Unique key to prevent duplicate payments (recommended)
-          example: "550e8400-e29b-41d4-a716-446655440000"
+        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -4607,7 +4647,7 @@ paths:
                   example: "34191752343567861502346019000000986690000010000"
                 amount:
                   type: number
-                  description: Payment amount (must match or override boleto amount for flex boletos)
+                  description: Payment amount as a JSON number (must be greater than zero)
                   example: 100.00
                 cpf_cnpj:
                   type: string
@@ -4623,52 +4663,34 @@ paths:
                   description: Optional scheduled payment date (YYYY-MM-DD)
                   example: "2026-07-30"
       responses:
-        '202':
-          description: Payment accepted for processing
+        '201':
+          description: >-
+            Payment created and accepted for processing. Also returned (as HTTP
+            200) when an existing non-final payment matches the `external_id`.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      payment_id:
-                        type: string
-                        format: uuid
-                        description: Payment identifier (use to check status)
-                        example: "7f3c2a1b-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
-                      status:
-                        type: string
-                        enum: [pending, processing, completed, failed, cancelled]
-                        example: "pending"
-                      amount:
-                        type: string
-                        example: "100.00"
-                      barcode:
-                        type: string
-                        example: "34191752343567861502346019000000986690000010000"
-                      created_at:
-                        type: string
-                        format: date-time
-                        example: "2026-07-22T10:30:00Z"
+                $ref: '#/components/schemas/BoletoPaymentResponse'
+        '200':
+          description: Existing non-final payment returned for a repeated `external_id`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoletoPaymentResponse'
         '400':
-          description: Invalid request
+          description: Invalid request (missing/invalid barcode, amount, external_id, or cpf_cnpj)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Duplicate external_id for this client (payment already finalized)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
           description: Payment not allowed (insufficient funds, expired boleto, etc.)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Duplicate payment (same idempotency key)
           content:
             application/json:
               schema:
@@ -4681,24 +4703,80 @@ paths:
       summary: Get boleto payment status
       operationId: getBoletoPayment
       description: >-
-        Retrieve the current status and details of a boleto payment.
+        Retrieve the current status and details of a boleto payment. Lookup is by
+        the transaction id (path); if not found and `client_id` is supplied as a
+        query param, it falls back to matching your `external_id`.
 
 
-        **Authentication:** Bearer token
+        The response body is returned **flat** (not enveloped) — proxied verbatim
+        from the payment orchestrator.
+
+
+        **Authentication:** Bearer token or API key.
+        **Required scope:** `payments:boleto:read`
       security:
         - bearerAuth: []
+        - apiKeyAuth: []
       parameters:
         - name: paymentId
           in: path
           required: true
           schema:
             type: string
-            format: uuid
-          description: Payment identifier returned by POST /api/v1/payments/boleto
+          description: >-
+            Transaction id returned by POST /api/v1/payments/boleto, or your
+            `external_id` when `client_id` is also supplied.
           example: "7f3c2a1b-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
+        - name: client_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Enables fallback lookup by external_id when the path id is not a transaction id.
       responses:
         '200':
           description: Payment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoletoPaymentResponse'
+        '404':
+          description: Payment not found (NOT_FOUND)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Boleto
+      summary: Cancel boleto payment
+      operationId: cancelBoletoPayment
+      description: >-
+        Cancel a boleto payment. Cancellation is only available when the boleto
+        provider supports it; otherwise the endpoint returns `501 NOT_IMPLEMENTED`.
+
+
+        On success the body is **double-enveloped** — `data.data` is the raw
+        provider cancel response (opaque) and `data.settlement_mode` echoes the
+        funding mode.
+
+
+        **Authentication:** Bearer token or API key.
+        **Required scope:** `payments:boleto:write`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Payment identifier
+          example: "7f3c2a1b-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
+      responses:
+        '200':
+          description: Payment cancelled — raw provider response, double-enveloped
           content:
             application/json:
               schema:
@@ -4710,89 +4788,27 @@ paths:
                   data:
                     type: object
                     properties:
-                      payment_id:
+                      data:
+                        type: object
+                        description: Raw provider cancel response (opaque).
+                        additionalProperties: true
+                      settlement_mode:
                         type: string
-                        format: uuid
-                        example: "7f3c2a1b-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
-                      status:
-                        type: string
-                        enum: [pending, processing, completed, failed, cancelled]
-                        example: "completed"
-                      amount:
-                        type: string
-                        example: "100.00"
-                      barcode:
-                        type: string
-                        example: "34191752343567861502346019000000986690000010000"
-                      recipient_name:
-                        type: string
-                        example: "Empresa ABC Ltda"
-                      description:
-                        type: string
-                        example: "Conta de energia - julho 2026"
-                      reference:
-                        type: string
-                        example: "boleto-pay-001"
-                      settled_at:
-                        type: string
-                        format: date-time
-                        nullable: true
-                        example: "2026-07-22T10:45:00Z"
-                      created_at:
-                        type: string
-                        format: date-time
-                        example: "2026-07-22T10:30:00Z"
-        '404':
-          description: Payment not found
+                        example: "prefunded"
+        '422':
+          description: Provider rejected the cancellation
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-    delete:
-      tags:
-        - Boleto
-      summary: Cancel boleto payment
-      operationId: cancelBoletoPayment
-      description: >-
-        Cancel a pending boleto payment. Only payments in `pending` status can
-        be cancelled. Payments already in `processing` or `completed` cannot be
-        reversed via this endpoint.
-
-
-        **Authentication:** Bearer token
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: paymentId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-          description: Payment identifier
-          example: "7f3c2a1b-4d5e-6f7a-8b9c-0d1e2f3a4b5c"
-      responses:
-        '200':
-          description: Payment cancelled successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: "Boleto payment cancelled successfully"
-        '400':
-          description: Cannot cancel a payment in current status
+        '501':
+          description: Cancellation not supported by the configured boleto provider (NOT_IMPLEMENTED)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Payment not found
+        '502':
+          description: Boleto provider unavailable
           content:
             application/json:
               schema:
