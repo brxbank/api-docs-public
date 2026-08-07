@@ -327,6 +327,60 @@ components:
           type: string
           description: Deletion result message
           example: "PIX key deleted successfully"
+    PixKeyClaimResponse:
+      type: object
+      description: >-
+        PIX key claim (flat object, no envelope). Returned by claim create,
+        confirm and cancel.
+      properties:
+        claim_id:
+          type: string
+          example: a3f1c9d2-7b4e-4f8a-9d3e-2b5c6f7a8e9d
+        claim_type:
+          type: string
+          enum: [PORTABILITY, OWNERSHIP]
+          example: PORTABILITY
+        key_type:
+          type: string
+          example: EMAIL
+        key:
+          type: string
+          example: user@example.com
+        status:
+          type: string
+          example: OPEN
+        direction:
+          type: string
+          description: Claim direction relative to this participant
+          example: outbound
+        claimer:
+          type: object
+          properties:
+            participant:
+              type: string
+              description: Claimer ISPB
+              example: "12345678"
+            branch:
+              type: string
+              example: "0001"
+            account_number:
+              type: string
+              example: "1234567"
+            account_type:
+              type: string
+              example: CACC
+            person_type:
+              type: string
+              example: NATURAL_PERSON
+            tax_id:
+              type: string
+              example: "12345678909"
+            name:
+              type: string
+              example: João da Silva
+        created_at:
+          type: string
+          example: "2026-07-22T10:30:00Z"
     ReversalResponse:
       type: object
       properties:
@@ -1367,6 +1421,139 @@ paths:
                 $ref: '#/components/schemas/PixKeyDeleteResponse'
         '404':
           description: Key not found
+  /api/v1/pix/keys/claims:
+    post:
+      tags:
+        - PIX Keys
+      summary: Create PIX Key Claim
+      operationId: createPixKeyClaim
+      description: >-
+        Opens a DICT claim (portability or ownership) for a PIX key. Account
+        holder data (`account_type`, `account_number`, `person_type`, `tax_id`,
+        `name`) is auto-resolved from the authenticated client's onboarding
+        record when omitted; supply it explicitly if resolution fails.
+
+
+        **Scope:** `pix:keys:write`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - claim_type
+                - key
+                - key_type
+              properties:
+                claim_type:
+                  type: string
+                  enum: [PORTABILITY, OWNERSHIP]
+                  description: Claim type
+                  example: PORTABILITY
+                key_type:
+                  type: string
+                  enum: [CPF, CNPJ, EMAIL, PHONE, EVP]
+                  description: PIX key type
+                  example: EMAIL
+                key:
+                  type: string
+                  description: The PIX key value being claimed
+                  example: user@example.com
+                account_id:
+                  type: string
+                  description: Claimer account ID (auto-resolved when omitted)
+                branch_number:
+                  type: string
+                account_type:
+                  type: string
+                  description: Auto-resolved from onboarding when omitted
+                account_number:
+                  type: string
+                  description: Auto-resolved from onboarding when omitted
+                person_type:
+                  type: string
+                  description: Auto-resolved from onboarding when omitted
+                tax_id:
+                  type: string
+                  description: Auto-resolved from onboarding when omitted
+                name:
+                  type: string
+                  description: Auto-resolved from onboarding when omitted
+                trade_name:
+                  type: string
+                account_open_date:
+                  type: string
+      responses:
+        '201':
+          description: Claim created (flat object, no envelope)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PixKeyClaimResponse'
+        '400':
+          description: >-
+            Missing/invalid fields (`MISSING_FIELDS`, `INVALID_CLAIM_TYPE`).
+  /api/v1/pix/keys/claims/{claimId}/confirm:
+    post:
+      tags:
+        - PIX Keys
+      summary: Confirm PIX Key Claim
+      operationId: confirmPixKeyClaim
+      description: >-
+        Confirms a pending PIX key claim.
+
+
+        **Scope:** `pix:keys:write`
+      parameters:
+        - name: claimId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The claim ID
+      responses:
+        '200':
+          description: Claim confirmed (flat object, no envelope)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PixKeyClaimResponse'
+  /api/v1/pix/keys/claims/{claimId}/cancel:
+    post:
+      tags:
+        - PIX Keys
+      summary: Cancel PIX Key Claim
+      operationId: cancelPixKeyClaim
+      description: >-
+        Cancels a pending PIX key claim. Optional `reason` code in the body.
+
+
+        **Scope:** `pix:keys:write`
+      parameters:
+        - name: claimId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The claim ID
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: integer
+                  description: DICT cancellation reason code
+      responses:
+        '200':
+          description: Claim cancelled (flat object, no envelope)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PixKeyClaimResponse'
   /api/v1/pix/balance:
     get:
       tags:
@@ -1388,37 +1575,33 @@ paths:
           example: acc-550e8400-e29b-41d4
       responses:
         '200':
-          description: Account balance
+          description: >-
+            Account balance. Returned as a flat object (no `success`/`data`
+            wrapper). All monetary fields are decimal strings.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      account_id:
-                        type: string
-                        example: acc-550e8400-e29b-41d4
-                      available_balance:
-                        type: string
-                        example: "10000.00"
-                      blocked_balance:
-                        type: string
-                        example: "500.00"
-                      total_balance:
-                        type: string
-                        example: "10500.00"
-                      currency:
-                        type: string
-                        example: BRL
-                      updated_at:
-                        type: string
-                        format: date-time
-                        example: "2025-01-15T10:00:00Z"
+                  account_id:
+                    type: string
+                    example: acc-550e8400-e29b-41d4
+                  available_balance:
+                    type: string
+                    example: "10000.00"
+                  blocked_balance:
+                    type: string
+                    example: "500.00"
+                  total_balance:
+                    type: string
+                    example: "10500.00"
+                  currency:
+                    type: string
+                    example: BRL
+                  updated_at:
+                    type: string
+                    format: date-time
+                    example: "2025-01-15T10:00:00Z"
   /api/v1/pix/limits:
     get:
       tags:
@@ -1715,7 +1898,11 @@ paths:
           example: your-api-key-secret
       responses:
         '200':
-          description: Charge created and processed
+          description: >-
+            Charge created and processed. The body merges the orchestrator's
+            transaction result with QR fields — a flat object (no `data`
+            wrapper). The HTTP status mirrors the orchestrator's own status.
+            Optional fields are present only when produced by the flow.
           content:
             application/json:
               schema:
@@ -1735,8 +1922,20 @@ paths:
                     example: pending
                   qr_code:
                     type: string
+                    description: EMV payload (BR Code) for the payer
                   qr_code_text:
                     type: string
+                  qr_code_image:
+                    type: string
+                    description: Base64 QR image (when available)
+                  access_token:
+                    type: string
+                    description: >-
+                      Identifies the charge (the `/cob/{token}` segment of the
+                      BR Code); parameter for the cancel endpoint.
+                  payload_url:
+                    type: string
+                    description: URL served to the payer
                   expires_at:
                     type: string
                     format: date-time
@@ -2090,10 +2289,14 @@ paths:
               required:
                 - amount
                 - external_id
-                - pix_key
-                - pix_key_type
-                - receiver_name
-                - receiver_document
+              description: >-
+                Only `external_id` and `amount` are always required (`amount`
+                may be omitted when paying via `br_code`). The remaining fields
+                are validated per flow: `pix_key` + `pix_key_type` for Flow 1;
+                `receiver_name`, `receiver_document`, `receiver_ispb`,
+                `receiver_branch`, `receiver_account`, `receiver_account_type`
+                for Flow 2 (bank details); none of these for Flow 3 (the
+                `X-Pix-Lookup-E2E` header resolves the recipient).
               properties:
                 external_id:
                   type: string
@@ -2169,7 +2372,9 @@ paths:
             Obtained from `POST /api/v1/pix/qrcode/decode`.
       responses:
         '200':
-          description: Cash-Out initiated
+          description: >-
+            Cash-Out accepted. The response body and HTTP status are proxied
+            verbatim from the payment orchestrator (may be `200` or `201`).
           content:
             application/json:
               schema:
@@ -2190,78 +2395,94 @@ paths:
                   message:
                     type: string
                     example: Cash-out queued for processing
+        '201':
+          description: >-
+            Cash-Out created (orchestrator may return `201` instead of `200`;
+            same body shape).
         '400':
-          description: Invalid request parameters
+          description: Invalid request parameters (`VALIDATION_ERROR`)
+        '409':
+          description: >-
+            Account is mid-migration (`ACCOUNT_MIGRATING`) — retry after the
+            seconds given in the `Retry-After` header.
   /api/v1/pix/cash-out/query:
     post:
       tags:
         - PIX Cash-Out
-      summary: List / query Cash-Outs
+      summary: Query a Cash-Out by key + amount
       operationId: queryCashOuts
       description: >-
-        Returns a paginated list of Cash-Out transactions matching the given
-        filters.
+        Looks up a Cash-Out by recipient PIX key and amount. Both `pix_key` and
+        `amount` are required. The request is proxied to the payment
+        orchestrator, which returns the matching transaction(s).
 
         **Scope:** `pix:cashout:read`
       security:
         - bearerAuth: []
         - apiKeyAuth: []
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - pix_key
+                - amount
               properties:
-                start_date:
+                pix_key:
                   type: string
-                  format: date-time
-                  description: Filter transactions from this date (ISO 8601)
-                  example: "2026-07-01T00:00:00Z"
-                end_date:
+                  description: Recipient PIX key
+                  example: "12345678901"
+                pix_key_type:
                   type: string
-                  format: date-time
-                  description: Filter transactions until this date (ISO 8601)
-                  example: "2026-07-22T23:59:59Z"
-                status:
+                  enum: [CPF, CNPJ, EMAIL, PHONE, EVP]
+                  description: PIX key type
+                  example: CPF
+                amount:
                   type: string
-                  enum: [processing, completed, failed, returned]
-                  description: Filter by transaction status
+                  description: Payment amount in BRL
+                  example: "1000.00"
                 external_id:
                   type: string
-                  description: Filter by your external/reference ID
-                limit:
-                  type: integer
-                  default: 20
-                  maximum: 100
-                  description: Max results per page
-                offset:
-                  type: integer
-                  default: 0
-                  description: Pagination offset
+                  description: Your external/reference ID (optional)
+                description:
+                  type: string
+                  description: Payment description (optional)
       responses:
         '200':
-          description: Cash-Out list
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/CashOutStatus'
-                  total:
-                    type: integer
-                    description: Total number of matching transactions
-                  limit:
-                    type: integer
-                  offset:
-                    type: integer
+          description: >-
+            Cash-Out query result (body proxied verbatim from the payment
+            orchestrator).
+  /api/v1/pix/cash-out/:
+    get:
+      tags:
+        - PIX Cash-Out
+      summary: Get Cash-Out by external_id
+      operationId: getCashOutByExternalId
+      description: >-
+        Retrieves a Cash-Out by the `external_id` you supplied on creation. The
+        request is proxied to the payment orchestrator.
 
+        **Scope:** `pix:cashout:read`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: external_id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The external/reference ID supplied when creating the Cash-Out
+          example: ext_cashout_001
+      responses:
+        '200':
+          description: >-
+            Cash-Out details (body proxied verbatim from the payment
+            orchestrator).
+        '400':
+          description: external_id query param is required
   /api/v1/pix/cash-out/{cash_out_id}:
     get:
       tags:
@@ -2329,9 +2550,6 @@ paths:
 
         - `rebate` — Rebate: `mode` (1=fixed, 2=%), `value`
 
-        - `final_amount` — Final amount calculated by BACEN (with charges
-        applied)
-
         **Optimized flow (Two-Step — RECOMMENDED):**
 
         1. Decode the QR Code with this API (data is saved in lookup history)
@@ -2360,7 +2578,10 @@ paths:
                   example: "00020126580014br.gov.bcb.pix0136263187470001865204000053039865405..."
       responses:
         '200':
-          description: Decoded QR Code data
+          description: >-
+            Decoded QR Code data. Flat object (no `data` wrapper). Optional
+            fields are omitted when absent from the QR. Withdraw/change
+            (`saque`/`troco`) fields appear only for those QR sub-types.
           content:
             application/json:
               schema:
@@ -2369,38 +2590,83 @@ paths:
                   success:
                     type: boolean
                     example: true
+                  end_to_end_id:
+                    type: string
+                    description: Use this in the X-Pix-Lookup-E2E header for the two-step flow
                   qr_code_type:
                     type: string
                     enum: [static, dynamic]
                     example: static
                   pix_key:
                     type: string
+                  pix_key_type:
+                    type: string
                   amount:
                     type: string
                     description: Amount in BRL (decimal string)
+                  tx_id:
+                    type: string
                   receiver_name:
+                    type: string
+                  receiver_trade_name:
+                    type: string
+                  receiver_document:
+                    type: string
+                  receiver_person_type:
                     type: string
                   receiver_ispb:
                     type: string
                   receiver_participant_name:
                     type: string
-                  end_to_end_id:
+                  receiver_branch:
                     type: string
-                    description: Use this in X-Pix-Lookup-E2E header for the two-step flow
+                  receiver_account:
+                    type: string
+                  receiver_account_type:
+                    type: string
+                  amount_change_mode:
+                    type: integer
+                  withdraw_amount:
+                    type: string
+                  withdraw_agent_mode:
+                    type: integer
+                  withdraw_ispb:
+                    type: string
+                  withdraw_participant_name:
+                    type: string
+                  change_amount:
+                    type: string
+                  change_agent_mode:
+                    type: integer
+                  change_ispb:
+                    type: string
+                  change_participant_name:
+                    type: string
                   due_date:
                     type: string
                     format: date
+                  days_after_due:
+                    type: integer
                   penalty:
                     type: object
+                    properties:
+                      mode: { type: integer }
+                      value: { type: string }
                   interest:
                     type: object
+                    properties:
+                      mode: { type: integer }
+                      value: { type: string }
                   discount:
                     type: object
+                    properties:
+                      mode: { type: integer }
+                      value: { type: string }
                   rebate:
                     type: object
-                  final_amount:
-                    type: string
-                    description: Final amount calculated by BACEN
+                    properties:
+                      mode: { type: integer }
+                      value: { type: string }
         '400':
           description: Invalid or unreadable QR Code
   /api/v1/pix/med:

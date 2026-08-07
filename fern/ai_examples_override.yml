@@ -87,11 +87,11 @@ paths:
               receiver_participant_name: Banco do Brasil S.A.
               end_to_end_id: E2E20240615XYZ1234567890
               due_date: '2024-07-01'
-              penalty: {}
-              interest: {}
-              discount: {}
-              rebate: {}
-              final_amount: '150.75'
+              pix_key_type: EVP
+              receiver_document: '12345678909'
+              receiver_person_type: NATURAL_PERSON
+              receiver_account: '567890'
+              receiver_account_type: CACC
   /api/v1/pix/limits/requests:
     get:
       x-fern-examples:
