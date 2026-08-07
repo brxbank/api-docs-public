@@ -219,26 +219,6 @@ paths:
                 name: João Silva
                 cpf: 123.456.789-00
               description: Pagamento de serviço de consultoria
-  /api/v1/transactions/id:
-    get:
-      x-fern-examples:
-        - path-parameters:
-            id: id
-          response:
-            body:
-              transactionId: 3fa85f64-5717-4562-b3fc-2c963f66afa6
-              status: completed
-              amount: 1500.75
-              currency: BRL
-              timestamp: '2024-06-10T15:45:30Z'
-              payer:
-                name: João Silva
-                pixKey: joao.silva@email.com
-              payee:
-                name: Maria Oliveira
-                pixKey: '+5511999998888'
-              description: 'Payment for invoice #12345'
-              type: transfer
   /api/v1/webhooks/deliveries:
     get:
       x-fern-examples:
@@ -424,41 +404,6 @@ paths:
                 account_number: 12345-6
                 branch_number: '1234'
               message: PIX payment completed successfully
-  /api/v1/transactions:
-    get:
-      x-fern-examples:
-        - query-parameters:
-            limit: 20
-            offset: 0
-            type: cash_in
-          response:
-            body:
-              success: true
-              data:
-                transactions:
-                  - id: 3fa85f64-5717-4562-b3fc-2c963f66afa6
-                    external_id: TXN202401150930001
-                    client_id: 9b2d7f4e-3c1a-4f8b-9d2e-5a7f8c9e1234
-                    type: cash_in
-                    status: completed
-                    amount: '1500.00'
-                    gross_amount: '1500.00'
-                    net_amount: '1492.50'
-                    tax_amount: '7.50'
-                    currency: BRL
-                    pix_key: user@example.com
-                    pix_key_type: email
-                    e2e: E2E2024011509300001BRZ
-                    payer_name: Carlos Silva
-                    payer_document: 123.456.789-00
-                    receiver_name: Empresa XYZ Ltda
-                    receiver_document: 12.345.678/0001-99
-                    created_at: '2024-01-15T09:30:00Z'
-                    updated_at: '2024-01-15T09:45:00Z'
-                    processed_at: '2024-01-15T09:44:30Z'
-                total: 1
-                limit: 20
-                offset: 0
   /api/v1/webhooks/deliveries/delivery_id:
     get:
       x-fern-examples:
