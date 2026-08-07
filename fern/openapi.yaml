@@ -1950,6 +1950,110 @@ paths:
                   provider:
                     type: string
                     example: pix
+  /api/v1/pix/cash-in/qrcode/static:
+    post:
+      tags:
+        - PIX Cash-In
+      summary: Create Static QR Code
+      operationId: createStaticQRCode
+      description: >-
+        Creates a reusable static PIX QR Code (BR Code) for the authenticated
+        client. Unlike the dynamic charge, the static QR does not expire and can
+        be paid any number of times. All body fields are optional; when `amount`
+        is omitted the payer chooses the amount. Response is a flat object
+        (no `data` wrapper) proxied from the PIX service.
+
+
+        **Authentication:** API Key via headers `x-key-id` + `x-secret-key`,
+        OR Bearer Token.
+
+
+        **Scope:** `pix:cashin:write`
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: string
+                  description: Fixed amount in BRL (decimal string); omit for payer-defined amount
+                  example: "150.00"
+                reference:
+                  type: string
+                  description: >-
+                    TxID (EMV field 62-05). Max 25 chars, alphanumeric only
+                    (`a-z`, `A-Z`, `0-9`) per BACEN MPI v2.9.0 §2.6.2.
+                  example: order12345
+                merchant_name:
+                  type: string
+                  example: Loja Exemplo
+                merchant_city:
+                  type: string
+                  example: Sao Paulo
+                description:
+                  type: string
+                  example: Pagamento avulso
+                withdraw_amount:
+                  type: string
+                  description: PIX Saque amount (decimal string)
+                  example: "50.00"
+                withdraw_agent_mode:
+                  type: integer
+                withdraw_ispb:
+                  type: string
+                change_amount:
+                  type: string
+                  description: PIX Troco amount (decimal string)
+                  example: "10.00"
+                change_agent_mode:
+                  type: integer
+                change_ispb:
+                  type: string
+      parameters:
+        - name: x-key-id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: API Key ID (required if not using Bearer Token)
+          example: your-api-key-id
+        - name: x-secret-key
+          in: header
+          required: false
+          schema:
+            type: string
+          description: API Key Secret (required if not using Bearer Token)
+          example: your-api-key-secret
+      responses:
+        '200':
+          description: >-
+            Static QR Code created. Flat object proxied verbatim from the PIX
+            service.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  qr_code:
+                    type: string
+                    description: EMV payload (BR Code) — reusable, does not expire
+                  qr_code_text:
+                    type: string
+                  qr_code_image:
+                    type: string
+                    description: Base64 QR image (when available)
+                  pix_key:
+                    type: string
+        '400':
+          description: >-
+            Invalid `reference` (over 25 chars or contains non-alphanumeric
+            characters) or malformed body.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/pix/cash-in/{cash_in_id}:
     get:
       tags:
