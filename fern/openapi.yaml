@@ -678,6 +678,71 @@ components:
         pix_key_value:
           type: string
           example: "maria@exemplo.com"
+    MedRefund:
+      type: object
+      description: >-
+        A MED (Mecanismo Especial de Devolução) refund request. Returned as a
+        flat object by the MED endpoints (no `success`/`data` wrapper).
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Internal MED request identifier
+          example: "7a3b2c1d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"
+        external_refund_id:
+          type: string
+          description: >-
+            DICT external refund identifier (present once the refund has been
+            registered with the rail).
+          example: "RD12345678901234567890123456789012"
+        end_to_end_id:
+          type: string
+          description: End-to-end ID of the original PIX transaction
+          example: "E54811417202603071234abcdef123456"
+        client_id:
+          type: string
+          format: uuid
+          example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+        amount:
+          type: string
+          description: Amount to recover in BRL
+          example: "500.00"
+        refund_reason:
+          type: integer
+          description: >-
+            BACEN refund reason code: `1` = fraud, `2` = operational flaw,
+            `3` = undisclosed.
+          example: 1
+        details:
+          type: string
+          description: Free-text details about the reason for the MED request
+          example: "Cliente relata estelionato via engenharia social"
+        status:
+          type: string
+          enum: [OPEN, WAITING_RETURN, UNDER_REVIEW, CANCELLED, COMPLETED]
+          description: Current MED status (initial status is `OPEN`)
+          example: "OPEN"
+        direction:
+          type: string
+          enum: [INBOUND, OUTBOUND]
+          description: >-
+            `OUTBOUND` = refund requested by you (payer/victim side);
+            `INBOUND` = refund request received against you (payee side).
+          example: "OUTBOUND"
+        defense_reason:
+          type: string
+          description: Defense reason submitted for an inbound MED
+        defense_submitted_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-07-22T14:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-07-22T14:30:00Z"
     ErrorResponse:
       type: object
       properties:
@@ -2667,46 +2732,30 @@ paths:
           schema:
             type: integer
             default: 20
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [CREATED, RESPONSE_RECEIVED, DEFENSE_SUBMITTED, RESOLVED, CANCELLED]
-          description: Filter by status
       responses:
         '200':
-          description: List of MED requests
+          description: >-
+            Paginated list of MED requests for the authenticated client.
+            Returned as a flat object (no `success` wrapper).
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  success:
-                    type: boolean
                   data:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        med_id:
-                          type: string
-                        end_to_end_id:
-                          type: string
-                        amount:
-                          type: string
-                        status:
-                          type: string
-                        direction:
-                          type: string
-                        created_at:
-                          type: string
-                          format: date-time
-                  total:
-                    type: integer
+                      $ref: '#/components/schemas/MedRefund'
                   page:
                     type: integer
+                    example: 1
                   page_size:
                     type: integer
+                    example: 20
+                  total:
+                    type: integer
+                    description: Total count (omitted by the service when not computed)
+                    example: 3
     post:
       tags:
         - MED
@@ -2755,12 +2804,13 @@ paths:
                   example: 1
                 direction:
                   type: string
-                  enum: [DEBIT, CREDIT]
+                  enum: [INBOUND, OUTBOUND]
                   description: >-
                     Direction of the refund from your perspective:
-                    `DEBIT` = you are requesting the refund (payer/victim side);
-                    `CREDIT` = you received a refund request (payee/suspect side).
-                  example: "DEBIT"
+                    `OUTBOUND` = you are requesting the refund (payer/victim side —
+                    triggers a DICT refund workflow);
+                    `INBOUND` = you received a refund request (payee/suspect side).
+                  example: "OUTBOUND"
                 details:
                   type: string
                   description: Free-text details about the reason for the MED request
@@ -2771,36 +2821,13 @@ paths:
                   example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
       responses:
         '201':
-          description: MED request opened successfully
+          description: >-
+            MED request opened successfully. Returned as a flat object (no
+            `success` wrapper).
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      med_id:
-                        type: string
-                        description: Internal MED request identifier
-                        example: "med_7a3b2c1d4e5f6a7b"
-                      refund_id:
-                        type: string
-                        description: DICT external refund identifier
-                        example: "RD12345678901234567890123456789012"
-                      status:
-                        type: string
-                        example: "CREATED"
-                      amount:
-                        type: string
-                        example: "500.00"
-                      created_at:
-                        type: string
-                        format: date-time
-                        example: "2026-07-22T14:30:00Z"
+                $ref: '#/components/schemas/MedRefund'
         '400':
           description: Invalid request or end_to_end_id not found
           content:
@@ -2820,7 +2847,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/pix/med/{med_id}:
+  /api/v1/pix/med/{medId}:
     get:
       tags:
         - MED
@@ -2830,47 +2857,23 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: med_id
+        - name: medId
           in: path
           required: true
           schema:
             type: string
+            format: uuid
           description: MED request ID
-          example: "med_7a3b2c1d4e5f6a7b"
+          example: "7a3b2c1d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"
       responses:
         '200':
-          description: MED request details
+          description: >-
+            MED request details. Returned as a flat object (no `success`
+            wrapper).
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-                    properties:
-                      med_id:
-                        type: string
-                      refund_id:
-                        type: string
-                      end_to_end_id:
-                        type: string
-                      amount:
-                        type: string
-                      status:
-                        type: string
-                        enum: [CREATED, RESPONSE_RECEIVED, DEFENSE_SUBMITTED, RESOLVED, CANCELLED]
-                      direction:
-                        type: string
-                        enum: [DEBIT, CREDIT]
-                      refund_reason:
-                        type: integer
-                      details:
-                        type: string
-                      created_at:
-                        type: string
-                        format: date-time
+                $ref: '#/components/schemas/MedRefund'
         '404':
           description: MED not found
           content:
@@ -2878,48 +2881,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/pix/med/{med_id}/cancel:
+  /api/v1/pix/med/{medId}/cancel:
     post:
       tags:
         - MED
       summary: Cancel MED Request
       operationId: cancelMed
-      description: Cancels an open MED request. Only possible while status is `CREATED`. **Scope:** `pix:med:write`
+      description: Cancels an open MED request. Only possible while status is `OPEN`. **Scope:** `pix:med:write`
       security:
         - bearerAuth: []
       parameters:
-        - name: med_id
+        - name: medId
           in: path
           required: true
           schema:
             type: string
+            format: uuid
           description: MED request ID
-          example: "med_7a3b2c1d4e5f6a7b"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                reason:
-                  type: string
-                  description: Reason for cancellation
-                  example: "Resolved directly with the other party"
+          example: "7a3b2c1d-4e5f-6a7b-8c9d-0e1f2a3b4c5d"
       responses:
         '200':
-          description: MED cancelled
+          description: >-
+            MED cancelled. Returns the updated MED request as a flat object.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: "MED request cancelled"
+                $ref: '#/components/schemas/MedRefund'
         '404':
           description: MED not found
           content:
@@ -2933,7 +2920,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /api/v1/pix/med/{med_id}/respond:
+  /api/v1/pix/med/{medId}/respond:
     post:
       tags:
         - MED
@@ -2945,19 +2932,31 @@ paths:
 
         **Possible actions:**
 
-        - `approve` — Approves the return (captures the precautionary hold and
-        credits the funds)
+        - `approve` — Approves the return (submits a defense; `reason` is
+        **required**)
 
-        - `reject` — Rejects the return (releases the precautionary hold)
+        - `reject` — Rejects the return (submits a defense; `reason` is
+        **required**)
+
+        - `completed` — Marks the MED as completed
+
+        - `cancelled` — Marks the MED as cancelled
+
+
+        For `approve`/`reject` the request is routed to the defense endpoint and
+        `reason` must be provided.
 
 
         **Scope:** `pix:med:write`
+      security:
+        - bearerAuth: []
       parameters:
-        - name: med_id
+        - name: medId
           in: path
           required: true
           schema:
             type: string
+            format: uuid
           description: MED request ID
       requestBody:
         required: true
@@ -2970,20 +2969,37 @@ paths:
               properties:
                 action:
                   type: string
-                  enum: [approve, reject]
+                  enum: [approve, reject, completed, cancelled]
                   description: Action to take on the MED request
                   example: approve
                 reason:
                   type: string
-                  description: Reason for the decision (optional)
+                  description: >-
+                    Reason for the decision. **Required** when `action` is
+                    `approve` or `reject` (used as the defense reason);
+                    optional otherwise.
                   example: Return approved after analysis
       responses:
         '200':
-          description: MED response recorded
+          description: >-
+            MED response recorded. Returns the updated MED request as a flat
+            object.
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedRefund'
+        '400':
+          description: Invalid action, or reason missing for approve/reject
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: MED request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/pix/med/status/{status}:
     get:
       tags:
@@ -2994,18 +3010,20 @@ paths:
         Lists MED requests filtered by status.
 
 
-        **Possible statuses:** `OPEN`, `IN_ANALYSIS`, `APPROVED`, `REJECTED`,
-        `CLOSED`
+        **Possible statuses:** `OPEN`, `WAITING_RETURN`, `UNDER_REVIEW`,
+        `CANCELLED`, `COMPLETED`
 
 
         **Scope:** `pix:med:read`
+      security:
+        - bearerAuth: []
       parameters:
         - name: status
           in: path
           required: true
           schema:
             type: string
-            enum: [OPEN, IN_ANALYSIS, APPROVED, REJECTED, CLOSED]
+            enum: [OPEN, WAITING_RETURN, UNDER_REVIEW, CANCELLED, COMPLETED]
           description: MED status to filter by
         - name: page
           in: query
@@ -3023,9 +3041,33 @@ paths:
           example: 20
       responses:
         '200':
-          description: List of MED requests
+          description: >-
+            Paginated list of MED requests with the given status. Returned as a
+            flat object (no `success` wrapper).
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MedRefund'
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 20
+                  total:
+                    type: integer
+                    example: 3
+        '400':
+          description: Invalid status value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/webhooks:
     post:
       tags:
