@@ -339,9 +339,42 @@ curl https://api.brzip.com.br/api/v1/accounts/a612b202-6690-4d24-ba35-2e36c8f3c0
 
 ## Transacting on Behalf of a Sub-Client
 
-To perform PIX or balance operations as a sub-client, use one of two approaches:
+To perform PIX or balance operations as a sub-client, use one of these approaches:
 
-### Option A — assume-client token (recommended)
+### Option A — `X-Client-ID` header (single call)
+
+Call the API with your **own** credentials and add the `X-Client-ID` header set to the sub-client's `client_id`. The platform resolves the sub-client's source account automatically — for a financial movement you only describe the *destination*.
+
+```bash
+curl -X POST https://api.brzip.com.br/api/v1/pix/p2p/authorize \
+  -H "Authorization: Bearer <your-tenant-token>" \
+  -H "X-Client-ID: b7c4e902-1a2b-4f3d-9c8e-112233445566" \
+  -H "X-Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "external_id": "p2p_001",
+    "amount": 5000,
+    "receiver_account_id": "d4e5f6a7-8b9c-0d1e-2f3a-4b5c6d7e8f90"
+  }'
+```
+
+Because `X-Client-ID` already identifies the payer (source) account, the body carries only the receiver. This works the same way for Cash-Out, Cash-In, balance and limits queries.
+
+<Callout intent="info">
+  The source account is the sub-client's oldest `ACTIVE` bank account. To pick a specific one of its accounts, add the optional `X-Account-ID` header with that account's ID.
+</Callout>
+
+**Delegation rules:**
+
+| Rule | On failure |
+|------|-----------|
+| Only a **primary tenant** may delegate — a sub-client cannot use `X-Client-ID` | `403 DELEGATION_DENIED` — *"Sub-clients cannot act as tenants for delegation"* |
+| The target must be a sub-client **you own** (`parent_client_id` = your id) | `403 DELEGATION_DENIED` — *"Client not found or does not belong to this tenant"* |
+| The target must not be `suspended` or `blocked` | `403 DELEGATION_DENIED` — *"Sub-client account is suspended or blocked"* |
+
+The two options below are alternatives when you prefer a Bearer Token scoped to the sub-client instead of per-request header delegation:
+
+### Option B — assume-client token
 
 Exchange your API key credentials for a scoped Bearer Token that acts as the sub-client. Requires `auth:assume-client` scope on your API key.
 
@@ -385,7 +418,7 @@ curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
 | `scopes` | Cannot exceed your own API key's scopes |
 | `expires_in` | Max 3600 seconds (1 hour), default 900 (15 min) |
 
-### Option B — Sub-client's own Bearer Token
+### Option C — Sub-client's own Bearer Token
 
 Use the `api_key` returned in Step 1 to generate a Bearer Token for the sub-client directly:
 
@@ -416,6 +449,7 @@ The returned `token` is a Bearer Token authenticated as the sub-client. Use it i
    → Returns: { account_id, status: "active" }
    → Fires: account.activated webhook
 
-To transact as the sub-client:
-   POST /api/v1/auth/assume-client  →  scoped Bearer Token
+To transact as the sub-client (pick one):
+   • Add header  X-Client-ID: <sub-client-id>  to a call with your tenant token
+   • POST /api/v1/auth/assume-client  →  scoped Bearer Token
 ```
