@@ -372,53 +372,9 @@ Because `X-Client-ID` already identifies the payer (source) account, the body ca
 | The target must be a sub-client **you own** (`parent_client_id` = your id) | `403 DELEGATION_DENIED` — *"Client not found or does not belong to this tenant"* |
 | The target must not be `suspended` or `blocked` | `403 DELEGATION_DENIED` — *"Sub-client account is suspended or blocked"* |
 
-The two options below are alternatives when you prefer a Bearer Token scoped to the sub-client instead of per-request header delegation:
+The option below is an alternative when you prefer a Bearer Token scoped to the sub-client instead of per-request header delegation:
 
-### Option B — assume-client token
-
-Exchange your API key credentials for a scoped Bearer Token that acts as the sub-client. Requires `auth:assume-client` scope on your API key.
-
-```bash
-curl -X POST https://api.brzip.com.br/api/v1/auth/assume-client \
-  -H "x-key-id: <your-key-id>" \
-  -H "x-secret-key: <your-secret-key>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "client_id": "b7c4e902-1a2b-4f3d-9c8e-112233445566",
-    "scopes": ["pix:cashout:write", "pix:balance:read"],
-    "expires_in": 900
-  }'
-```
-
-**Response (201):**
-
-```json
-{
-  "token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "Bearer",
-  "expires_in": 900,
-  "expires_at": "2026-07-26T15:30:00Z",
-  "scopes": ["pix:cashout:write", "pix:balance:read"],
-  "assumed_client_id": "b7c4e902-1a2b-4f3d-9c8e-112233445566"
-}
-```
-
-Use the `token` directly in subsequent calls — no extra headers needed:
-
-```bash
-curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
-  -H "Authorization: Bearer <assumed-token>" \
-  -H "X-Idempotency-Key: $(uuidgen)" \
-  -H "Content-Type: application/json" \
-  -d '{"amount": 5000, "pix_key": "destinatario@email.com"}'
-```
-
-| Field | Notes |
-|-------|-------|
-| `scopes` | Cannot exceed your own API key's scopes |
-| `expires_in` | Max 3600 seconds (1 hour), default 900 (15 min) |
-
-### Option C — Sub-client's own Bearer Token
+### Option B — Sub-client's own Bearer Token
 
 Use the `api_key` returned in Step 1 to generate a Bearer Token for the sub-client directly:
 
@@ -449,7 +405,6 @@ The returned `token` is a Bearer Token authenticated as the sub-client. Use it i
    → Returns: { account_id, status: "active" }
    → Fires: account.activated webhook
 
-To transact as the sub-client (pick one):
+To transact as the sub-client:
    • Add header  X-Client-ID: <sub-client-id>  to a call with your tenant token
-   • POST /api/v1/auth/assume-client  →  scoped Bearer Token
 ```
