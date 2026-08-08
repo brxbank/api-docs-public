@@ -62,8 +62,56 @@ info:
     | `Authorization` | Yes (Bearer) | `Bearer <jwt>` for PIX endpoints |
     | `x-key-id` | Yes (Cash-In) | API Key ID |
     | `x-secret-key` | Yes (Cash-In) | API Key Secret |
+    | `X-Client-ID` | Tenant only | Act on behalf of one of your sub-clients. See **Acting on Behalf of a Sub-Client** below. |
+    | `X-Account-ID` | Optional | Target a specific bank account of the effective client (defaults to the client's oldest active account). |
     | `X-Idempotency-Key` | Recommended | Prevents duplicate operations (UUID) |
     | `Content-Type` | Yes (POST/PUT) | Always `application/json` |
+
+
+    ---
+
+
+    ## Acting on Behalf of a Sub-Client (`X-Client-ID`)
+
+
+    If you are a **tenant** (a primary client that owns sub-clients — e.g. a
+    BaaS integrator), you call the API with your **own** credentials and add the
+    `X-Client-ID` header to act on behalf of one of your sub-clients:
+
+    ```
+    X-Client-ID: <sub-client-id>
+    ```
+
+    When present, the platform resolves the **source account automatically** from
+    that sub-client — you do **not** pass the origin account anywhere. For a
+    financial movement you only describe the *other* side of the operation. In a
+    P2P transfer, for example, `X-Client-ID` in the header already identifies the
+    payer's account, so the request body only needs the **destination** account.
+
+
+    **How the source account is resolved:** the platform uses the sub-client's
+    active bank account — its oldest `ACTIVE` account by default. To target a
+    specific one of the sub-client's accounts, add the optional `X-Account-ID`
+    header with that account's ID.
+
+
+    **Delegation rules (enforced on every request):**
+
+    - Only a **primary tenant** may delegate. A sub-client cannot use
+      `X-Client-ID` to act as a tenant → `403 DELEGATION_DENIED` (*"Sub-clients
+      cannot act as tenants for delegation"*).
+
+    - The target must be a sub-client **you own** (its `parent_client_id` is your
+      client id). Otherwise → `403 DELEGATION_DENIED` (*"Client not found or does
+      not belong to this tenant"*).
+
+    - The target sub-client must not be `suspended` or `blocked` → `403
+      DELEGATION_DENIED` (*"Sub-client account is suspended or blocked"*).
+
+
+    Omit `X-Client-ID` (or set it to your own client id) to operate as yourself.
+    This header applies to all delegatable operations — PIX movements (Cash-In,
+    Cash-Out, P2P), balance and limits queries, and account operations.
 
 
     ---
@@ -1155,6 +1203,36 @@ components:
                     format: date-time
                     description: Timestamp of last balance update
                     example: "2026-07-22T10:30:00Z"
+  parameters:
+    XClientId:
+      name: X-Client-ID
+      in: header
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: >-
+        **Tenant delegation.** When you are a primary tenant, set this to one of
+        your sub-clients' `client_id` to act on its behalf. The source account is
+        resolved automatically from that sub-client, so financial movements only
+        need to describe the destination. Only a primary tenant may delegate, the
+        target must be a sub-client you own, and it must not be suspended or
+        blocked — otherwise the request fails with `403 DELEGATION_DENIED`. Omit
+        to operate as yourself.
+      example: "b7c4e902-1a2b-4f3d-9c8e-112233445566"
+    XAccountId:
+      name: X-Account-ID
+      in: header
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: >-
+        Target a specific bank account of the effective client (the caller, or
+        the sub-client named in `X-Client-ID`). The account must belong to that
+        client and be `ACTIVE`. If omitted, the client's oldest active account is
+        used.
+      example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
   securitySchemes:
     bearerAuth:
       type: http
@@ -1638,6 +1716,9 @@ paths:
                   type: string
                   enum: [CPF, CNPJ, EMAIL, PHONE, EVP]
                   description: Type of PIX key
+      parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
       responses:
         '200':
           description: >-
@@ -1789,6 +1870,9 @@ paths:
                     Key value. Required for CPF, CNPJ, EMAIL, PHONE. Leave empty
                     for EVP.
                   example: ""
+      parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
       responses:
         '201':
           description: PIX key registered successfully (flat object, no envelope)
@@ -1811,6 +1895,8 @@ paths:
 
         **Scope:** `pix:keys:read`
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: page
           in: query
           schema:
@@ -1869,6 +1955,8 @@ paths:
 
         **Scope:** `pix:keys:read`
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: key
           in: path
           required: true
@@ -1902,6 +1990,8 @@ paths:
 
         **Scope:** `pix:keys:write`
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: key
           in: path
           required: true
@@ -1993,6 +2083,9 @@ paths:
                   type: string
                 account_open_date:
                   type: string
+      parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
       responses:
         '201':
           description: Claim created (flat object, no envelope)
@@ -2015,6 +2108,8 @@ paths:
 
         **Scope:** `pix:keys:write`
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: claimId
           in: path
           required: true
@@ -2040,6 +2135,8 @@ paths:
 
         **Scope:** `pix:keys:write`
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: claimId
           in: path
           required: true
@@ -2076,6 +2173,8 @@ paths:
 
         **Scope:** `pix:balance:read`
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: account_id
           in: query
           schema:
@@ -2124,6 +2223,8 @@ paths:
 
         **Scope:** `pix:limits:read`
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: account_id
           in: query
           schema:
@@ -2201,6 +2302,9 @@ paths:
                   type: string
                   description: Justification for the request (optional)
                   example: Increased e-commerce sales volume
+      parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
       responses:
         '200':
           description: Limit change request created
@@ -2227,6 +2331,9 @@ paths:
 
 
         **Scope:** `pix:limits:read`
+      parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
       responses:
         '200':
           description: List of pending limit requests
@@ -2255,6 +2362,8 @@ paths:
 
         **Scope:** `pix:limits:read`
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: limit_request_id
           in: path
           schema:
@@ -2391,6 +2500,8 @@ paths:
                 change_agent_mode:
                   type: integer
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: x-key-id
           in: header
           required: false
@@ -2521,6 +2632,8 @@ paths:
                 change_ispb:
                   type: string
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: x-key-id
           in: header
           required: false
@@ -2579,6 +2692,8 @@ paths:
 
         **Scope:** `pix:cashin:read`
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: cash_in_id
           in: path
           required: true
@@ -2653,6 +2768,8 @@ paths:
 
         **Scope:** `pix:cashin:write`
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: cash_in_id
           in: path
           required: true
@@ -2740,6 +2857,8 @@ paths:
                     type: string
                   example: ["refund", "customer-request"]
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: X-Idempotency-Key
           in: header
           schema:
@@ -2770,6 +2889,8 @@ paths:
 
         **Scope:** `pix:reversals:read`
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: limit
           in: query
           schema:
@@ -2832,6 +2953,8 @@ paths:
 
         **Scope:** `pix:reversals:read`
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: reversal_id
           in: path
           required: true
@@ -2969,6 +3092,8 @@ paths:
                   type: object
                   description: Custom key-value metadata
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: X-Idempotency-Key
           in: header
           schema:
@@ -3062,6 +3187,9 @@ paths:
                 description:
                   type: string
                   description: Payment description (optional)
+      parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
       responses:
         '200':
           description: >-
@@ -3082,6 +3210,8 @@ paths:
         - bearerAuth: []
         - apiKeyAuth: []
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: external_id
           in: query
           required: true
@@ -3111,6 +3241,8 @@ paths:
 
         **Scope:** `pix:cashout:read`
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: cash_out_id
           in: path
           required: true
@@ -3292,6 +3424,8 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: page
           in: query
           schema:
@@ -3389,6 +3523,9 @@ paths:
                   type: string
                   description: Client ID on whose behalf to open the MED (optional — defaults to authenticated client)
                   example: "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+      parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
       responses:
         '201':
           description: >-
@@ -3427,6 +3564,8 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: medId
           in: path
           required: true
@@ -3461,6 +3600,8 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: medId
           in: path
           required: true
@@ -3521,6 +3662,8 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: medId
           in: path
           required: true
@@ -3588,6 +3731,8 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: status
           in: path
           required: true
@@ -4253,6 +4398,9 @@ paths:
                   description: Optional free-form metadata attached to the transfer
                   example:
                     order_id: "order-12345"
+      parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
       responses:
         '201':
           description: Transfer created
@@ -4332,6 +4480,9 @@ paths:
                 search_value:
                   type: string
                   example: maria@example.com
+      parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
       responses:
         '200':
           description: Lookup successful
@@ -4431,6 +4582,9 @@ paths:
                   description: Optional free-form metadata
                   example:
                     order_id: "order-12345"
+      parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
       responses:
         '201':
           description: Authorization created and resolved
@@ -4508,6 +4662,8 @@ paths:
         - bearerAuth: []
         - apiKeyAuth: []
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: id
           in: path
           required: true
@@ -4593,6 +4749,8 @@ paths:
         - bearerAuth: []
         - apiKeyAuth: []
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: id
           in: path
           required: true
@@ -4672,6 +4830,8 @@ paths:
         - bearerAuth: []
         - apiKeyAuth: []
       parameters:
+        - $ref: '#/components/parameters/XClientId'
+        - $ref: '#/components/parameters/XAccountId'
         - name: id
           in: path
           required: true
