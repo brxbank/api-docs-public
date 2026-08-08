@@ -122,20 +122,21 @@ ol.steps li p{margin:4px 0 0}
       &quot;pix:keys:read&quot;,
       &quot;pix:keys:write&quot;,
       &quot;pix:balance:read&quot;,
-      &quot;pix:cashout:write&quot;,
-      &quot;webhooks:read&quot;,
-      &quot;webhooks:write&quot;
+      &quot;pix:cashout:write&quot;
     ]
   }'
 </code></pre>
-<p><strong>Response:</strong></p>
+<p><strong>Response (201):</strong></p>
 <pre><code class="language-json">{
-  &quot;success&quot;: true,
   &quot;token&quot;: &quot;eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&quot;,
-  &quot;expires_in&quot;: 3600
+  &quot;tokenType&quot;: &quot;Bearer&quot;,
+  &quot;expiresIn&quot;: 3600,
+  &quot;expiresAt&quot;: &quot;2026-07-26T15:30:00Z&quot;,
+  &quot;scopes&quot;: [&quot;pix:keys:read&quot;, &quot;pix:keys:write&quot;, &quot;pix:balance:read&quot;, &quot;pix:cashout:write&quot;],
+  &quot;refreshToken&quot;: &quot;rt_9f8e7d6c5b4a...&quot;
 }
 </code></pre>
-<p>The returned JWT token should be included in the <code>Authorization</code> header as <code>Bearer &lt;token&gt;</code> for all subsequent requests.</p>
+<p>The returned JWT <code>token</code> should be included in the <code>Authorization</code> header as <code>Bearer &lt;token&gt;</code> for all subsequent requests. The response also returns <code>expiresIn</code> (seconds until expiry), <code>expiresAt</code> (ISO-8601 timestamp), the granted <code>scopes</code>, and a <code>refreshToken</code>.</p>
 <h2>2. API Key — Cash-In Endpoints</h2>
 <p>The Cash-In endpoint (<a href="/"><code>POST /api/v1/pix/cash-in/qrcode</code></a>) accepts API Key authentication via two headers as an alternative to Bearer Token:</p>
 <pre><code class="language-bash">x-key-id: &lt;your-key-id&gt;
@@ -212,14 +213,6 @@ x-secret-key: &lt;your-secret-key&gt;
 <tr>
 <td><code>pix:reversals:write</code></td>
 <td>Create reversals</td>
-</tr>
-<tr>
-<td><code>webhooks:read</code></td>
-<td>List and search webhooks</td>
-</tr>
-<tr>
-<td><code>webhooks:write</code></td>
-<td>Create, update, delete webhooks</td>
 </tr>
 </tbody>
 </table>

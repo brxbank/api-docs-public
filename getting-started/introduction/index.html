@@ -122,6 +122,7 @@ ol.steps li p{margin:4px 0 0}
 <p>Follow these steps to get started:</p>
 <p><ol class="steps"><li><strong>Step 1 — Open Your Account</strong><p>Visit <a href="https://brzip.com.br/abrasuaconta">brzip.com.br/abrasuaconta</a> and fill out the account opening form. Once your account is approved, you will be notified via email.</p></li><li><strong>Step 2 — Generate Your API Credentials</strong><p>After approval, log in to the <a href="https://ib.brzip.com.br">Web Banking</a> portal. Inside the platform, you can generate your API credentials (<code>key_id</code> and <code>secret_key</code>) by navigating to <a href="https://ib.brzip.com.br/settings/security">Settings &gt; Security &gt; API Keys</a>.</p></li><li><strong>Step 3 — Generate Bearer Token</strong><p>With your credentials, generate your Bearer Token with <a href="api:POST/api/v1/auth/bearer-token"><code>POST /api/v1/auth/bearer-token</code></a> — see <a href="/getting-started/authentication">Authentication</a> for details.</p></li><li><strong>Step 4 — Register a PIX Key</strong><p>Register a PIX key with <a href="api:POST/api/v1/pix/keys"><code>POST /api/v1/pix/keys</code></a>. Just send <code>{"key_type": "EVP"}</code> — account data is auto-filled from onboarding.</p></li><li><strong>Step 5 — Start Operating!</strong><p>You are now ready to create charges (Cash-In), make transfers, and check balances.</p></li></ol></p>
 <h2>Common Headers</h2>
+<p>Every request must authenticate with <strong>either</strong> a Bearer token <strong>or</strong> API Key credentials — both methods are accepted on the PIX and payments endpoints (dual authentication).</p>
 <table>
 <thead>
 <tr>
@@ -133,18 +134,18 @@ ol.steps li p{margin:4px 0 0}
 <tbody>
 <tr>
 <td><code>Authorization</code></td>
-<td>Yes (Bearer)</td>
-<td><code>Bearer &lt;token&gt;</code> for PIX endpoints</td>
+<td>Conditional</td>
+<td><code>Bearer &lt;token&gt;</code> — use this <strong>or</strong> the API Key headers below</td>
 </tr>
 <tr>
 <td><code>x-key-id</code></td>
-<td>Yes (Cash-In)</td>
-<td>API Key ID</td>
+<td>Conditional</td>
+<td>API Key ID — alternative to Bearer; sent together with <code>x-secret-key</code></td>
 </tr>
 <tr>
 <td><code>x-secret-key</code></td>
-<td>Yes (Cash-In)</td>
-<td>API Key Secret</td>
+<td>Conditional</td>
+<td>API Key Secret — sent together with <code>x-key-id</code></td>
 </tr>
 <tr>
 <td><code>X-Idempotency-Key</code></td>

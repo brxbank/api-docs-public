@@ -154,17 +154,58 @@ ol.steps li p{margin:4px 0 0}
 <h2>Activating an Account</h2>
 <p>After KYC documents are approved, transition the account from <code>pending_kyc</code> to <code>active</code>:</p>
 <pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/accounts/{accountId}/activate \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<p>No request body is required.</p>
+<p><strong>Response (200):</strong></p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;account_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+    &quot;status&quot;: &quot;active&quot;
+  }
+}
+</code></pre>
+<p>After activation, an <code>account.activated</code> webhook event is fired to your configured endpoint.</p>
+<p><strong>Errors:</strong></p>
+<table>
+<thead>
+<tr>
+<th>HTTP</th>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>404</td>
+<td><code>ACCOUNT_NOT_FOUND</code></td>
+<td>Account ID does not exist</td>
+</tr>
+<tr>
+<td>409</td>
+<td><code>INVALID_STATE_TRANSITION</code></td>
+<td>Account is not in a state that allows activation</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Blocking an Account</h2>
+<p>Block an account to halt all financial operations. Provide a <code>reason</code> for audit trail:</p>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/accounts/{accountId}/block \
   -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
   -H &quot;Content-Type: application/json&quot; \
   -d '{
-    &quot;reason&quot;: &quot;KYC documents approved&quot;,
-    &quot;correlation_id&quot;: &quot;550e8400-e29b-41d4-a716-446655440000&quot;
+    &quot;reason&quot;: &quot;Suspicious activity detected&quot;
   }'
 </code></pre>
-<p><strong>Response:</strong></p>
+<p><strong>Response (200):</strong></p>
 <pre><code class="language-json">{
   &quot;success&quot;: true,
-  &quot;message&quot;: &quot;Account activated successfully&quot;
+  &quot;data&quot;: {
+    &quot;account_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+    &quot;status&quot;: &quot;blocked&quot;
+  }
 }
 </code></pre>
 <p><strong>Errors:</strong></p>
@@ -179,33 +220,21 @@ ol.steps li p{margin:4px 0 0}
 <tbody>
 <tr>
 <td>400</td>
-<td><code>INVALID_TRANSITION</code></td>
-<td>Account is not in <code>pending_kyc</code> state</td>
+<td><code>MISSING_REASON</code></td>
+<td><code>reason</code> field is empty or absent</td>
 </tr>
 <tr>
 <td>404</td>
 <td><code>ACCOUNT_NOT_FOUND</code></td>
 <td>Account ID does not exist</td>
 </tr>
+<tr>
+<td>409</td>
+<td><code>INVALID_STATE_TRANSITION</code></td>
+<td>Account is not in a state that allows blocking</td>
+</tr>
 </tbody>
 </table>
-<hr />
-<h2>Blocking an Account</h2>
-<p>Block an account to halt all financial operations. Provide a <code>reason</code> for audit trail:</p>
-<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/accounts/{accountId}/block \
-  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
-  -H &quot;Content-Type: application/json&quot; \
-  -d '{
-    &quot;reason&quot;: &quot;Suspicious activity detected&quot;,
-    &quot;correlation_id&quot;: &quot;550e8400-e29b-41d4-a716-446655440001&quot;
-  }'
-</code></pre>
-<p><strong>Response:</strong></p>
-<pre><code class="language-json">{
-  &quot;success&quot;: true,
-  &quot;message&quot;: &quot;Account blocked successfully&quot;
-}
-</code></pre>
 <p><div class="callout callout-info">ℹ️ <p>Blocked accounts stop all PIX, boleto, and P2P operations immediately. Pending transactions already in flight will complete normally.</p></div></p>
 <hr />
 <h2>Reserving an Account</h2>
@@ -214,12 +243,41 @@ ol.steps li p{margin:4px 0 0}
   -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
   -H &quot;Content-Type: application/json&quot; \
   -d '{
-    &quot;document&quot;: &quot;123.456.789-00&quot;,
-    &quot;account_type&quot;: &quot;PF&quot;,
-    &quot;name&quot;: &quot;Maria Silva&quot;,
-    &quot;email&quot;: &quot;maria@example.com&quot;
+    &quot;reference_id&quot;: &quot;onb_my-idempotency-key&quot;,
+    &quot;account_type&quot;: &quot;PF&quot;
   }'
 </code></pre>
+<p><strong>Request fields:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>account_number</code></td>
+<td>string</td>
+<td>No</td>
+<td>Specific number to reserve — omit for auto-assignment</td>
+</tr>
+<tr>
+<td><code>reference_id</code></td>
+<td>string</td>
+<td>Recommended</td>
+<td>Idempotency key; if omitted a random UUID is generated per call</td>
+</tr>
+<tr>
+<td><code>account_type</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"PF"</code>, <code>"PJ"</code>, or <code>"ESCROW"</code></td>
+</tr>
+</tbody>
+</table>
 <p><strong>Account types:</strong></p>
 <table>
 <thead>
@@ -243,13 +301,14 @@ ol.steps li p{margin:4px 0 0}
 </tr>
 </tbody>
 </table>
-<p><strong>Response:</strong></p>
+<p><strong>Response (201):</strong></p>
 <pre><code class="language-json">{
   &quot;success&quot;: true,
   &quot;data&quot;: {
-    &quot;account_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
-    &quot;state&quot;: &quot;pending_kyc&quot;,
-    &quot;document&quot;: &quot;123.456.789-00&quot;
+    &quot;account_number&quot;: &quot;9876543&quot;,
+    &quot;reservation_id&quot;: &quot;res_3fa85f64-5717-4562-b3fc-2c963f66afa6&quot;,
+    &quot;branch_code&quot;: &quot;0001&quot;,
+    &quot;reference_id&quot;: &quot;onb_my-idempotency-key&quot;
   }
 }
 </code></pre>
@@ -264,63 +323,12 @@ ol.steps li p{margin:4px 0 0}
 </thead>
 <tbody>
 <tr>
-<td>400</td>
-<td><code>INVALID_REQUEST</code></td>
-<td>Missing required fields</td>
-</tr>
-<tr>
 <td>409</td>
-<td><code>ACCOUNT_EXISTS</code></td>
-<td>A document with this CPF/CNPJ already has an account</td>
+<td><code>ACCOUNT_NUMBER_UNAVAILABLE</code></td>
+<td>Requested <code>account_number</code> is already in use or reserved</td>
 </tr>
 </tbody>
 </table>
-<hr />
-<h2>Account Capabilities</h2>
-<p>Once an account is active, its capabilities depend on the KYC level. Higher KYC levels unlock higher limits and additional operations.</p>
-<table>
-<thead>
-<tr>
-<th>Capability</th>
-<th style="text-align: center;">KYC Level 1</th>
-<th style="text-align: center;">KYC Level 2</th>
-<th style="text-align: center;">KYC Level 3</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Receive PIX</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-</tr>
-<tr>
-<td>Send PIX (low value)</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-</tr>
-<tr>
-<td>Send PIX (high value)</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-</tr>
-<tr>
-<td>TED</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">—</td>
-<td style="text-align: center;">✓</td>
-</tr>
-<tr>
-<td>Boleto payments</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-<td style="text-align: center;">✓</td>
-</tr>
-</tbody>
-</table>
-<p><div class="callout callout-info">ℹ️ <p>PIX cash-out requires <strong>step-up authentication</strong> (<code>X-Step-Up-Token</code>) for amounts above the configured threshold. See the <a href="./guide-cash-out">Cash-Out guide</a> for details.</p></div></p>
 </main>
 </body>
 </html>

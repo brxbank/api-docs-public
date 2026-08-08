@@ -169,7 +169,7 @@ ol.steps li p{margin:4px 0 0}
 </code></pre>
 <p><div class="callout callout-warning">⚠️ <p>The <code>secret</code> is returned <strong>only at creation time</strong>. Store it securely — you will need it to validate webhook signatures.</p></div></p>
 <h2>Step 2 — Validate Signatures</h2>
-<p>Every webhook delivery includes two headers for signature verification:</p>
+<p>Every webhook delivery includes the following headers:</p>
 <table>
 <thead>
 <tr>
@@ -179,28 +179,41 @@ ol.steps li p{margin:4px 0 0}
 </thead>
 <tbody>
 <tr>
+<td><code>x-webhook-signature</code></td>
+<td>HMAC-SHA256 signature of the payload, in the format <code>sha256=&lt;hex&gt;</code></td>
+</tr>
+<tr>
 <td><code>x-webhook-timestamp</code></td>
 <td>Unix timestamp of when the webhook was sent</td>
 </tr>
 <tr>
-<td><code>x-webhook-signature</code></td>
-<td>HMAC-SHA256 signature of the payload</td>
+<td><code>x-webhook-id</code></td>
+<td>Unique delivery ID (use it to deduplicate retries)</td>
+</tr>
+<tr>
+<td><code>x-webhook-event</code></td>
+<td>Event type of the notification (e.g. <code>pix.cash_in.received</code>)</td>
+</tr>
+<tr>
+<td><code>x-webhook-source</code></td>
+<td>Origin identifier of the notification</td>
 </tr>
 </tbody>
 </table>
+<p>Signature verification uses <code>x-webhook-signature</code> and <code>x-webhook-timestamp</code>.</p>
 <p>The signing process works as follows:</p>
 <ol>
-<li>Remove the <code>whsec_</code> prefix from the signing key (the <code>secret</code> returned at creation time)</li>
+<li>Use the <code>secret</code> exactly as returned at creation time, <strong>including the <code>whsec_</code> prefix</strong></li>
 <li>Concatenate the timestamp header value + <code>"."</code> + raw request body</li>
 <li>Compute HMAC-SHA256 of the concatenated string using the secret</li>
-<li>Compare the result with the <code>x-webhook-signature</code> header</li>
+<li>Prefix the resulting hex digest with <code>sha256=</code> and compare it with the <code>x-webhook-signature</code> header</li>
 </ol>
 <p><div class="callout callout-info">ℹ️ <p>Always use the <strong>raw request body</strong> (not a parsed/re-serialized JSON) to compute the signature. Re-serializing may change field ordering and break validation.</p></div></p>
 <pre><code class="language-javascript">const crypto = require('crypto');
 
 function verifyWebhookSignature(rawBody, signingKey, headers) {
-  // 1. Remove &quot;whsec_&quot; prefix from the key
-  const secret = signingKey.replace('whsec_', '');
+  // 1. Use the secret exactly as returned at creation (keep the &quot;whsec_&quot; prefix)
+  const secret = signingKey;
 
   // 2. Get timestamp from header
   const timestamp = headers['x-webhook-timestamp'];
@@ -226,8 +239,8 @@ function verifyWebhookSignature(rawBody, signingKey, headers) {
 import hashlib
 
 def verify_webhook_signature(raw_body: str, signing_key: str, headers: dict) -&gt; bool:
-    # 1. Remove &quot;whsec_&quot; prefix from the key
-    secret = signing_key.replace('whsec_', '')
+    # 1. Use the secret exactly as returned at creation (keep the &quot;whsec_&quot; prefix)
+    secret = signing_key
 
     # 2. Get timestamp from header
     timestamp = headers['x-webhook-timestamp']

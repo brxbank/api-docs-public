@@ -155,13 +155,19 @@ ol.steps li p{margin:4px 0 0}
 </tbody>
 </table>
 <h2>Error Response Format</h2>
-<p>All error responses follow this structure:</p>
+<p>Most endpoints return errors in this structure, where <code>error</code> is an object containing a machine-readable <code>code</code> and a human-readable <code>message</code>:</p>
 <pre><code class="language-json">{
   &quot;success&quot;: false,
-  &quot;error&quot;: &quot;Human-readable error message&quot;,
-  &quot;code&quot;: &quot;MACHINE_READABLE_ERROR_CODE&quot;
+  &quot;error&quot;: {
+    &quot;code&quot;: &quot;MACHINE_READABLE_ERROR_CODE&quot;,
+    &quot;message&quot;: &quot;Human-readable error message&quot;,
+    &quot;details&quot;: &quot;Optional additional context&quot;
+  }
 }
 </code></pre>
+<p><Note>
+Authentication and rate-limit errors are emitted by middleware before the handler runs and use a flatter shape (top-level <code>error</code>, <code>message</code>, and <code>code</code> fields) rather than the nested <code>error</code> object above. Always branch on the HTTP status code first, and treat the error body as best-effort context.
+</Note></p>
 <h2>Common Error Codes</h2>
 <h3>Authentication Errors</h3>
 <table>
@@ -173,16 +179,32 @@ ol.steps li p{margin:4px 0 0}
 </thead>
 <tbody>
 <tr>
-<td><code>UNAUTHORIZED</code></td>
-<td>Missing or invalid Bearer Token</td>
+<td><code>MISSING_BEARER_TOKEN</code></td>
+<td>No <code>Authorization: Bearer &lt;token&gt;</code> header sent</td>
+</tr>
+<tr>
+<td><code>INVALID_BEARER_TOKEN</code></td>
+<td>Bearer Token is malformed or has an invalid signature</td>
+</tr>
+<tr>
+<td><code>EXPIRED_BEARER_TOKEN</code></td>
+<td>Bearer Token has expired</td>
+</tr>
+<tr>
+<td><code>MISSING_API_CREDENTIALS</code></td>
+<td><code>x-key-id</code> and/or <code>x-secret-key</code> header missing</td>
 </tr>
 <tr>
 <td><code>INVALID_API_KEY</code></td>
 <td>Invalid <code>x-key-id</code> or <code>x-secret-key</code></td>
 </tr>
 <tr>
-<td><code>TOKEN_EXPIRED</code></td>
-<td>JWT token has expired</td>
+<td><code>MISSING_CREDENTIALS</code></td>
+<td>Neither a Bearer token nor API Key credentials were provided</td>
+</tr>
+<tr>
+<td><code>INSUFFICIENT_PERMISSIONS</code></td>
+<td>Token/key lacks a required scope</td>
 </tr>
 </tbody>
 </table>
@@ -196,15 +218,15 @@ ol.steps li p{margin:4px 0 0}
 </thead>
 <tbody>
 <tr>
-<td><code>validation_error</code></td>
+<td><code>VALIDATION_ERROR</code></td>
 <td>Request body validation failed</td>
 </tr>
 <tr>
-<td><code>missing_fields</code></td>
+<td><code>MISSING_FIELDS</code></td>
 <td>Required fields are missing</td>
 </tr>
 <tr>
-<td><code>invalid_key_type</code></td>
+<td><code>INVALID_KEY_TYPE</code></td>
 <td>PIX key type must be CPF, CNPJ, EMAIL, PHONE, or EVP</td>
 </tr>
 </tbody>
@@ -219,20 +241,20 @@ ol.steps li p{margin:4px 0 0}
 </thead>
 <tbody>
 <tr>
-<td><code>TRANSACTION_NOT_FOUND</code></td>
-<td>Transaction ID does not exist</td>
-</tr>
-<tr>
-<td><code>INSUFFICIENT_BALANCE</code></td>
+<td><code>INSUFFICIENT_FUNDS</code></td>
 <td>Not enough balance for the operation</td>
 </tr>
 <tr>
-<td><code>DUPLICATE_EXTERNAL_ID</code></td>
-<td>Duplicate <code>external_id</code> for this client</td>
+<td><code>RECEIVER_NOT_FOUND</code></td>
+<td>Receiver PIX key not found internally</td>
 </tr>
 <tr>
-<td><code>receiver_not_found</code></td>
-<td>Receiver PIX key not found internally</td>
+<td><code>CHARGE_NOT_FOUND</code></td>
+<td>Charge ID does not exist</td>
+</tr>
+<tr>
+<td><code>ACCOUNT_NOT_FOUND</code></td>
+<td>Bank account does not exist</td>
 </tr>
 </tbody>
 </table>

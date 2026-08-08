@@ -110,10 +110,10 @@ ol.steps li p{margin:4px 0 0}
 <h2>Payment Flow</h2>
 <pre><code>1. Decode barcode       →  retrieve beneficiary + amount
 2. Authorize payment    →  submit payment (deducts from wallet)
-3. Poll status          →  PROCESSING → PAID | FAILED | CANCELLED
+3. Poll status          →  pending → processing → completed | failed | cancelled
 4. (Optional) Cancel    →  before settlement window closes
 </code></pre>
-<p><div class="callout callout-info">ℹ️ <p>Include <code>X-Idempotency-Key</code> on payment requests to safely retry without duplicating charges.</p></div></p>
+<p><div class="callout callout-info">ℹ️ <p>Payments are idempotent per <code>external_id</code>: send a unique <code>external_id</code> on each payment request and safely retry with the same value without duplicating charges.</p></div></p>
 <hr />
 <h2>Step 1: Decode a Barcode</h2>
 <p>Before authorizing, decode the boleto barcode to confirm amount, due date, and beneficiary:</p>
@@ -124,92 +124,93 @@ ol.steps li p{margin:4px 0 0}
     &quot;barcode&quot;: &quot;34191.09008 61234.678901 23456.789012 1 100000000025000&quot;
   }'
 </code></pre>
-<p><strong>Response:</strong></p>
+<p><strong>Response (<code>200 OK</code>):</strong></p>
+<p>The response wraps the provider's raw decode payload under <code>data.data</code>, plus a <code>settlement_mode</code> marker:</p>
 <pre><code class="language-json">{
   &quot;success&quot;: true,
   &quot;data&quot;: {
-    &quot;barcode&quot;: &quot;34191090086123467890123456789012110000000002500&quot;,
-    &quot;amount&quot;: &quot;250.00&quot;,
-    &quot;original_amount&quot;: &quot;250.00&quot;,
-    &quot;due_date&quot;: &quot;2026-07-25&quot;,
-    &quot;beneficiary&quot;: {
-      &quot;name&quot;: &quot;EMPRESA EXEMPLO LTDA&quot;,
-      &quot;document&quot;: &quot;12.345.678/0001-90&quot;
+    &quot;data&quot;: {
+      &quot;...&quot;: &quot;raw provider (Celcoin) boleto data — amount, due date, beneficiary, fine, interest, discount, etc.&quot;
     },
-    &quot;payer&quot;: {
-      &quot;name&quot;: null,
-      &quot;document&quot;: null
-    },
-    &quot;bank_code&quot;: &quot;341&quot;,
-    &quot;bank_name&quot;: &quot;Banco Itaú&quot;,
-    &quot;fine&quot;: &quot;0.00&quot;,
-    &quot;interest&quot;: &quot;0.00&quot;,
-    &quot;discount&quot;: &quot;0.00&quot;,
-    &quot;expires_at&quot;: &quot;2026-07-30T23:59:59Z&quot;
+    &quot;settlement_mode&quot;: &quot;prefunded&quot;
   }
 }
 </code></pre>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>amount</code></td>
-<td>Final amount due (after fine/interest/discount)</td>
-</tr>
-<tr>
-<td><code>original_amount</code></td>
-<td>Face value on the boleto</td>
-</tr>
-<tr>
-<td><code>fine</code></td>
-<td>Late fee applied</td>
-</tr>
-<tr>
-<td><code>interest</code></td>
-<td>Daily interest accrued</td>
-</tr>
-<tr>
-<td><code>discount</code></td>
-<td>Any discount applied</td>
-</tr>
-<tr>
-<td><code>expires_at</code></td>
-<td>Payment deadline — after this, the boleto cannot be paid</td>
-</tr>
-</tbody>
-</table>
+<p><div class="callout callout-info">ℹ️ <p><code>data.data</code> is the underlying provider's boleto payload passed through as-is (currently Celcoin). Field names inside it follow the provider's contract and are not remapped by the BRZ API. <code>settlement_mode</code> is always <code>"prefunded"</code>.</p></div></p>
 <hr />
 <h2>Step 2: Authorize Payment</h2>
 <p>Submit the payment. The wallet is debited immediately:</p>
 <pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/payments/boleto \
   -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
   -H &quot;Content-Type: application/json&quot; \
-  -H &quot;X-Idempotency-Key: 7e0a1b2c-3d4e-5f6a-7b8c-9d0e1f2a3b4c&quot; \
   -d '{
-    &quot;account_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+    &quot;external_id&quot;: &quot;7e0a1b2c-3d4e-5f6a-7b8c-9d0e1f2a3b4c&quot;,
     &quot;barcode&quot;: &quot;34191090086123467890123456789012110000000002500&quot;,
-    &quot;amount&quot;: &quot;250.00&quot;,
+    &quot;amount&quot;: 250.00,
+    &quot;cpf_cnpj&quot;: &quot;12345678901&quot;,
     &quot;description&quot;: &quot;Invoice #1234&quot;
   }'
 </code></pre>
-<p><strong>Response (<code>202 Accepted</code>):</strong></p>
+<p><strong>Request fields:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>external_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Your unique payment ID — used for idempotency</td>
+</tr>
+<tr>
+<td><code>barcode</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Boleto barcode / digitable line</td>
+</tr>
+<tr>
+<td><code>amount</code></td>
+<td>number</td>
+<td>Yes</td>
+<td>Amount to pay (must be &gt; 0)</td>
+</tr>
+<tr>
+<td><code>cpf_cnpj</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>CPF/CNPJ of the payer</td>
+</tr>
+<tr>
+<td><code>scheduled_for</code></td>
+<td>string</td>
+<td>No</td>
+<td>Schedule date (<code>YYYY-MM-DD</code>)</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>No</td>
+<td>Free-text description</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Response (<code>201 Created</code>):</strong></p>
 <pre><code class="language-json">{
-  &quot;success&quot;: true,
-  &quot;data&quot;: {
-    &quot;payment_id&quot;: &quot;pay_9f3d2a1b4c5e6f7a&quot;,
-    &quot;status&quot;: &quot;PROCESSING&quot;,
-    &quot;amount&quot;: &quot;250.00&quot;,
-    &quot;barcode&quot;: &quot;34191090086123467890123456789012110000000002500&quot;,
-    &quot;created_at&quot;: &quot;2026-07-22T14:30:00Z&quot;
-  }
+  &quot;transaction_id&quot;: &quot;9f3d2a1b-4c5e-6f7a-8b9c-0d1e2f3a4b5c&quot;,
+  &quot;external_id&quot;: &quot;7e0a1b2c-3d4e-5f6a-7b8c-9d0e1f2a3b4c&quot;,
+  &quot;status&quot;: &quot;pending&quot;,
+  &quot;amount&quot;: &quot;250.00&quot;,
+  &quot;currency&quot;: &quot;BRL&quot;,
+  &quot;created_at&quot;: &quot;2026-07-22T14:30:00Z&quot;
 }
 </code></pre>
-<p><div class="callout callout-warning">⚠️ <p>A <code>202 Accepted</code> response means the payment was accepted for processing — <strong>not</strong> that it has settled. Poll the status endpoint to confirm.</p></div></p>
+<p><div class="callout callout-warning">⚠️ <p>A <code>201 Created</code> response means the payment was accepted for processing — <strong>not</strong> that it has settled. The initial status is <code>pending</code>. Poll the status endpoint to confirm settlement.</p></div></p>
 <p><strong>Errors:</strong></p>
 <table>
 <thead>
@@ -248,7 +249,7 @@ ol.steps li p{margin:4px 0 0}
 <tr>
 <td>409</td>
 <td><code>IDEMPOTENCY_CONFLICT</code></td>
-<td>Key reused with different parameters</td>
+<td><code>external_id</code> reused with different parameters</td>
 </tr>
 </tbody>
 </table>
@@ -259,15 +260,13 @@ ol.steps li p{margin:4px 0 0}
 </code></pre>
 <p><strong>Response:</strong></p>
 <pre><code class="language-json">{
-  &quot;success&quot;: true,
-  &quot;data&quot;: {
-    &quot;payment_id&quot;: &quot;pay_9f3d2a1b4c5e6f7a&quot;,
-    &quot;status&quot;: &quot;PAID&quot;,
-    &quot;amount&quot;: &quot;250.00&quot;,
-    &quot;paid_at&quot;: &quot;2026-07-22T14:31:45Z&quot;,
-    &quot;authentication_code&quot;: &quot;B2026072234191341123456&quot;,
-    &quot;barcode&quot;: &quot;34191090086123467890123456789012110000000002500&quot;
-  }
+  &quot;transaction_id&quot;: &quot;9f3d2a1b-4c5e-6f7a-8b9c-0d1e2f3a4b5c&quot;,
+  &quot;external_id&quot;: &quot;7e0a1b2c-3d4e-5f6a-7b8c-9d0e1f2a3b4c&quot;,
+  &quot;status&quot;: &quot;completed&quot;,
+  &quot;amount&quot;: &quot;250.00&quot;,
+  &quot;currency&quot;: &quot;BRL&quot;,
+  &quot;created_at&quot;: &quot;2026-07-22T14:30:00Z&quot;,
+  &quot;updated_at&quot;: &quot;2026-07-22T14:31:45Z&quot;
 }
 </code></pre>
 <p><strong>Payment statuses:</strong></p>
@@ -280,24 +279,44 @@ ol.steps li p{margin:4px 0 0}
 </thead>
 <tbody>
 <tr>
-<td><code>PROCESSING</code></td>
-<td>Submitted to Celcoin, awaiting confirmation</td>
+<td><code>pending</code></td>
+<td>Accepted, not yet submitted to the provider</td>
 </tr>
 <tr>
-<td><code>PAID</code></td>
-<td>Settlement confirmed — <code>authentication_code</code> is available</td>
+<td><code>processing</code></td>
+<td>Submitted to the provider, awaiting confirmation</td>
 </tr>
 <tr>
-<td><code>FAILED</code></td>
+<td><code>completed</code></td>
+<td>Settlement confirmed</td>
+</tr>
+<tr>
+<td><code>failed</code></td>
 <td>Provider rejected — funds returned to wallet</td>
 </tr>
 <tr>
-<td><code>CANCELLED</code></td>
+<td><code>cancelled</code></td>
 <td>Cancelled before settlement</td>
+</tr>
+<tr>
+<td><code>blocked</code></td>
+<td>Held for manual review</td>
+</tr>
+<tr>
+<td><code>refunded</code></td>
+<td>Payment reversed</td>
+</tr>
+<tr>
+<td><code>pending_manual_review</code></td>
+<td>Awaiting manual review</td>
+</tr>
+<tr>
+<td><code>expired</code></td>
+<td>Payment window elapsed</td>
 </tr>
 </tbody>
 </table>
-<p>Typical settlement time: <strong>30 seconds to 2 minutes</strong> for <code>PROCESSING → PAID</code>.</p>
+<p>Typical settlement time: <strong>30 seconds to 2 minutes</strong> for <code>processing → completed</code>.</p>
 <p><strong>Recommended polling strategy:</strong></p>
 <pre><code class="language-javascript">async function waitForPayment(paymentId, token) {
   const POLLS = 10;
@@ -308,25 +327,31 @@ ol.steps li p{margin:4px 0 0}
       `https://api.brzip.com.br/api/v1/payments/boleto/${paymentId}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
-    const { data } = await resp.json();
+    const data = await resp.json();
 
-    if (data.status !== &quot;PROCESSING&quot;) return data;
+    if (data.status !== &quot;pending&quot; &amp;&amp; data.status !== &quot;processing&quot;) return data;
     await new Promise(r =&gt; setTimeout(r, DELAY));
   }
   throw new Error(&quot;Payment still processing after 50s — use webhooks&quot;);
 }
 </code></pre>
-<p><div class="callout callout-info">ℹ️ <p>For production, subscribe to the <code>boleto.payment.paid</code> webhook event instead of polling. See the <a href="./webhooks-integration">Webhooks guide</a>.</p></div></p>
+<p><div class="callout callout-info">ℹ️ <p>For production, subscribe to the <code>boleto.payment.completed</code> webhook event instead of polling. See the <a href="./webhooks-integration">Webhooks guide</a>.</p></div></p>
 <hr />
 <h2>Step 4: Cancel a Payment (Optional)</h2>
-<p>Cancellation is only possible while the payment is still in <code>PROCESSING</code>:</p>
+<p>Cancellation is only possible while the payment is still in <code>processing</code>:</p>
 <pre><code class="language-bash">curl -X DELETE https://api.brzip.com.br/api/v1/payments/boleto/{paymentId} \
   -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
 </code></pre>
-<p><strong>Response:</strong></p>
+<p><strong>Response (<code>200 OK</code>):</strong></p>
+<p>Like decode, the response wraps the provider's raw cancellation payload under <code>data.data</code>:</p>
 <pre><code class="language-json">{
   &quot;success&quot;: true,
-  &quot;message&quot;: &quot;Payment cancelled successfully&quot;
+  &quot;data&quot;: {
+    &quot;data&quot;: {
+      &quot;...&quot;: &quot;raw provider (Celcoin) cancellation payload&quot;
+    },
+    &quot;settlement_mode&quot;: &quot;prefunded&quot;
+  }
 }
 </code></pre>
 <table>
@@ -357,16 +382,16 @@ ol.steps li p{margin:4px 0 0}
 </thead>
 <tbody>
 <tr>
-<td><code>boleto.payment.paid</code></td>
-<td>Celcoin confirmed settlement</td>
+<td><code>boleto.payment.created</code></td>
+<td>Payment accepted and created</td>
+</tr>
+<tr>
+<td><code>boleto.payment.completed</code></td>
+<td>Provider confirmed settlement</td>
 </tr>
 <tr>
 <td><code>boleto.payment.failed</code></td>
 <td>Provider rejection — funds returned</td>
-</tr>
-<tr>
-<td><code>boleto.payment.cancelled</code></td>
-<td>Cancellation confirmed</td>
 </tr>
 </tbody>
 </table>

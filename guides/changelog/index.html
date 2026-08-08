@@ -107,10 +107,9 @@ ol.steps li p{margin:4px 0 0}
 </div>
 <h1>Changelog</h1>
 <h2>Q3 2026</h2>
-<h3>2026-07-22 — Wallet Breakdown (v1-1-beta)</h3>
-<p><strong>New:</strong> <code>wallet_breakdown</code> array in <code>GET /api/v1-1-beta/wallet/balance/{clientId}</code> and <code>POST /api/v1-1-beta/wallet/balances</code>.</p>
-<p>Clients holding multiple wallets (e.g., primary + escrow) now receive a per-wallet breakdown with <code>wallet_id</code>, <code>wallet_type</code>, <code>available</code>, <code>blocked</code>, and <code>currency</code> fields.</p>
-<p>No changes to the <code>v1</code> path — <code>wallet_breakdown</code> is only in <code>v1-1-beta</code>.</p>
+<h3>2026-07-22 — Wallet Balances</h3>
+<p><strong>New:</strong> <code>GET /api/v1/accounts/wallets</code> and <code>GET /api/v1/accounts/{accountId}/wallets</code> return every user-visible wallet owned by the authenticated client (checking plus any benefit pockets), each with <code>id</code>, <code>account_id</code>, <code>wallet_type</code>, <code>available</code>, <code>blocked</code>, <code>total</code>, <code>currency</code>, and <code>updated_at</code>.</p>
+<p>Scope: <code>pix:balance:read</code>. See the <a href="./guide-wallets">Wallet Balance guide</a>.</p>
 <hr />
 <h3>2026-07-01 — Boleto Payments (Celcoin) — General Availability</h3>
 <p>The Boleto Payments API is now GA for all tenants:</p>
@@ -131,27 +130,22 @@ ol.steps li p{margin:4px 0 0}
 </ul>
 <hr />
 <h2>Q2 2026</h2>
-<h3>2026-06-15 — 2FA / Step-Up Authentication for Cash-Out</h3>
-<p>Cash-out operations above the configured tenant threshold now require <code>X-Step-Up-Token</code>.</p>
-<p><strong>How to obtain:</strong>
-1. Call <code>POST /api/v1/auth/otp/request</code> — sends OTP to the user's registered device
-2. Submit OTP to <code>POST /api/v1/auth/otp/verify</code> — returns a short-lived step-up token (valid 5 minutes)
-3. Include the token as <code>X-Step-Up-Token: &lt;token&gt;</code> on the cash-out request</p>
+<h3>2026-06-15 — Step-Up Confirmation for Cash-Out</h3>
+<p>Cash-out requests that require an additional confirmation (for example, high-value transfers) can now carry the confirmation in the <strong>request body</strong> via the optional <code>verification_token</code> and <code>biometric_confirmed</code> fields.</p>
 <p>See the <a href="./guide-cash-out">Cash-Out guide</a> for the full flow.</p>
 <hr />
-<h3>2026-06-01 — Account Capabilities &amp; KYC Levels</h3>
-<p>Account capabilities are now tied to KYC level:</p>
+<h3>2026-06-01 — Account Lifecycle &amp; Types</h3>
+<p>Account lifecycle management is now available:</p>
 <ul>
-<li><code>GET /api/v1/accounts/{accountId}/capabilities</code> returns the current capability matrix</li>
 <li><code>POST /api/v1/accounts/{accountId}/activate</code> transitions <code>pending_kyc → active</code> after KYC approval</li>
 <li><code>POST /api/v1/accounts/{accountId}/block</code> halts all operations (PIX, boleto, P2P)</li>
 </ul>
 <p>New account types: <code>PF</code> (CPF), <code>PJ</code> (CNPJ), <code>ESCROW</code>.</p>
 <p>See the <a href="./guide-accounts">Account Management guide</a>.</p>
 <hr />
-<h3>2026-05-20 — Webhook Authentication (INTERNAL_SERVICE_KEY)</h3>
-<p>Webhook signing migrated from <code>X-Webhook-Secret</code> to <code>HMAC-SHA256</code> with <code>X-BRZ-Signature</code> header.</p>
-<p><strong>Action required:</strong> Update your webhook consumer to verify <code>X-BRZ-Signature</code> using the shared secret from your tenant configuration. The old <code>X-Webhook-Secret</code> header is deprecated and will be removed in Q4 2026.</p>
+<h3>2026-05-20 — Webhook Signature Verification</h3>
+<p>Webhook deliveries are signed with <strong>HMAC-SHA256</strong> and carry the signature in the <code>x-webhook-signature</code> header (format <code>sha256=&lt;hex&gt;</code>), alongside <code>x-webhook-timestamp</code>, <code>x-webhook-id</code>, <code>x-webhook-event</code>, and <code>x-webhook-source</code>.</p>
+<p><strong>Action required:</strong> Verify <code>x-webhook-signature</code> by computing HMAC-SHA256 over <code>timestamp + "." + raw_body</code> using the <code>secret</code> returned when the webhook was created (used as-is, including its <code>whsec_</code> prefix).</p>
 <p>See the <a href="./webhooks-integration">Webhooks guide</a>.</p>
 <hr />
 <h3>2026-05-01 — PIX Participant Directory</h3>

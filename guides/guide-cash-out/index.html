@@ -107,7 +107,7 @@ ol.steps li p{margin:4px 0 0}
 </div>
 <h1>Cash-Out (Sending Payments)</h1>
 <p>Cash-Out endpoints allow you to send PIX payments to any bank account in Brazil. There are three available flows depending on the information you have about the recipient.</p>
-<p><div class="callout callout-info">ℹ️ <p>Cash-Out endpoints use <strong>Bearer Token</strong> authentication. Always include the <code>X-Idempotency-Key</code> header to prevent duplicate payments.</p></div></p>
+<p><div class="callout callout-info">ℹ️ <p>Cash-Out endpoints accept <strong>Bearer Token</strong> OR <strong>API Key</strong> (<code>x-key-id</code> + <code>x-secret-key</code>) authentication. Always include the <code>X-Idempotency-Key</code> header to prevent duplicate payments.</p></div></p>
 <h2>Flow 1 — Via PIX Key</h2>
 <p>Send a payment directly using the recipient's PIX key. The system resolves the key to obtain the recipient's bank details automatically.</p>
 <pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
@@ -294,76 +294,42 @@ ol.steps li p{margin:4px 0 0}
 </tr>
 </tbody>
 </table>
-<h2>2FA / Step-Up Authentication</h2>
-<p>Cash-out payments above your tenant's configured threshold require an additional <code>X-Step-Up-Token</code> header. This is a short-lived token that proves the user completed a second factor (OTP) just before the transaction.</p>
-<p><div class="callout callout-warning">⚠️ <p>If your payload exceeds the threshold and <code>X-Step-Up-Token</code> is missing or expired, the API returns <code>403 STEP_UP_REQUIRED</code>. The token is valid for <strong>5 minutes</strong> and is single-use.</p></div></p>
-<h3>Step 1 — Request an OTP</h3>
-<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/auth/otp/request \
-  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
-  -H &quot;Content-Type: application/json&quot; \
-  -d '{
-    &quot;operation&quot;: &quot;cash_out&quot;,
-    &quot;channel&quot;: &quot;sms&quot;
-  }'
-</code></pre>
-<p>OTP is sent to the user's registered phone (or email if <code>channel: "email"</code>).</p>
-<h3>Step 2 — Verify OTP and Obtain Step-Up Token</h3>
-<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/auth/otp/verify \
-  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
-  -H &quot;Content-Type: application/json&quot; \
-  -d '{
-    &quot;otp&quot;: &quot;123456&quot;
-  }'
-</code></pre>
-<p><strong>Response:</strong></p>
-<pre><code class="language-json">{
-  &quot;success&quot;: true,
-  &quot;data&quot;: {
-    &quot;step_up_token&quot;: &quot;eyJhbGciOiJSUzI1NiJ9...&quot;,
-    &quot;expires_at&quot;: &quot;2026-07-22T14:35:00Z&quot;
-  }
-}
-</code></pre>
-<h3>Step 3 — Include <code>X-Step-Up-Token</code> in the Cash-Out Request</h3>
-<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
-  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
-  -H &quot;Content-Type: application/json&quot; \
-  -H &quot;X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440088&quot; \
-  -H &quot;X-Step-Up-Token: eyJhbGciOiJSUzI1NiJ9...&quot; \
-  -d '{
-    &quot;amount&quot;: &quot;50000.00&quot;,
-    &quot;pix_key&quot;: &quot;destinatario@empresa.com.br&quot;,
-    &quot;pix_key_type&quot;: &quot;EMAIL&quot;,
-    &quot;description&quot;: &quot;High-value transfer&quot;
-  }'
-</code></pre>
-<p><strong>Step-up error codes:</strong></p>
+<h2>Transaction Confirmation (Step-Up)</h2>
+<p>When a cash-out requires an additional confirmation (for example, high-value transfers), the confirmation is carried in the <strong>request body</strong> using the following optional fields:</p>
 <table>
 <thead>
 <tr>
-<th>HTTP</th>
-<th>Code</th>
-<th>Meaning</th>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>403</td>
-<td><code>STEP_UP_REQUIRED</code></td>
-<td>Amount exceeds threshold and no valid step-up token</td>
+<td><code>verification_token</code></td>
+<td>string</td>
+<td>Token proving the user completed the required second-factor confirmation</td>
 </tr>
 <tr>
-<td>403</td>
-<td><code>STEP_UP_EXPIRED</code></td>
-<td>Token is older than 5 minutes</td>
-</tr>
-<tr>
-<td>403</td>
-<td><code>STEP_UP_INVALID</code></td>
-<td>Token was already used or is malformed</td>
+<td><code>biometric_confirmed</code></td>
+<td>boolean</td>
+<td>Set to <code>true</code> when the transaction was confirmed via biometrics</td>
 </tr>
 </tbody>
 </table>
+<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/pix/cash-out \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -H &quot;X-Idempotency-Key: 550e8400-e29b-41d4-a716-446655440088&quot; \
+  -d '{
+    &quot;amount&quot;: &quot;50000.00&quot;,
+    &quot;pix_key&quot;: &quot;destinatario@empresa.com.br&quot;,
+    &quot;pix_key_type&quot;: &quot;EMAIL&quot;,
+    &quot;description&quot;: &quot;High-value transfer&quot;,
+    &quot;verification_token&quot;: &quot;&lt;verification-token&gt;&quot;,
+    &quot;biometric_confirmed&quot;: true
+  }'
+</code></pre>
 <hr />
 <h2>Optional Fields (All Flows)</h2>
 <table>
@@ -404,8 +370,13 @@ ol.steps li p{margin:4px 0 0}
 <tbody>
 <tr>
 <td><code>Authorization</code></td>
-<td>Yes</td>
-<td><code>Bearer &lt;jwt&gt;</code></td>
+<td>One of</td>
+<td><code>Bearer &lt;jwt&gt;</code> — or use API Key headers instead</td>
+</tr>
+<tr>
+<td><code>x-key-id</code> + <code>x-secret-key</code></td>
+<td>One of</td>
+<td>API Key credentials — alternative to <code>Authorization</code></td>
 </tr>
 <tr>
 <td><code>X-Idempotency-Key</code></td>
@@ -416,11 +387,6 @@ ol.steps li p{margin:4px 0 0}
 <td><code>X-Pix-Lookup-E2E</code></td>
 <td>Flow 3 only</td>
 <td>EndToEndID from QR Code decode</td>
-</tr>
-<tr>
-<td><code>X-Step-Up-Token</code></td>
-<td>Above threshold</td>
-<td>Short-lived OTP token for 2FA (see section above)</td>
 </tr>
 </tbody>
 </table>

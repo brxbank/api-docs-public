@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Wallet Balance & Breakdown — BRZ API Docs</title>
-<meta name="description" content="Query real-time wallet balances and understand multi-wallet breakdowns.">
+<title>Wallet Balance — BRZ API Docs</title>
+<meta name="description" content="Query real-time wallet balances for the authenticated client.">
 <link rel="icon" type="image/png" href="/brand-logo.png">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -102,33 +102,42 @@ ol.steps li p{margin:4px 0 0}
 </nav>
 <main class="main">
 <div class="page-meta">
-<h1>Wallet Balance & Breakdown</h1>
-<p class="page-description">Query real-time wallet balances and understand multi-wallet breakdowns.</p>
+<h1>Wallet Balance</h1>
+<p class="page-description">Query real-time wallet balances for the authenticated client.</p>
 </div>
-<h1>Wallet Balance &amp; Breakdown</h1>
-<p>The Wallet API provides real-time balance information for your clients. Balances are cached (5-minute TTL) and invalidated automatically when the ledger processes a transaction.</p>
-<p><div class="callout callout-info">ℹ️ <p>These endpoints use the <code>/api/v1-1-beta/</code> path prefix. This is a <strong>stable beta contract</strong> — the API is production-ready but the path may change in a future major version.</p></div></p>
-<h2>Get a Single Wallet Balance</h2>
-<pre><code class="language-bash">curl -X GET https://api.brzip.com.br/api/v1-1-beta/wallet/balance/{clientId} \
+<h1>Wallet Balance</h1>
+<p>The Wallet API returns real-time balances for the wallets owned by the authenticated client. Balances are cached (5-minute TTL) and invalidated automatically when the ledger processes a transaction.</p>
+<p><div class="callout callout-info">ℹ️ <p>These endpoints require <strong>Bearer Token</strong> or <strong>API Key</strong> authentication with the <code>pix:balance:read</code> scope. Ownership is scoped to the <code>client_id</code> in your token — you can only read your own wallets.</p></div></p>
+<h2>List Wallet Balances</h2>
+<p>Returns every user-visible wallet owned by the authenticated client (checking plus any benefit pockets):</p>
+<pre><code class="language-bash">curl -X GET https://api.brzip.com.br/api/v1/accounts/wallets \
   -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
 </code></pre>
-<p><strong>Response:</strong></p>
+<p><strong>Response (200):</strong></p>
 <pre><code class="language-json">{
   &quot;success&quot;: true,
   &quot;data&quot;: {
-    &quot;client_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
-    &quot;available&quot;: &quot;1250.500000&quot;,
-    &quot;blocked&quot;: &quot;50.000000&quot;,
-    &quot;overdraft&quot;: &quot;0.000000&quot;,
-    &quot;total&quot;: &quot;1300.500000&quot;,
-    &quot;currency&quot;: &quot;BRL&quot;,
-    &quot;status&quot;: &quot;active&quot;,
-    &quot;from_cache&quot;: true,
-    &quot;updated_at&quot;: &quot;2026-07-22T10:30:00Z&quot;,
-    &quot;wallet_breakdown&quot;: []
+    &quot;wallets&quot;: [
+      {
+        &quot;id&quot;: &quot;b1c2d3e4-f5a6-7890-bcde-1234567890ab&quot;,
+        &quot;account_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+        &quot;wallet_type&quot;: &quot;checking&quot;,
+        &quot;available&quot;: &quot;1250.50&quot;,
+        &quot;blocked&quot;: &quot;50.00&quot;,
+        &quot;total&quot;: &quot;1300.50&quot;,
+        &quot;currency&quot;: &quot;BRL&quot;,
+        &quot;updated_at&quot;: &quot;2026-07-22T10:30:00Z&quot;
+      }
+    ]
   }
 }
 </code></pre>
+<h2>List Balances for a Specific Account</h2>
+<p>Returns the wallets that belong to one <code>account_id</code>. Ownership is still enforced by the <code>client_id</code> in your token — an account owned by another client returns no rows:</p>
+<pre><code class="language-bash">curl -X GET https://api.brzip.com.br/api/v1/accounts/{accountId}/wallets \
+  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot;
+</code></pre>
+<p>The response shape is identical to the list endpoint above.</p>
 <h3>Balance fields explained</h3>
 <table>
 <thead>
@@ -139,6 +148,22 @@ ol.steps li p{margin:4px 0 0}
 </thead>
 <tbody>
 <tr>
+<td><code>id</code></td>
+<td>Wallet identifier</td>
+</tr>
+<tr>
+<td><code>account_id</code></td>
+<td>Account the wallet belongs to</td>
+</tr>
+<tr>
+<td><code>wallet_type</code></td>
+<td>Wallet type (e.g. <code>checking</code>)</td>
+</tr>
+<tr>
+<td><code>benefit_code</code></td>
+<td>Benefit code, present only for benefit-pocket wallets</td>
+</tr>
+<tr>
 <td><code>available</code></td>
 <td>Funds available for immediate use</td>
 </tr>
@@ -147,16 +172,12 @@ ol.steps li p{margin:4px 0 0}
 <td>Funds held for pending transactions</td>
 </tr>
 <tr>
-<td><code>overdraft</code></td>
-<td>Overdraft amount (typically zero)</td>
-</tr>
-<tr>
 <td><code>total</code></td>
 <td><code>available + blocked</code></td>
 </tr>
 <tr>
-<td><code>from_cache</code></td>
-<td><code>true</code> if served from Redis cache; <code>false</code> = live DB read</td>
+<td><code>currency</code></td>
+<td>Currency code (e.g. <code>BRL</code>)</td>
 </tr>
 <tr>
 <td><code>updated_at</code></td>
@@ -164,117 +185,18 @@ ol.steps li p{margin:4px 0 0}
 </tr>
 </tbody>
 </table>
-<h3>Wallet status</h3>
-<table>
-<thead>
-<tr>
-<th>Status</th>
-<th>Meaning</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>active</code></td>
-<td>Normal operation</td>
-</tr>
-<tr>
-<td><code>inactive</code></td>
-<td>Not yet initialized</td>
-</tr>
-<tr>
-<td><code>suspended</code></td>
-<td>Temporarily restricted</td>
-</tr>
-<tr>
-<td><code>blocked</code></td>
-<td>All operations halted</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h2>Wallet Breakdown (Multiple Wallets)</h2>
-<p>When a client holds more than one wallet (e.g., a primary wallet and an escrow wallet), the <code>wallet_breakdown</code> array provides per-wallet detail:</p>
-<pre><code class="language-json">{
-  &quot;success&quot;: true,
-  &quot;data&quot;: {
-    &quot;client_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
-    &quot;available&quot;: &quot;2500.000000&quot;,
-    &quot;blocked&quot;: &quot;100.000000&quot;,
-    &quot;total&quot;: &quot;2600.000000&quot;,
-    &quot;currency&quot;: &quot;BRL&quot;,
-    &quot;status&quot;: &quot;active&quot;,
-    &quot;from_cache&quot;: false,
-    &quot;updated_at&quot;: &quot;2026-07-22T10:30:00Z&quot;,
-    &quot;wallet_breakdown&quot;: [
-      {
-        &quot;wallet_id&quot;: &quot;w1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c&quot;,
-        &quot;wallet_type&quot;: &quot;primary&quot;,
-        &quot;available&quot;: &quot;2000.000000&quot;,
-        &quot;blocked&quot;: &quot;100.000000&quot;,
-        &quot;currency&quot;: &quot;BRL&quot;
-      },
-      {
-        &quot;wallet_id&quot;: &quot;w2b3c4d5-e6f7-8a9b-0c1d-2e3f4a5b6c7d&quot;,
-        &quot;wallet_type&quot;: &quot;escrow&quot;,
-        &quot;available&quot;: &quot;500.000000&quot;,
-        &quot;blocked&quot;: &quot;0.000000&quot;,
-        &quot;currency&quot;: &quot;BRL&quot;
-      }
-    ]
-  }
-}
-</code></pre>
-<hr />
-<h2>Batch Balance Query</h2>
-<p>For dashboards and reconciliation, query up to <strong>100 clients in a single call</strong>:</p>
-<pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1-1-beta/wallet/balances \
-  -H &quot;Authorization: Bearer &lt;your-jwt&gt;&quot; \
-  -H &quot;Content-Type: application/json&quot; \
-  -d '{
-    &quot;client_ids&quot;: [
-      &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
-      &quot;b723c313-7701-5e35-cb46-3f47d9g4d1df&quot;
-    ]
-  }'
-</code></pre>
-<p><strong>Response:</strong></p>
-<pre><code class="language-json">{
-  &quot;success&quot;: true,
-  &quot;data&quot;: {
-    &quot;balances&quot;: [
-      {
-        &quot;client_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
-        &quot;available&quot;: &quot;1250.500000&quot;,
-        &quot;blocked&quot;: &quot;50.000000&quot;,
-        &quot;total&quot;: &quot;1300.500000&quot;,
-        &quot;currency&quot;: &quot;BRL&quot;,
-        &quot;status&quot;: &quot;active&quot;,
-        &quot;from_cache&quot;: true,
-        &quot;updated_at&quot;: &quot;2026-07-22T10:30:00Z&quot;,
-        &quot;wallet_breakdown&quot;: []
-      }
-    ],
-    &quot;total&quot;: 1
-  }
-}
-</code></pre>
-<p><div class="callout callout-warning">⚠️ <p>Maximum <strong>100 client IDs per request</strong>. For larger datasets, paginate in batches of 100.</p></div></p>
-<hr />
 <h2>Cache Behavior</h2>
-<p>Balance is cached in Redis with a 5-minute TTL. Cache is <strong>automatically invalidated</strong> when the ledger processes a transaction event (<code>ledger.hold.created</code>, <code>ledger.capture.created</code>, <code>ledger.debit.created</code>, etc.).</p>
-<p>To detect stale reads, check the <code>from_cache</code> field:</p>
-<pre><code class="language-javascript">const balance = response.data;
-
-if (balance.from_cache) {
-  // Balance may be up to 5 minutes old
-  console.log(`Balance from cache, updated at: ${balance.updated_at}`);
-} else {
-  // Live read from database
-  console.log(`Live balance: ${balance.available} BRL available`);
+<p>Balance is cached in Redis with a 5-minute TTL. Cache is <strong>automatically invalidated</strong> when the ledger processes a transaction event: <code>ledger.hold.created</code>, <code>ledger.capture.created</code>, <code>ledger.release.created</code>, <code>ledger.credit.created</code>, and <code>ledger.debit.created</code>.</p>
+<h2>Error Reference</h2>
+<p>Errors are returned with this envelope:</p>
+<pre><code class="language-json">{
+  &quot;success&quot;: false,
+  &quot;error&quot;: {
+    &quot;code&quot;: &quot;WALLET_NOT_FOUND&quot;,
+    &quot;message&quot;: &quot;human-readable message&quot;
+  }
 }
 </code></pre>
-<hr />
-<h2>Error Reference</h2>
 <table>
 <thead>
 <tr>
@@ -285,23 +207,18 @@ if (balance.from_cache) {
 </thead>
 <tbody>
 <tr>
+<td>401</td>
+<td><code>UNAUTHENTICATED</code></td>
+<td>Missing or invalid credentials</td>
+</tr>
+<tr>
 <td>400</td>
-<td><code>INVALID_REQUEST</code></td>
-<td>Empty or invalid <code>clientId</code></td>
-</tr>
-<tr>
-<td>404</td>
-<td><code>WALLET_NOT_FOUND</code></td>
-<td>No wallet exists for this client</td>
-</tr>
-<tr>
-<td>422</td>
-<td><code>WALLET_STATUS_ERROR</code></td>
-<td>Wallet is inactive, suspended, or blocked</td>
+<td><code>INVALID_ACCOUNT_ID</code></td>
+<td><code>accountId</code> is not a valid UUID</td>
 </tr>
 <tr>
 <td>500</td>
-<td><code>INTERNAL_ERROR</code></td>
+<td><code>DB_ERROR</code></td>
 <td>Internal error — retry with exponential backoff</td>
 </tr>
 </tbody>

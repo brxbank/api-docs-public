@@ -153,15 +153,18 @@ async function verifyQR(jws) {
 </code></pre>
 <p><strong>Decoded payload example:</strong></p>
 <pre><code class="language-json">{
-  &quot;pixCopiaECola&quot;: &quot;00001.11110 22222.222222 33333.333333 4 00000000000100&quot;,
-  &quot;infoAditivais&quot;: [
-    { &quot;nome&quot;: &quot;destinatario&quot;, &quot;valor&quot;: &quot;João da Silva&quot; },
-    { &quot;nome&quot;: &quot;valor&quot;, &quot;valor&quot;: &quot;10.00&quot; }
-  ],
-  &quot;revisao&quot;: 0,
   &quot;calendario&quot;: {
-    &quot;criacao&quot;: &quot;2026-07-22T00:00:00Z&quot;,
+    &quot;apresentacao&quot;: &quot;2026-07-22T00:00:00.000000000Z&quot;,
+    &quot;criacao&quot;: &quot;2026-07-22T00:00:00.000Z&quot;,
     &quot;expiracao&quot;: 86400
+  },
+  &quot;chave&quot;: &quot;26318747000186&quot;,
+  &quot;revisao&quot;: 0,
+  &quot;status&quot;: &quot;ATIVA&quot;,
+  &quot;txid&quot;: &quot;***&quot;,
+  &quot;valor&quot;: {
+    &quot;modalidadeAlteracao&quot;: 0,
+    &quot;original&quot;: &quot;10.00&quot;
   }
 }
 </code></pre>
@@ -172,21 +175,26 @@ async function verifyQR(jws) {
 </code></pre>
 <p><strong>Response:</strong> Same JWS format. The payload includes additional <code>cobv</code> fields:</p>
 <pre><code class="language-json">{
-  &quot;pixCopiaECola&quot;: &quot;...&quot;,
-  &quot;cobv&quot;: {
-    &quot;valor&quot;: {
-      &quot;original&quot;: &quot;100.00&quot;,
-      &quot;multa&quot;: { &quot;modalidade&quot;: 2, &quot;valorPerc&quot;: &quot;2.00&quot; },
-      &quot;juros&quot;: { &quot;modalidade&quot;: 1, &quot;valorPerc&quot;: &quot;1.00&quot; },
-      &quot;desconto&quot;: { &quot;modalidade&quot;: 1, &quot;valorPerc&quot;: &quot;5.00&quot;, &quot;descontoDataFixa&quot;: [] }
-    },
-    &quot;calendario&quot;: {
-      &quot;dataDeVencimento&quot;: &quot;2026-07-30&quot;,
-      &quot;validadeAposVencimento&quot;: 30
-    }
+  &quot;calendario&quot;: {
+    &quot;apresentacao&quot;: &quot;2026-07-22T00:00:00.000000000Z&quot;,
+    &quot;criacao&quot;: &quot;2026-07-22T00:00:00Z&quot;,
+    &quot;dataDeVencimento&quot;: &quot;2026-07-30&quot;,
+    &quot;validadeAposVencimento&quot;: 30
+  },
+  &quot;chave&quot;: &quot;26318747000186&quot;,
+  &quot;txid&quot;: &quot;***&quot;,
+  &quot;revisao&quot;: 0,
+  &quot;status&quot;: &quot;ATIVA&quot;,
+  &quot;valor&quot;: {
+    &quot;original&quot;: &quot;100.00&quot;,
+    &quot;final&quot;: &quot;103.00&quot;,
+    &quot;multa&quot;: &quot;2.00&quot;,
+    &quot;juros&quot;: &quot;1.00&quot;,
+    &quot;desconto&quot;: &quot;5.00&quot;
   }
 }
 </code></pre>
+<p><div class="callout callout-info">ℹ️ <p>For CobV, the amounts under <code>valor</code> (<code>multa</code>, <code>juros</code>, <code>desconto</code>, <code>abatimento</code>) are already <strong>computed monetary values</strong> (formatted as <code>"%.2f"</code> strings), not the modality/percentage rules used to configure the charge. <code>final</code> is the total after applying penalty/interest/discount/rebate.</p></div></p>
 <hr />
 <h2>JWKS Endpoint</h2>
 <p>Retrieve the public key set for signature verification:</p>
@@ -198,10 +206,13 @@ async function verifyQR(jws) {
     {
       &quot;kty&quot;: &quot;RSA&quot;,
       &quot;use&quot;: &quot;sig&quot;,
+      &quot;key_ops&quot;: [&quot;verify&quot;],
       &quot;alg&quot;: &quot;PS256&quot;,
       &quot;kid&quot;: &quot;brz-2026-01&quot;,
       &quot;n&quot;: &quot;...&quot;,
       &quot;e&quot;: &quot;AQAB&quot;,
+      &quot;x5c&quot;: [&quot;MIID...&quot;],
+      &quot;x5t&quot;: &quot;abcdefg1234567890ABCDEFGH1&quot;,
       &quot;x5t#S256&quot;: &quot;abcdefg1234567890ABCDEFGH1234567890A&quot;
     }
   ]

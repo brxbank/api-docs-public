@@ -108,6 +108,7 @@ ol.steps li p{margin:4px 0 0}
 <h1>Rate Limits</h1>
 <p>The BRZ API enforces rate limits to ensure fair usage and system stability.</p>
 <h2>Default Limits</h2>
+<p>Rate limiting uses a token-bucket algorithm applied per authenticated client (identified by the client ID resolved from your credentials; unauthenticated requests are keyed by source address).</p>
 <table>
 <thead>
 <tr>
@@ -121,8 +122,8 @@ ol.steps li p{margin:4px 0 0}
 <td>50 requests/second per client</td>
 </tr>
 <tr>
-<td>Burst rate</td>
-<td>Up to 100 requests/second</td>
+<td>Burst</td>
+<td>Bucket capacity of 100 requests</td>
 </tr>
 </tbody>
 </table>
@@ -130,15 +131,17 @@ ol.steps li p{margin:4px 0 0}
 <p>When you exceed the rate limit, the API returns:</p>
 <ul>
 <li><strong>HTTP Status</strong>: <code>429 Too Many Requests</code></li>
-<li><strong>Header</strong>: <code>Retry-After</code> — indicates how many seconds to wait before retrying</li>
+<li><strong>Header</strong>: <code>Retry-After</code> — the number of seconds to wait before retrying</li>
 </ul>
 <h3>Example Response</h3>
 <pre><code class="language-json">{
-  &quot;error&quot;: &quot;Rate limit exceeded&quot;,
-  &quot;code&quot;: &quot;RATE_LIMIT_EXCEEDED&quot;,
-  &quot;retry_after&quot;: 5
+  &quot;error&quot;: &quot;rate_limit_exceeded&quot;,
+  &quot;message&quot;: &quot;Too many requests. Please retry after the Retry-After period.&quot;
 }
 </code></pre>
+<p><Note>
+The <code>Retry-After</code> header on a general rate-limit <code>429</code> is currently a fixed <code>1</code> (second). DICT PIX-key lookups are governed by a separate BACEN-mandated limiter that returns its own <code>429</code> with a longer <code>Retry-After</code>. Always honor the <code>Retry-After</code> header value rather than assuming a fixed delay.
+</Note></p>
 <h2>Best Practices</h2>
 <ol>
 <li><strong>Implement exponential backoff</strong>: When receiving a 429 response, wait for the duration specified in the <code>Retry-After</code> header before retrying.</li>

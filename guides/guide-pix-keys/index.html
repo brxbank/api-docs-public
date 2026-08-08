@@ -155,24 +155,51 @@ ol.steps li p{margin:4px 0 0}
 </code></pre>
 <p><strong>Response (201 Created):</strong></p>
 <pre><code class="language-json">{
-  &quot;key_type&quot;: &quot;EVP&quot;,
-  &quot;key&quot;: &quot;a1b2c3d4-e5f6-7890-abcd-ef1234567890&quot;,
-  &quot;account&quot;: {
-    &quot;participant&quot;: &quot;12345678&quot;,
-    &quot;branch&quot;: &quot;0001&quot;,
-    &quot;account_number&quot;: &quot;12345678&quot;,
-    &quot;account_type&quot;: &quot;CACC&quot;,
-    &quot;opening_date&quot;: &quot;2026-02-23&quot;
-  },
-  &quot;owner&quot;: {
-    &quot;type&quot;: &quot;NATURAL_PERSON&quot;,
-    &quot;tax_id_number&quot;: &quot;22768368067&quot;,
-    &quot;name&quot;: &quot;Ana Paula Oliveira&quot;
-  },
-  &quot;created_at&quot;: &quot;2026-02-23T21:10:00.000Z&quot;,
-  &quot;status&quot;: &quot;REGISTERED&quot;
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;registered&quot;: true,
+    &quot;key&quot;: &quot;a1b2c3d4-e5f6-7890-abcd-ef1234567890&quot;,
+    &quot;type&quot;: &quot;EVP&quot;,
+    &quot;keyStatus&quot;: &quot;REGISTERED&quot;,
+    &quot;createdAt&quot;: &quot;2026-02-23T21:10:00.000Z&quot;,
+    &quot;dictTransactionId&quot;: &quot;d1c7-...&quot;
+  }
 }
 </code></pre>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>registered</code></td>
+<td><code>true</code> when the key was accepted by DICT</td>
+</tr>
+<tr>
+<td><code>key</code></td>
+<td>The registered key value (for EVP, the generated UUID)</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>Key type: <code>CPF</code> | <code>CNPJ</code> | <code>EMAIL</code> | <code>PHONE</code> | <code>EVP</code></td>
+</tr>
+<tr>
+<td><code>keyStatus</code></td>
+<td>DICT registration status</td>
+</tr>
+<tr>
+<td><code>createdAt</code></td>
+<td>Registration timestamp</td>
+</tr>
+<tr>
+<td><code>dictTransactionId</code></td>
+<td>DICT transaction reference</td>
+</tr>
+</tbody>
+</table>
 <p><div class="callout callout-tip">💡 <p>For EVP keys, just send <code>{"key_type": "EVP"}</code>. For other types, include the <code>key</code> field with the actual value (e.g., CPF number, email address).</p></div></p>
 <h3>Optional Override Fields</h3>
 <p>If you need to override the auto-filled onboarding data, you can include any of these fields:</p>
@@ -200,7 +227,8 @@ ol.steps li p{margin:4px 0 0}
     &quot;reason&quot;: &quot;USER_REQUESTED&quot;
   }'
 </code></pre>
-<h3>Deletion Reasons</h3>
+<h3>Deletion Reason</h3>
+<p>The <code>reason</code> field is optional free text stored for audit; it is <strong>not</strong> a validated enum. If omitted, it defaults to <code>USER_REQUESTED</code>. Common values used by convention:</p>
 <table>
 <thead>
 <tr>
@@ -211,7 +239,7 @@ ol.steps li p{margin:4px 0 0}
 <tbody>
 <tr>
 <td><code>USER_REQUESTED</code></td>
-<td>User requested the deletion</td>
+<td>User requested the deletion (default)</td>
 </tr>
 <tr>
 <td><code>ACCOUNT_CLOSURE</code></td>

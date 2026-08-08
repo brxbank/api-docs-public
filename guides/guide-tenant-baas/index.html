@@ -116,7 +116,7 @@ ol.steps li p{margin:4px 0 0}
 <p>The ownership link is established automatically: the <code>client_id</code> from your authentication token becomes the <code>parent_client_id</code> of every sub-client you create. You can later act on accounts you own without any extra parameters.</p>
 <hr />
 <h2>Step 1 — Create Client Identity</h2>
-<p><code>POST /api/v1/clients</code> creates a new end-user identity in the platform. The account is created in <strong>active</strong> status immediately — no OTP or document verification is required in the programmatic BaaS flow.</p>
+<p><code>POST /api/v1/clients</code> creates a new end-user identity in the platform. In the programmatic BaaS flow no OTP or interactive step is required — you create the identity directly with your tenant credentials. The payment account itself is opened in Step 2 and starts in <code>pending_kyc</code>, then you activate it in Step 3.</p>
 <p><strong>Required scope:</strong> <code>clients:write</code></p>
 <pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/clients \
   -H &quot;Authorization: Bearer &lt;your-bearer-token&gt;&quot; \
@@ -216,24 +216,28 @@ ol.steps li p{margin:4px 0 0}
 <p><strong>Response (201):</strong></p>
 <pre><code class="language-json">{
   &quot;success&quot;: true,
-  &quot;message&quot;: &quot;client created&quot;,
   &quot;data&quot;: {
-    &quot;client_id&quot;: &quot;b7c4e902-1a2b-4f3d-9c8e-112233445566&quot;,
-    &quot;status&quot;: &quot;active&quot;,
-    &quot;provisioning&quot;: {
-      &quot;wallet&quot;: true,
-      &quot;apiKey&quot;: true,
-      &quot;modules&quot;: true,
-      &quot;onboarding&quot;: true
-    },
-    &quot;api_key&quot;: {
-      &quot;key_id&quot;: &quot;key_abc123def456&quot;,
-      &quot;secret_key&quot;: &quot;sec_xyz789ghi012&quot;
+    &quot;success&quot;: true,
+    &quot;message&quot;: &quot;client created&quot;,
+    &quot;data&quot;: {
+      &quot;client_id&quot;: &quot;b7c4e902-1a2b-4f3d-9c8e-112233445566&quot;,
+      &quot;status&quot;: &quot;active&quot;,
+      &quot;provisioning&quot;: {
+        &quot;wallet&quot;: true,
+        &quot;apiKey&quot;: true,
+        &quot;modules&quot;: true,
+        &quot;onboarding&quot;: true
+      },
+      &quot;api_key&quot;: {
+        &quot;key_id&quot;: &quot;key_abc123def456&quot;,
+        &quot;secret_key&quot;: &quot;sec_xyz789ghi012&quot;
+      }
     }
   }
 }
 </code></pre>
-<p><div class="callout callout-warning">⚠️ <p>Save the <code>api_key.key_id</code> and <code>api_key.secret_key</code> from the response. The secret key is shown <strong>only once</strong> at creation and cannot be retrieved later.</p></div></p>
+<p><div class="callout callout-info">ℹ️ <p>The gateway wraps the response in its standard <code>{ "success", "data" }</code> envelope, and the created client payload sits under <code>data.data</code>. Read the <code>client_id</code> and <code>api_key</code> from <code>data.data</code>.</p></div></p>
+<p><div class="callout callout-warning">⚠️ <p>Save the <code>data.data.api_key.key_id</code> and <code>data.data.api_key.secret_key</code> from the response. The secret key is shown <strong>only once</strong> at creation and cannot be retrieved later.</p></div></p>
 <p><strong>Errors:</strong></p>
 <table>
 <thead>
@@ -247,7 +251,22 @@ ol.steps li p{margin:4px 0 0}
 <tr>
 <td>400</td>
 <td><code>MISSING_PERSON_TYPE</code></td>
-<td><code>person_type</code> is absent or invalid</td>
+<td><code>person_type</code> is absent</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>INVALID_PERSON_TYPE</code></td>
+<td><code>person_type</code> is not <code>individual</code> or <code>company</code></td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>MISSING_NAME</code></td>
+<td><code>name</code> is absent</td>
+</tr>
+<tr>
+<td>400</td>
+<td><code>MISSING_EMAIL</code></td>
+<td><code>email</code> is absent</td>
 </tr>
 <tr>
 <td>400</td>
@@ -331,7 +350,7 @@ ol.steps li p{margin:4px 0 0}
 <td><code>account_type</code></td>
 <td>string</td>
 <td>No</td>
-<td><code>"personal"</code> (default) or <code>"business"</code></td>
+<td>Account type — <code>"PF"</code> (individual), <code>"PJ"</code> (company), or <code>"ESCROW"</code></td>
 </tr>
 <tr>
 <td><code>person_type</code></td>
@@ -370,22 +389,26 @@ ol.steps li p{margin:4px 0 0}
 <pre><code class="language-json">{
   &quot;success&quot;: true,
   &quot;data&quot;: {
-    &quot;id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
-    &quot;client_id&quot;: &quot;b7c4e902-1a2b-4f3d-9c8e-112233445566&quot;,
-    &quot;account_number&quot;: &quot;9876543&quot;,
-    &quot;branch_code&quot;: &quot;0001&quot;,
-    &quot;account_type&quot;: &quot;personal&quot;,
-    &quot;state&quot;: &quot;pending&quot;,
-    &quot;kyc_level&quot;: 0,
-    &quot;person_type&quot;: &quot;individual&quot;,
-    &quot;document&quot;: &quot;12345678900&quot;,
-    &quot;name&quot;: &quot;João Silva&quot;,
-    &quot;email&quot;: &quot;joao@example.com&quot;,
-    &quot;created_at&quot;: &quot;2026-07-26T14:30:00Z&quot;,
-    &quot;updated_at&quot;: &quot;2026-07-26T14:30:00Z&quot;
+    &quot;success&quot;: true,
+    &quot;data&quot;: {
+      &quot;id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+      &quot;client_id&quot;: &quot;b7c4e902-1a2b-4f3d-9c8e-112233445566&quot;,
+      &quot;account_number&quot;: &quot;9876543&quot;,
+      &quot;branch_code&quot;: &quot;0001&quot;,
+      &quot;account_type&quot;: &quot;PF&quot;,
+      &quot;state&quot;: &quot;pending_kyc&quot;,
+      &quot;kyc_level&quot;: 0,
+      &quot;person_type&quot;: &quot;individual&quot;,
+      &quot;document&quot;: &quot;12345678900&quot;,
+      &quot;name&quot;: &quot;João Silva&quot;,
+      &quot;email&quot;: &quot;joao@example.com&quot;,
+      &quot;created_at&quot;: &quot;2026-07-26T14:30:00Z&quot;,
+      &quot;updated_at&quot;: &quot;2026-07-26T14:30:00Z&quot;
+    }
   }
 }
 </code></pre>
+<p><div class="callout callout-info">ℹ️ <p>As with client creation, the account payload is nested under <code>data.data</code> — the gateway envelope wraps the account service's own <code>{ "success", "data" }</code> response.</p></div></p>
 <p><strong>Errors:</strong></p>
 <table>
 <thead>
@@ -420,7 +443,7 @@ ol.steps li p{margin:4px 0 0}
 </table>
 <hr />
 <h2>Step 3 — Activate the Account</h2>
-<p><code>POST /api/v1/accounts/{id}/activate</code> transitions the account from <code>pending</code> to <code>active</code>. After activation, the account can receive and send PIX and boleto.</p>
+<p><code>POST /api/v1/accounts/{id}/activate</code> transitions the account from <code>pending_kyc</code> to <code>active</code>. After activation, the account can receive and send PIX and boleto.</p>
 <p><strong>Required scope:</strong> <code>accounts:activate</code></p>
 <pre><code class="language-bash">curl -X POST https://api.brzip.com.br/api/v1/accounts/a612b202-6690-4d24-ba35-2e36c8f3c0ce/activate \
   -H &quot;Authorization: Bearer &lt;your-bearer-token&gt;&quot;
@@ -428,8 +451,11 @@ ol.steps li p{margin:4px 0 0}
 <p>No request body is required.</p>
 <p><strong>Response (200):</strong></p>
 <pre><code class="language-json">{
-  &quot;account_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
-  &quot;status&quot;: &quot;active&quot;
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;account_id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+    &quot;status&quot;: &quot;active&quot;
+  }
 }
 </code></pre>
 <p>After activation, a <code>account.activated</code> webhook event is fired to your configured webhook endpoint.</p>
@@ -499,10 +525,13 @@ ol.steps li p{margin:4px 0 0}
 </table>
 <p><strong>Response (201):</strong></p>
 <pre><code class="language-json">{
-  &quot;account_number&quot;: &quot;9876543&quot;,
-  &quot;reservation_id&quot;: &quot;res_3fa85f64-5717-4562-b3fc-2c963f66afa6&quot;,
-  &quot;branch_code&quot;: &quot;0001&quot;,
-  &quot;reference_id&quot;: &quot;onb_my-idempotency-key-for-this-client&quot;
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;account_number&quot;: &quot;9876543&quot;,
+    &quot;reservation_id&quot;: &quot;res_3fa85f64-5717-4562-b3fc-2c963f66afa6&quot;,
+    &quot;branch_code&quot;: &quot;0001&quot;,
+    &quot;reference_id&quot;: &quot;onb_my-idempotency-key-for-this-client&quot;
+  }
 }
 </code></pre>
 <p><div class="callout callout-warning">⚠️ <p>The <code>reservation_id</code> is returned <strong>once</strong> and is the possession key needed in Step 2. Store it alongside the <code>account_number</code>.</p></div></p>
@@ -532,15 +561,18 @@ ol.steps li p{margin:4px 0 0}
 </code></pre>
 <p><strong>Response (200):</strong></p>
 <pre><code class="language-json">{
-  &quot;id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
-  &quot;account_number&quot;: &quot;9876543&quot;,
-  &quot;branch_code&quot;: &quot;0001&quot;,
-  &quot;account_type&quot;: &quot;personal&quot;,
-  &quot;state&quot;: &quot;active&quot;,
-  &quot;kyc_level&quot;: 0,
-  &quot;created_at&quot;: &quot;2026-07-26T14:30:00Z&quot;,
-  &quot;updated_at&quot;: &quot;2026-07-26T14:30:01Z&quot;,
-  &quot;activated_at&quot;: &quot;2026-07-26T14:30:01Z&quot;
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;a612b202-6690-4d24-ba35-2e36c8f3c0ce&quot;,
+    &quot;account_number&quot;: &quot;9876543&quot;,
+    &quot;branch_code&quot;: &quot;0001&quot;,
+    &quot;account_type&quot;: &quot;PF&quot;,
+    &quot;state&quot;: &quot;active&quot;,
+    &quot;kyc_level&quot;: 0,
+    &quot;created_at&quot;: &quot;2026-07-26T14:30:00Z&quot;,
+    &quot;updated_at&quot;: &quot;2026-07-26T14:30:01Z&quot;,
+    &quot;activated_at&quot;: &quot;2026-07-26T14:30:01Z&quot;
+  }
 }
 </code></pre>
 <p><strong>Account states:</strong></p>
@@ -553,8 +585,8 @@ ol.steps li p{margin:4px 0 0}
 </thead>
 <tbody>
 <tr>
-<td><code>pending</code></td>
-<td>Account created, not yet activated</td>
+<td><code>pending_kyc</code></td>
+<td>Account created, awaiting KYC approval / not yet activated</td>
 </tr>
 <tr>
 <td><code>active</code></td>
@@ -641,7 +673,7 @@ ol.steps li p{margin:4px 0 0}
 
 2. POST /api/v1/accounts
    Body: { client_id }
-   → Returns: account.id, account_number, branch_code, state: &quot;pending&quot;
+   → Returns: account.id, account_number, branch_code, state: &quot;pending_kyc&quot;
 
 3. POST /api/v1/accounts/{account.id}/activate
    → Returns: { account_id, status: &quot;active&quot; }
