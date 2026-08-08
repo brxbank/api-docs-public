@@ -722,6 +722,183 @@ components:
         - status
         - attempts
         - created_at
+    TenantClient:
+      type: object
+      description: >-
+        Summary view of a sub-client belonging to the authenticated tenant.
+        Returned by the tenant client list and search endpoints.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        name:
+          type: string
+          example: João da Silva
+        email:
+          type: string
+          format: email
+          example: joao.silva@example.com
+        person_type:
+          type: string
+          enum:
+            - individual
+            - company
+          example: individual
+        document:
+          type: string
+          description: CPF (individual) or CNPJ (company), whichever is set.
+          example: "12345678909"
+        trade_name:
+          type: string
+          description: Trade name (company only). Omitted when empty.
+          example: Silva Comércio ME
+        status:
+          type: string
+          example: active
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - email
+        - person_type
+        - document
+        - status
+        - created_at
+    TenantClientDetail:
+      type: object
+      description: >-
+        Enriched view of a single sub-client (holder identification, contacts,
+        configured tax rates, and full address). Returned by
+        `GET /api/v1/pix/tenants/clients/{clientId}`. Empty string / `"0"`
+        fields are omitted from the response.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        name:
+          type: string
+          example: João da Silva
+        email:
+          type: string
+          format: email
+          example: joao.silva@example.com
+        person_type:
+          type: string
+          enum:
+            - individual
+            - company
+          example: individual
+        document:
+          type: string
+          description: CPF (individual) or CNPJ (company), whichever is set.
+          example: "12345678909"
+        cpf:
+          type: string
+          description: CPF (individual). Omitted when empty.
+          example: "12345678909"
+        cnpj:
+          type: string
+          description: CNPJ (company). Omitted when empty.
+          example: "12345678000199"
+        trade_name:
+          type: string
+          example: Silva Comércio ME
+        status:
+          type: string
+          example: active
+        created_at:
+          type: string
+          format: date-time
+        company_name:
+          type: string
+          description: Legal company name (company only).
+        first_name:
+          type: string
+        middle_name:
+          type: string
+        last_name:
+          type: string
+        birth_date:
+          type: string
+          format: date-time
+          nullable: true
+        gender:
+          type: string
+        nationality:
+          type: string
+        citizenship:
+          type: string
+        marital_status:
+          type: string
+        father_name:
+          type: string
+        primary_id_type:
+          type: string
+        primary_id_number:
+          type: string
+        phone:
+          type: string
+        additional_phone:
+          type: string
+        additional_email:
+          type: string
+        cash_in_tax_type:
+          type: string
+          description: >-
+            Configured cash-in tax mode. Always present; empty string when not
+            configured.
+          enum:
+            - percentage
+            - fixed
+            - ""
+          example: percentage
+        cash_in_tax_value:
+          type: string
+          description: Cash-in tax value as a numeric string. `"0"` when not configured.
+          example: "0.03"
+        cash_out_tax_type:
+          type: string
+          enum:
+            - percentage
+            - fixed
+            - ""
+          example: fixed
+        cash_out_tax_value:
+          type: string
+          description: Cash-out tax value as a numeric string. `"0"` when not configured.
+          example: "1.50"
+        address_street:
+          type: string
+        address_number:
+          type: string
+        address_complement:
+          type: string
+        address_neighborhood:
+          type: string
+        address_city:
+          type: string
+        address_state:
+          type: string
+        address_zip_code:
+          type: string
+        address_country:
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - person_type
+        - document
+        - status
+        - created_at
+        - cash_in_tax_type
+        - cash_in_tax_value
+        - cash_out_tax_type
+        - cash_out_tax_value
     MedRefund:
       type: object
       description: >-
@@ -1186,6 +1363,19 @@ tags:
 
 
       **Authentication:** Bearer token
+  - name: Tenant Clients
+    description: >-
+      List, search, and inspect the sub-clients that belong to your tenant, and
+      create new client identities. Sub-clients are scoped to the tenant of the
+      authenticated caller — you can only see clients under your own tenant.
+
+
+      **Authentication:** Bearer token (list/search/detail also accept the `*`
+      scope). Client creation additionally accepts API Key.
+
+
+      **Scopes:** `pix:tenants:read` (list/search/detail), `clients:write`
+      (create).
   - name: PIX QR Code Server
     description: >-
       Public endpoints served by the BRZ QR Code server at `qrcode.brzip.com.br`.
@@ -5524,6 +5714,265 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '502':
           description: Boleto provider unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── Tenant Clients ────────────────────────────────────────────────────────
+
+  /api/v1/pix/tenants/clients:
+    get:
+      tags:
+        - Tenant Clients
+      summary: List tenant sub-clients
+      operationId: listTenantClients
+      description: >-
+        Lists the sub-clients that belong to the authenticated caller's tenant,
+        newest first. Ownership is scoped to your tenant — the caller itself is
+        excluded from the results.
+
+
+        **Scope:** `pix:tenants:read` (or `*`)
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Page number (1-based, default 1)
+          example: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Items per page (1–100; values outside the range fall back to 20)
+          example: 20
+      responses:
+        '200':
+          description: List of sub-clients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      clients:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TenantClient'
+                      total:
+                        type: integer
+                        example: 42
+                      page:
+                        type: integer
+                        example: 1
+                      per_page:
+                        type: integer
+                        example: 20
+
+  /api/v1/pix/tenants/clients/search:
+    get:
+      tags:
+        - Tenant Clients
+      summary: Search tenant sub-clients by document
+      operationId: searchTenantClients
+      description: >-
+        Searches the caller's tenant sub-clients by exact CPF or CNPJ. Not
+        paginated — returns all matches.
+
+
+        **Scope:** `pix:tenants:read` (or `*`)
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: document
+          in: query
+          required: true
+          schema:
+            type: string
+          description: CPF or CNPJ to match (exact, digits only)
+          example: "12345678909"
+      responses:
+        '200':
+          description: Matching sub-clients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      clients:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TenantClient'
+                      total:
+                        type: integer
+                        example: 1
+        '400':
+          description: Missing `document` query parameter (`MISSING_DOCUMENT`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/pix/tenants/clients/{clientId}:
+    get:
+      tags:
+        - Tenant Clients
+      summary: Get tenant sub-client by ID
+      operationId: getTenantClient
+      description: >-
+        Returns the enriched detail of a single sub-client, provided it belongs
+        to the caller's tenant. Includes holder identification, contacts,
+        configured tax rates, and full address.
+
+
+        **Scope:** `pix:tenants:read` (or `*`)
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Sub-client ID
+      responses:
+        '200':
+          description: Sub-client detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TenantClientDetail'
+        '404':
+          description: >-
+            Client not found or does not belong to this tenant (`NOT_FOUND`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ── Client Registration ───────────────────────────────────────────────────
+
+  /api/v1/clients:
+    post:
+      tags:
+        - Tenant Clients
+      summary: Create client identity
+      operationId: createClient
+      description: >-
+        Creates a new client identity. The authenticated caller becomes the
+        parent of the created client (hierarchical ownership), so the new client
+        is scoped to your tenant. After creation, use the returned client id in
+        `POST /api/v1/accounts` to provision a payment account.
+
+
+        - `person_type=individual` requires `cpf`.
+
+        - `person_type=company` requires `cnpj` and `company_name`.
+
+
+        **Scope:** `clients:write`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - person_type
+                - name
+                - email
+                - password
+              properties:
+                person_type:
+                  type: string
+                  enum:
+                    - individual
+                    - company
+                  example: individual
+                name:
+                  type: string
+                  example: João da Silva
+                email:
+                  type: string
+                  format: email
+                  example: joao.silva@example.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  description: Minimum 8 characters.
+                  example: S3nh4F0rte!
+                cpf:
+                  type: string
+                  description: Required when `person_type=individual` (11 digits).
+                  example: "12345678909"
+                cnpj:
+                  type: string
+                  description: Required when `person_type=company` (14 digits).
+                  example: "12345678000199"
+                company_name:
+                  type: string
+                  description: Required when `person_type=company`.
+                  example: Silva Comércio LTDA
+                trade_name:
+                  type: string
+                  example: Silva Comércio
+                phone:
+                  type: string
+                  example: "+5511998765432"
+      responses:
+        '201':
+          description: >-
+            Client created. The body is the identity payload returned by the
+            auth service (includes the generated client id and API Key
+            credentials — store them securely).
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          description: >-
+            Validation error — e.g. `MISSING_PERSON_TYPE`, `INVALID_PERSON_TYPE`,
+            `MISSING_NAME`, `MISSING_EMAIL`, `WEAK_PASSWORD`, `MISSING_CPF`,
+            `MISSING_CNPJ`, `MISSING_COMPANY_NAME`, or `VALIDATION_ERROR`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already registered (`EMAIL_EXISTS`)
           content:
             application/json:
               schema:
