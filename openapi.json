@@ -2,7 +2,7 @@
   "openapi": "3.0.0",
   "info": {
     "title": "BRZ API",
-    "description": "Complete PIX gateway API by BRZ. Direct integration with BACEN — no external providers.\n\n## Base URLs\n\n**Base URL:** `https://api.brzip.com.br`\n\nAll endpoints use the base path `/api/v1/`.\n\n## Authentication\n\nThe API uses two authentication methods:\n\n### 1. Bearer Token (JWT) — Most endpoints\n\nAll endpoints **except Cash-In** use a Bearer Token:\n``` Authorization: Bearer <your-jwt-token> ```\nObtain a JWT by calling `POST /api/v1/auth/bearer-token` with your API Key credentials.\n\n### 2. API Key — Cash-In endpoints only\n\nCash-In endpoints (`/api/v1/pix/cash-in/*`) use two headers:\n``` x-key-id: <your-key-id> x-secret-key: <your-secret-key> ```\n\n\n## Rate Limits\n\n- Default: 50 req/s per client, burst up to 100.\n- When exceeded, returns HTTP 429 with `Retry-After` header.\n\n## Common Headers\n\n| Header | Required | Description | |--------|----------|-------------| | `Authorization` | Yes (Bearer) | `Bearer <jwt>` for PIX endpoints | | `x-key-id` | Yes (Cash-In) | API Key ID | | `x-secret-key` | Yes (Cash-In) | API Key Secret | | `X-Idempotency-Key` | Recommended | Prevents duplicate operations (UUID) | | `Content-Type` | Yes (POST/PUT) | Always `application/json` |\n\n---\n\n## Onboarding Flow (Step by Step)\n\n### Step 1 — Create Account\n\nCreate your account with `POST /api/v1/auth/signup`. The response includes your `keyId` and `secretKey` — save them securely, the secret is shown only once. OTP codes will be sent via email and SMS.\n\n### Step 1b — Verify Email\n\nVerify your email with `POST /api/v1/auth/verify-email` using the OTP code received. If you did not receive the code, resend it with `POST /api/v1/auth/resend-otp` (max 5 per hour) before retrying.\n\n### Step 1c — Verify Phone\n\nVerify your phone with `POST /api/v1/auth/verify-phone` using the OTP code received via SMS. If you did not receive the code, use `POST /api/v1/auth/resend-otp` to request a new one.\n\n### Step 2 — Log In to Continue Onboarding\n\nLog in with `POST /api/v1/auth/login` (email + password) to obtain a session token. This token is required to access the document upload endpoints below. It is a temporary onboarding token, not the production Bearer Token you will use to call the API.\n\n### Step 3 — Submit Documents (3 stages)\n\n1. Get pre-signed URLs with `POST /api/v1/auth/documents/presigned-urls`\n2. `PUT` each file directly to the S3 URL (raw binary, no FormData)\n3. Confirm uploads with `POST /api/v1/auth/documents/confirm`\n\n**Individual documents:** `cpf_frente`, `cpf_verso`, `selfie_com_cpf`, `comprovante_residencia`\n**Business documents:** `cnpj`, `contrato_social`, `comprovante_residencia_empresa`\n\n### Step 4 — Wait for Approval\n\nTrack your status with `GET /api/v1/auth/status`. Wait for team approval.\n\n### Step 5 — Generate Bearer Token\n\nAfter approval, generate your production Bearer Token with `POST /api/v1/auth/bearer-token` using your `keyId` and `secretKey` as headers (`x-key-id` / `x-secret-key`). This is the JWT you will use in the `Authorization: Bearer <token>` header for all API calls.\n\n### Step 6 — Register PIX Key\n\nRegister a PIX key in DICT/BACEN with `POST /api/v1/pix/keys`. Just send `{\"key_type\": \"EVP\"}` — account data is automatically populated from your onboarding!\n\n### Step 7 — Ready to Operate!\n\nNow you can create charges (Cash-In), make transfers, and check your balance.\n\n---",
+    "description": "Complete PIX gateway API by BRZ. Direct integration with BACEN — no external providers.\n\n## Base URLs\n\n**Base URL:** `https://api.brzip.com.br`\n\nAll endpoints use the base path `/api/v1/`.\n\n## Authentication\n\nThe API uses two authentication methods:\n\n### 1. Bearer Token (JWT) — Most endpoints\n\nAll endpoints **except Cash-In** use a Bearer Token:\n``` Authorization: Bearer <your-jwt-token> ```\nObtain a JWT by calling `POST /api/v1/auth/bearer-token` with your API Key credentials.\n\n### 2. API Key — Cash-In endpoints only\n\nCash-In endpoints (`/api/v1/pix/cash-in/*`) use two headers:\n``` x-key-id: <your-key-id> x-secret-key: <your-secret-key> ```\n\n\n## Rate Limits\n\n- Default: 50 req/s per client, burst up to 100.\n- When exceeded, returns HTTP 429 with `Retry-After` header.\n\n## Common Headers\n\n| Header | Required | Description | |--------|----------|-------------| | `Authorization` | Yes (Bearer) | `Bearer <jwt>` for PIX endpoints | | `x-key-id` | Yes (Cash-In) | API Key ID | | `x-secret-key` | Yes (Cash-In) | API Key Secret | | `X-Client-ID` | Tenant only | Act on behalf of one of your sub-clients. See **Acting on Behalf of a Sub-Client** below. | | `X-Account-ID` | Optional | Target a specific bank account of the effective client (defaults to the client's oldest active account). | | `X-Idempotency-Key` | Recommended | Prevents duplicate operations (UUID) | | `Content-Type` | Yes (POST/PUT) | Always `application/json` |\n\n---\n\n## Acting on Behalf of a Sub-Client (`X-Client-ID`)\n\nIf you are a **tenant** (a primary client that owns sub-clients — e.g. a BaaS integrator), you call the API with your **own** credentials and add the `X-Client-ID` header to act on behalf of one of your sub-clients:\n``` X-Client-ID: <sub-client-id> ```\nWhen present, the platform resolves the **source account automatically** from that sub-client — you do **not** pass the origin account anywhere. For a financial movement you only describe the *other* side of the operation. In a P2P transfer, for example, `X-Client-ID` in the header already identifies the payer's account, so the request body only needs the **destination** account.\n\n**How the source account is resolved:** the platform uses the sub-client's active bank account — its oldest `ACTIVE` account by default. To target a specific one of the sub-client's accounts, add the optional `X-Account-ID` header with that account's ID.\n\n**Delegation rules (enforced on every request):**\n- Only a **primary tenant** may delegate. A sub-client cannot use\n  `X-Client-ID` to act as a tenant → `403 DELEGATION_DENIED` (*\"Sub-clients\n  cannot act as tenants for delegation\"*).\n\n- The target must be a sub-client **you own** (its `parent_client_id` is your\n  client id). Otherwise → `403 DELEGATION_DENIED` (*\"Client not found or does\n  not belong to this tenant\"*).\n\n- The target sub-client must not be `suspended` or `blocked` → `403\n  DELEGATION_DENIED` (*\"Sub-client account is suspended or blocked\"*).\n\n\nOmit `X-Client-ID` (or set it to your own client id) to operate as yourself. This header applies to all delegatable operations — PIX movements (Cash-In, Cash-Out, P2P), balance and limits queries, and account operations.\n\n---\n\n## Onboarding Flow (Step by Step)\n\n### Step 1 — Create Account\n\nCreate your account with `POST /api/v1/auth/signup`. The response includes your `keyId` and `secretKey` — save them securely, the secret is shown only once. OTP codes will be sent via email and SMS.\n\n### Step 1b — Verify Email\n\nVerify your email with `POST /api/v1/auth/verify-email` using the OTP code received. If you did not receive the code, resend it with `POST /api/v1/auth/resend-otp` (max 5 per hour) before retrying.\n\n### Step 1c — Verify Phone\n\nVerify your phone with `POST /api/v1/auth/verify-phone` using the OTP code received via SMS. If you did not receive the code, use `POST /api/v1/auth/resend-otp` to request a new one.\n\n### Step 2 — Log In to Continue Onboarding\n\nLog in with `POST /api/v1/auth/login` (email + password) to obtain a session token. This token is required to access the document upload endpoints below. It is a temporary onboarding token, not the production Bearer Token you will use to call the API.\n\n### Step 3 — Submit Documents (3 stages)\n\n1. Get pre-signed URLs with `POST /api/v1/auth/documents/presigned-urls`\n2. `PUT` each file directly to the S3 URL (raw binary, no FormData)\n3. Confirm uploads with `POST /api/v1/auth/documents/confirm`\n\n**Individual documents:** `cpf_frente`, `cpf_verso`, `selfie_com_cpf`, `comprovante_residencia`\n**Business documents:** `cnpj`, `contrato_social`, `comprovante_residencia_empresa`\n\n### Step 4 — Wait for Approval\n\nTrack your status with `GET /api/v1/auth/status`. Wait for team approval.\n\n### Step 5 — Generate Bearer Token\n\nAfter approval, generate your production Bearer Token with `POST /api/v1/auth/bearer-token` using your `keyId` and `secretKey` as headers (`x-key-id` / `x-secret-key`). This is the JWT you will use in the `Authorization: Bearer <token>` header for all API calls.\n\n### Step 6 — Register PIX Key\n\nRegister a PIX key in DICT/BACEN with `POST /api/v1/pix/keys`. Just send `{\"key_type\": \"EVP\"}` — account data is automatically populated from your onboarding!\n\n### Step 7 — Ready to Operate!\n\nNow you can create charges (Cash-In), make transfers, and check your balance.\n\n---",
     "version": "1.0.0"
   },
   "servers": [
@@ -1345,6 +1345,30 @@
         }
       }
     },
+    "parameters": {
+      "XClientId": {
+        "name": "X-Client-ID",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "**Tenant delegation.** When you are a primary tenant, set this to one of your sub-clients' `client_id` to act on its behalf. The source account is resolved automatically from that sub-client, so financial movements only need to describe the destination. Only a primary tenant may delegate, the target must be a sub-client you own, and it must not be suspended or blocked — otherwise the request fails with `403 DELEGATION_DENIED`. Omit to operate as yourself.",
+        "example": "b7c4e902-1a2b-4f3d-9c8e-112233445566"
+      },
+      "XAccountId": {
+        "name": "X-Account-ID",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "description": "Target a specific bank account of the effective client (the caller, or the sub-client named in `X-Client-ID`). The account must belong to that client and be `ACTIVE`. If omitted, the client's oldest active account is used.",
+        "example": "a612b202-6690-4d24-ba35-2e36c8f3c0ce"
+      }
+    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
@@ -1711,6 +1735,14 @@
             }
           }
         },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Lookup completed. `found` distinguishes a resolved key (`true`, with `account`/`owner`/`end_to_end_id`) from a key absent in DICT (`false`, other fields omitted).",
@@ -1871,6 +1903,14 @@
             }
           }
         },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          }
+        ],
         "responses": {
           "201": {
             "description": "PIX key registered successfully (flat object, no envelope)",
@@ -1898,6 +1938,12 @@
         "operationId": "listPixKeys",
         "description": "Lists all PIX keys registered for the authenticated client.\n\n**Scope:** `pix:keys:read`",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "page",
             "in": "query",
@@ -1985,6 +2031,12 @@
         "description": "Looks up a specific PIX key by its value (CPF, email, EVP UUID, etc.).\n\n**Scope:** `pix:keys:read`",
         "parameters": [
           {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
+          {
             "name": "key",
             "in": "path",
             "required": true,
@@ -2019,6 +2071,12 @@
         "operationId": "deletePixKey",
         "description": "Removes a PIX key from DICT/BACEN.\n\n**URL parameter:** `key` — the PIX key value\n**Body:** `reason` (optional free-text string; defaults to `USER_REQUESTED` when omitted). Not validated against an enum.\n\n**Scope:** `pix:keys:write`",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "key",
             "in": "path",
@@ -2148,6 +2206,14 @@
             }
           }
         },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          }
+        ],
         "responses": {
           "201": {
             "description": "Claim created (flat object, no envelope)",
@@ -2174,6 +2240,12 @@
         "operationId": "confirmPixKeyClaim",
         "description": "Confirms a pending PIX key claim.\n\n**Scope:** `pix:keys:write`",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "claimId",
             "in": "path",
@@ -2207,6 +2279,12 @@
         "operationId": "cancelPixKeyClaim",
         "description": "Cancels a pending PIX key claim. Optional `reason` code in the body.\n\n**Scope:** `pix:keys:write`",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "claimId",
             "in": "path",
@@ -2256,6 +2334,12 @@
         "operationId": "getBalance",
         "description": "Queries the account balance. If `account_id` is omitted, uses the client's default account.\n\n**Scope:** `pix:balance:read`",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "account_id",
             "in": "query",
@@ -2316,6 +2400,12 @@
         "operationId": "getLimits",
         "description": "Queries PIX transaction limits for the account, grouped by type (pix_out, pix_in, ted, boleto) and period (daytime/nighttime).\n\n**Scope:** `pix:limits:read`",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "account_id",
             "in": "query",
@@ -2421,6 +2511,14 @@
             }
           }
         },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Limit change request created",
@@ -2453,6 +2551,14 @@
         "summary": "List Pending Limit Requests",
         "operationId": "listLimitRequests",
         "description": "Lists all pending limit change requests for the authenticated account. Returns only requests with `pending` status.\n\n**Scope:** `pix:limits:read`",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "List of pending limit requests",
@@ -2488,6 +2594,12 @@
         "operationId": "getLimitRequest",
         "description": "Retrieves details of a specific limit change request. Returns full data including current status (pending, approved, rejected, expired).\n\n**Scope:** `pix:limits:read`",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "limit_request_id",
             "in": "path",
@@ -2670,6 +2782,12 @@
         },
         "parameters": [
           {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
+          {
             "name": "x-key-id",
             "in": "header",
             "required": false,
@@ -2826,6 +2944,12 @@
         },
         "parameters": [
           {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
+          {
             "name": "x-key-id",
             "in": "header",
             "required": false,
@@ -2895,6 +3019,12 @@
         "operationId": "getCashInStatus",
         "description": "Queries the status of a PIX charge.\n\n**Possible statuses:** `pending`, `paid`, `expired`, `cancelled`, `failed`\n\n**Scope:** `pix:cashin:read`",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "cash_in_id",
             "in": "path",
@@ -2996,6 +3126,12 @@
         "operationId": "cancelCashIn",
         "description": "Cancels a pending PIX charge. Only works for charges with `pending` status.\n\n**Scope:** `pix:cashin:write`",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "cash_in_id",
             "in": "path",
@@ -3120,6 +3256,12 @@
         },
         "parameters": [
           {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
+          {
             "name": "X-Idempotency-Key",
             "in": "header",
             "schema": {
@@ -3157,6 +3299,12 @@
         "operationId": "listReversals",
         "description": "Lists all PIX reversals with pagination and filter support. This endpoint is not implemented as of yet. Use [GET /reversals/:reversal_id](api:GET/api/v1/pix/reversals/{reversal_id}) to retrieve a specific reversal.\n\n**Scope:** `pix:reversals:read`",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "limit",
             "in": "query",
@@ -3242,6 +3390,12 @@
         "operationId": "getReversal",
         "description": "Retrieves the status and details of a PIX reversal by its ID.\n\n**Scope:** `pix:reversals:read`",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "reversal_id",
             "in": "path",
@@ -3378,6 +3532,12 @@
         },
         "parameters": [
           {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
+          {
             "name": "X-Idempotency-Key",
             "in": "header",
             "schema": {
@@ -3503,6 +3663,14 @@
             }
           }
         },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Cash-Out query result (body proxied verbatim from the payment orchestrator)."
@@ -3527,6 +3695,12 @@
           }
         ],
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "external_id",
             "in": "query",
@@ -3557,6 +3731,12 @@
         "operationId": "getCashOutStatus",
         "description": "Queries the status of a PIX payment (Cash-Out).\n\n**Possible statuses:** `processing`, `completed`, `failed`, `returned`\n\n**Scope:** `pix:cashout:read`",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "cash_out_id",
             "in": "path",
@@ -3789,6 +3969,12 @@
         ],
         "parameters": [
           {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
+          {
             "name": "page",
             "in": "query",
             "schema": {
@@ -3903,6 +4089,14 @@
             }
           }
         },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          }
+        ],
         "responses": {
           "201": {
             "description": "MED request opened successfully. Returned as a flat object (no `success` wrapper).",
@@ -3962,6 +4156,12 @@
         ],
         "parameters": [
           {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
+          {
             "name": "medId",
             "in": "path",
             "required": true,
@@ -4011,6 +4211,12 @@
           }
         ],
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "medId",
             "in": "path",
@@ -4071,6 +4277,12 @@
           }
         ],
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "medId",
             "in": "path",
@@ -4161,6 +4373,12 @@
           }
         ],
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "status",
             "in": "path",
@@ -5065,6 +5283,14 @@
             }
           }
         },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          }
+        ],
         "responses": {
           "201": {
             "description": "Transfer created",
@@ -5184,6 +5410,14 @@
             }
           }
         },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          }
+        ],
         "responses": {
           "200": {
             "description": "Lookup successful",
@@ -5305,6 +5539,14 @@
             }
           }
         },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          }
+        ],
         "responses": {
           "201": {
             "description": "Authorization created and resolved",
@@ -5404,6 +5646,12 @@
           }
         ],
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "id",
             "in": "path",
@@ -5522,6 +5770,12 @@
         ],
         "parameters": [
           {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
+          {
             "name": "id",
             "in": "path",
             "required": true,
@@ -5638,6 +5892,12 @@
           }
         ],
         "parameters": [
+          {
+            "$ref": "#/components/parameters/XClientId"
+          },
+          {
+            "$ref": "#/components/parameters/XAccountId"
+          },
           {
             "name": "id",
             "in": "path",
