@@ -7,13 +7,11 @@ description: "BRZ API changes, new features, and breaking changes."
 
 ## Q3 2026
 
-### 2026-07-22 — Wallet Breakdown (v1-1-beta)
+### 2026-07-22 — Wallet Balances
 
-**New:** `wallet_breakdown` array in `GET /api/v1-1-beta/wallet/balance/{clientId}` and `POST /api/v1-1-beta/wallet/balances`.
+**New:** `GET /api/v1/accounts/wallets` and `GET /api/v1/accounts/{accountId}/wallets` return every user-visible wallet owned by the authenticated client (checking plus any benefit pockets), each with `id`, `account_id`, `wallet_type`, `available`, `blocked`, `total`, `currency`, and `updated_at`.
 
-Clients holding multiple wallets (e.g., primary + escrow) now receive a per-wallet breakdown with `wallet_id`, `wallet_type`, `available`, `blocked`, and `currency` fields.
-
-No changes to the `v1` path — `wallet_breakdown` is only in `v1-1-beta`.
+Scope: `pix:balance:read`. See the [Wallet Balance guide](./guide-wallets).
 
 ---
 
@@ -42,24 +40,18 @@ The QR Code server at `qrcode.brzip.com.br` is now fully documented:
 
 ## Q2 2026
 
-### 2026-06-15 — 2FA / Step-Up Authentication for Cash-Out
+### 2026-06-15 — Step-Up Confirmation for Cash-Out
 
-Cash-out operations above the configured tenant threshold now require `X-Step-Up-Token`.
-
-**How to obtain:**
-1. Call `POST /api/v1/auth/otp/request` — sends OTP to the user's registered device
-2. Submit OTP to `POST /api/v1/auth/otp/verify` — returns a short-lived step-up token (valid 5 minutes)
-3. Include the token as `X-Step-Up-Token: <token>` on the cash-out request
+Cash-out requests that require an additional confirmation (for example, high-value transfers) can now carry the confirmation in the **request body** via the optional `verification_token` and `biometric_confirmed` fields.
 
 See the [Cash-Out guide](./guide-cash-out) for the full flow.
 
 ---
 
-### 2026-06-01 — Account Capabilities & KYC Levels
+### 2026-06-01 — Account Lifecycle & Types
 
-Account capabilities are now tied to KYC level:
+Account lifecycle management is now available:
 
-- `GET /api/v1/accounts/{accountId}/capabilities` returns the current capability matrix
 - `POST /api/v1/accounts/{accountId}/activate` transitions `pending_kyc → active` after KYC approval
 - `POST /api/v1/accounts/{accountId}/block` halts all operations (PIX, boleto, P2P)
 
@@ -69,11 +61,11 @@ See the [Account Management guide](./guide-accounts).
 
 ---
 
-### 2026-05-20 — Webhook Authentication (INTERNAL_SERVICE_KEY)
+### 2026-05-20 — Webhook Signature Verification
 
-Webhook signing migrated from `X-Webhook-Secret` to `HMAC-SHA256` with `X-BRZ-Signature` header.
+Webhook deliveries are signed with **HMAC-SHA256** and carry the signature in the `x-webhook-signature` header (format `sha256=<hex>`), alongside `x-webhook-timestamp`, `x-webhook-id`, `x-webhook-event`, and `x-webhook-source`.
 
-**Action required:** Update your webhook consumer to verify `X-BRZ-Signature` using the shared secret from your tenant configuration. The old `X-Webhook-Secret` header is deprecated and will be removed in Q4 2026.
+**Action required:** Verify `x-webhook-signature` by computing HMAC-SHA256 over `timestamp + "." + raw_body` using the `secret` returned when the webhook was created (used as-is, including its `whsec_` prefix).
 
 See the [Webhooks guide](./webhooks-integration).
 

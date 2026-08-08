@@ -9,27 +9,32 @@ The BRZ API enforces rate limits to ensure fair usage and system stability.
 
 ## Default Limits
 
+Rate limiting uses a token-bucket algorithm applied per authenticated client (identified by the client ID resolved from your credentials; unauthenticated requests are keyed by source address).
+
 | Metric | Limit |
 |--------|-------|
 | Sustained rate | 50 requests/second per client |
-| Burst rate | Up to 100 requests/second |
+| Burst | Bucket capacity of 100 requests |
 
 ## Exceeding the Limit
 
 When you exceed the rate limit, the API returns:
 
 - **HTTP Status**: `429 Too Many Requests`
-- **Header**: `Retry-After` — indicates how many seconds to wait before retrying
+- **Header**: `Retry-After` — the number of seconds to wait before retrying
 
 ### Example Response
 
 ```json
 {
-  "error": "Rate limit exceeded",
-  "code": "RATE_LIMIT_EXCEEDED",
-  "retry_after": 5
+  "error": "rate_limit_exceeded",
+  "message": "Too many requests. Please retry after the Retry-After period."
 }
 ```
+
+<Note>
+The `Retry-After` header on a general rate-limit `429` is currently a fixed `1` (second). DICT PIX-key lookups are governed by a separate BACEN-mandated limiter that returns its own `429` with a longer `Retry-After`. Always honor the `Retry-After` header value rather than assuming a fixed delay.
+</Note>
 
 ## Best Practices
 

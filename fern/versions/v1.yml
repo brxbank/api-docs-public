@@ -47,13 +47,13 @@ navigation:
       - Service Health
       - PIX Keys
       - PIX Balance
-      - Transactions
       - PIX Limits
       - PIX Cash-In
       - PIX Reversals
       - PIX Cash-Out
       - MED
       - Accounts
+      - Tenant Clients
       - Boleto
       - Wallets
       - Participants

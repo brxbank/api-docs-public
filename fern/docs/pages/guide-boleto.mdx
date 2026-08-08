@@ -12,12 +12,12 @@ The Boleto API allows your clients to pay boletos using funds in their BRZ walle
 ```
 1. Decode barcode       →  retrieve beneficiary + amount
 2. Authorize payment    →  submit payment (deducts from wallet)
-3. Poll status          →  PROCESSING → PAID | FAILED | CANCELLED
+3. Poll status          →  pending → processing → completed | failed | cancelled
 4. (Optional) Cancel    →  before settlement window closes
 ```
 
 <Callout intent="info">
-  Include `X-Idempotency-Key` on payment requests to safely retry without duplicating charges.
+  Payments are idempotent per `external_id`: send a unique `external_id` on each payment request and safely retry with the same value without duplicating charges.
 </Callout>
 
 ---
@@ -35,42 +35,25 @@ curl -X POST https://api.brzip.com.br/api/v1/payments/boleto/decode \
   }'
 ```
 
-**Response:**
+**Response (`200 OK`):**
+
+The response wraps the provider's raw decode payload under `data.data`, plus a `settlement_mode` marker:
 
 ```json
 {
   "success": true,
   "data": {
-    "barcode": "34191090086123467890123456789012110000000002500",
-    "amount": "250.00",
-    "original_amount": "250.00",
-    "due_date": "2026-07-25",
-    "beneficiary": {
-      "name": "EMPRESA EXEMPLO LTDA",
-      "document": "12.345.678/0001-90"
+    "data": {
+      "...": "raw provider (Celcoin) boleto data — amount, due date, beneficiary, fine, interest, discount, etc."
     },
-    "payer": {
-      "name": null,
-      "document": null
-    },
-    "bank_code": "341",
-    "bank_name": "Banco Itaú",
-    "fine": "0.00",
-    "interest": "0.00",
-    "discount": "0.00",
-    "expires_at": "2026-07-30T23:59:59Z"
+    "settlement_mode": "prefunded"
   }
 }
 ```
 
-| Field | Description |
-|-------|-------------|
-| `amount` | Final amount due (after fine/interest/discount) |
-| `original_amount` | Face value on the boleto |
-| `fine` | Late fee applied |
-| `interest` | Daily interest accrued |
-| `discount` | Any discount applied |
-| `expires_at` | Payment deadline — after this, the boleto cannot be paid |
+<Callout intent="info">
+  `data.data` is the underlying provider's boleto payload passed through as-is (currently Celcoin). Field names inside it follow the provider's contract and are not remapped by the BRZ API. `settlement_mode` is always `"prefunded"`.
+</Callout>
 
 ---
 
@@ -82,32 +65,41 @@ Submit the payment. The wallet is debited immediately:
 curl -X POST https://api.brzip.com.br/api/v1/payments/boleto \
   -H "Authorization: Bearer <your-jwt>" \
   -H "Content-Type: application/json" \
-  -H "X-Idempotency-Key: 7e0a1b2c-3d4e-5f6a-7b8c-9d0e1f2a3b4c" \
   -d '{
-    "account_id": "a612b202-6690-4d24-ba35-2e36c8f3c0ce",
+    "external_id": "7e0a1b2c-3d4e-5f6a-7b8c-9d0e1f2a3b4c",
     "barcode": "34191090086123467890123456789012110000000002500",
-    "amount": "250.00",
+    "amount": 250.00,
+    "cpf_cnpj": "12345678901",
     "description": "Invoice #1234"
   }'
 ```
 
-**Response (`202 Accepted`):**
+**Request fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `external_id` | string | Yes | Your unique payment ID — used for idempotency |
+| `barcode` | string | Yes | Boleto barcode / digitable line |
+| `amount` | number | Yes | Amount to pay (must be > 0) |
+| `cpf_cnpj` | string | Yes | CPF/CNPJ of the payer |
+| `scheduled_for` | string | No | Schedule date (`YYYY-MM-DD`) |
+| `description` | string | No | Free-text description |
+
+**Response (`201 Created`):**
 
 ```json
 {
-  "success": true,
-  "data": {
-    "payment_id": "pay_9f3d2a1b4c5e6f7a",
-    "status": "PROCESSING",
-    "amount": "250.00",
-    "barcode": "34191090086123467890123456789012110000000002500",
-    "created_at": "2026-07-22T14:30:00Z"
-  }
+  "transaction_id": "9f3d2a1b-4c5e-6f7a-8b9c-0d1e2f3a4b5c",
+  "external_id": "7e0a1b2c-3d4e-5f6a-7b8c-9d0e1f2a3b4c",
+  "status": "pending",
+  "amount": "250.00",
+  "currency": "BRL",
+  "created_at": "2026-07-22T14:30:00Z"
 }
 ```
 
 <Callout intent="warning">
-  A `202 Accepted` response means the payment was accepted for processing — **not** that it has settled. Poll the status endpoint to confirm.
+  A `201 Created` response means the payment was accepted for processing — **not** that it has settled. The initial status is `pending`. Poll the status endpoint to confirm settlement.
 </Callout>
 
 **Errors:**
@@ -119,7 +111,7 @@ curl -X POST https://api.brzip.com.br/api/v1/payments/boleto \
 | 400 | `BOLETO_EXPIRED` | Boleto past its `expires_at` date |
 | 402 | `INSUFFICIENT_FUNDS` | Wallet balance too low |
 | 409 | `DUPLICATE_PAYMENT` | Same barcode already paid by this account |
-| 409 | `IDEMPOTENCY_CONFLICT` | Key reused with different parameters |
+| 409 | `IDEMPOTENCY_CONFLICT` | `external_id` reused with different parameters |
 
 ---
 
@@ -134,15 +126,13 @@ curl -X GET https://api.brzip.com.br/api/v1/payments/boleto/{paymentId} \
 
 ```json
 {
-  "success": true,
-  "data": {
-    "payment_id": "pay_9f3d2a1b4c5e6f7a",
-    "status": "PAID",
-    "amount": "250.00",
-    "paid_at": "2026-07-22T14:31:45Z",
-    "authentication_code": "B2026072234191341123456",
-    "barcode": "34191090086123467890123456789012110000000002500"
-  }
+  "transaction_id": "9f3d2a1b-4c5e-6f7a-8b9c-0d1e2f3a4b5c",
+  "external_id": "7e0a1b2c-3d4e-5f6a-7b8c-9d0e1f2a3b4c",
+  "status": "completed",
+  "amount": "250.00",
+  "currency": "BRL",
+  "created_at": "2026-07-22T14:30:00Z",
+  "updated_at": "2026-07-22T14:31:45Z"
 }
 ```
 
@@ -150,12 +140,17 @@ curl -X GET https://api.brzip.com.br/api/v1/payments/boleto/{paymentId} \
 
 | Status | Description |
 |--------|-------------|
-| `PROCESSING` | Submitted to Celcoin, awaiting confirmation |
-| `PAID` | Settlement confirmed — `authentication_code` is available |
-| `FAILED` | Provider rejected — funds returned to wallet |
-| `CANCELLED` | Cancelled before settlement |
+| `pending` | Accepted, not yet submitted to the provider |
+| `processing` | Submitted to the provider, awaiting confirmation |
+| `completed` | Settlement confirmed |
+| `failed` | Provider rejected — funds returned to wallet |
+| `cancelled` | Cancelled before settlement |
+| `blocked` | Held for manual review |
+| `refunded` | Payment reversed |
+| `pending_manual_review` | Awaiting manual review |
+| `expired` | Payment window elapsed |
 
-Typical settlement time: **30 seconds to 2 minutes** for `PROCESSING → PAID`.
+Typical settlement time: **30 seconds to 2 minutes** for `processing → completed`.
 
 **Recommended polling strategy:**
 
@@ -169,9 +164,9 @@ async function waitForPayment(paymentId, token) {
       `https://api.brzip.com.br/api/v1/payments/boleto/${paymentId}`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
-    const { data } = await resp.json();
+    const data = await resp.json();
 
-    if (data.status !== "PROCESSING") return data;
+    if (data.status !== "pending" && data.status !== "processing") return data;
     await new Promise(r => setTimeout(r, DELAY));
   }
   throw new Error("Payment still processing after 50s — use webhooks");
@@ -179,26 +174,33 @@ async function waitForPayment(paymentId, token) {
 ```
 
 <Callout intent="info">
-  For production, subscribe to the `boleto.payment.paid` webhook event instead of polling. See the [Webhooks guide](./webhooks-integration).
+  For production, subscribe to the `boleto.payment.completed` webhook event instead of polling. See the [Webhooks guide](./webhooks-integration).
 </Callout>
 
 ---
 
 ## Step 4: Cancel a Payment (Optional)
 
-Cancellation is only possible while the payment is still in `PROCESSING`:
+Cancellation is only possible while the payment is still in `processing`:
 
 ```bash
 curl -X DELETE https://api.brzip.com.br/api/v1/payments/boleto/{paymentId} \
   -H "Authorization: Bearer <your-jwt>"
 ```
 
-**Response:**
+**Response (`200 OK`):**
+
+Like decode, the response wraps the provider's raw cancellation payload under `data.data`:
 
 ```json
 {
   "success": true,
-  "message": "Payment cancelled successfully"
+  "data": {
+    "data": {
+      "...": "raw provider (Celcoin) cancellation payload"
+    },
+    "settlement_mode": "prefunded"
+  }
 }
 ```
 
@@ -214,6 +216,6 @@ Subscribe to these events in your webhook configuration:
 
 | Event | When |
 |-------|------|
-| `boleto.payment.paid` | Celcoin confirmed settlement |
+| `boleto.payment.created` | Payment accepted and created |
+| `boleto.payment.completed` | Provider confirmed settlement |
 | `boleto.payment.failed` | Provider rejection — funds returned |
-| `boleto.payment.cancelled` | Cancellation confirmed |

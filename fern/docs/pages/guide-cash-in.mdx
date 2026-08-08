@@ -56,8 +56,10 @@ curl -X POST https://api.brzip.com.br/api/v1/pix/cash-in/qrcode \
   "transaction_id": "txn_f1e2d3c4-b5a6-7890-cdef-1234567890ab",
   "status": "pending",
   "qr_code": "00020126580014br.gov.bcb.pix0136...",
-  "qr_code_text": "data:image/png;base64,iVBORw0KGgo...",
+  "qr_code_text": "00020126580014br.gov.bcb.pix0136...",
+  "qr_code_image": "iVBORw0KGgo...",
   "expires_at": "2026-02-23T22:10:00.000Z",
+  "conciliation_id": "conc_9a8b7c6d",
   "provider": "pix"
 }
 ```
@@ -77,7 +79,7 @@ curl -X GET https://api.brzip.com.br/api/v1/pix/cash-in/txn_abc123 \
 | Status | Description |
 |--------|-------------|
 | `pending` | Charge created, awaiting payment |
-| `paid` | Payment received and confirmed |
+| `completed` | Payment received and confirmed |
 | `expired` | Charge expired without payment |
 | `cancelled` | Charge was cancelled |
 | `failed` | Charge processing failed |
