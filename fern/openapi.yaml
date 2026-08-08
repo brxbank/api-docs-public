@@ -2185,7 +2185,7 @@ paths:
               properties:
                 type:
                   type: string
-                  enum: [pix_in, pix_out, ted, boleto, total]
+                  enum: [pix_in, pix_out, ted, boleto, p2p, total]
                   description: Limit type
                   example: pix_in
                 period:
