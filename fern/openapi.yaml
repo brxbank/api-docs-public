@@ -618,6 +618,110 @@ components:
           type: string
           format: date-time
           example: "2026-03-23T14:30:00Z"
+    Webhook:
+      type: object
+      description: A registered webhook subscription.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+        url:
+          type: string
+          format: uri
+          example: https://api.example.com/webhooks/pix
+        events:
+          type: array
+          description: >-
+            Subscribed event types. An empty list or `["*"]` means all events.
+          items:
+            type: string
+          example:
+            - pix.cash_in.confirmed
+            - pix.cash_in.received
+            - pix.cash_out.completed
+        status:
+          type: string
+          enum:
+            - active
+            - inactive
+          example: active
+        last_triggered_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When an event was last matched for this webhook.
+        last_delivery_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a delivery was last attempted for this webhook.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - url
+        - events
+        - status
+        - created_at
+        - updated_at
+    WebhookDelivery:
+      type: object
+      description: A single webhook delivery attempt record.
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: a3f1c9d2-4b7e-4f9a-8c2d-1e2f3a4b5c6d
+        webhook_id:
+          type: string
+          format: uuid
+          nullable: true
+          example: d9f8e7c6-b5a4-4321-9f8e-7d6c5b4a3f2e
+        transaction_id:
+          type: string
+          nullable: true
+          example: f1e2d3c4-b5a6-7890-1234-56789abcdef0
+        event_type:
+          type: string
+          example: pix.cash_in.confirmed
+        status:
+          type: string
+          description: Delivery status (lowercase).
+          enum:
+            - delivered
+            - pending
+            - failed
+          example: delivered
+        payload:
+          type: object
+          description: The event payload that was (or will be) POSTed to your URL.
+          additionalProperties: true
+        response_status:
+          type: integer
+          nullable: true
+          description: HTTP status code returned by your endpoint on the last attempt.
+          example: 200
+        attempts:
+          type: integer
+          example: 1
+        delivered_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - event_type
+        - status
+        - attempts
+        - created_at
     MedRefund:
       type: object
       description: >-
@@ -1003,8 +1107,25 @@ tags:
       and more.
 
 
-      **Scopes:** `webhooks:read` (list, search) · `webhooks:write` (create,
-      update, delete, resend)
+      **Scopes:** `webhooks:read` (list, get, deliveries, activity) ·
+      `webhooks:write` (create, update, delete, rotate-secret, resend)
+
+
+      **Signature verification.** Every delivery is signed with HMAC-SHA256 and
+      carries three headers:
+
+      - `X-Webhook-Signature`: `sha256=<hex>` — the signature.
+
+      - `X-Webhook-Timestamp`: Unix seconds when the delivery was signed.
+
+      - `X-Webhook-ID`: the delivery identifier.
+
+      The signed string is `"{timestamp}.{raw_body}"` and the key is the
+      webhook's `secret`. To verify: recompute
+      `"sha256=" + hex(hmac_sha256(secret, timestamp + "." + raw_body))` and
+      compare it against `X-Webhook-Signature` in constant time. Reject the
+      delivery if the timestamp is outside your tolerance window (replay
+      protection).
 
 
       For the full integration guide including supported events, payload
@@ -3334,12 +3455,17 @@ paths:
       summary: Create Webhook
       operationId: createWebhook
       description: >-
-        Creates a new webhook to receive PIX event notifications.
+        Creates a new webhook to receive event notifications.
 
 
         **IMPORTANT:** The `secret` is returned **only at creation time**. Store
         it securely for signature validation.
 
+
+        **Scope:** `webhooks:write`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -3380,46 +3506,21 @@ paths:
                     type: object
                     properties:
                       webhook:
-                        type: object
-                        properties:
-                          id:
-                            type: string
-                            format: uuid
-                            example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
-                          url:
-                            type: string
-                            format: uri
-                            example: https://api.example.com/webhooks/pix
-                          events:
-                            type: array
-                            items:
-                              type: string
-                            example:
-                              - pix.cash_in.confirmed
-                          status:
-                            type: string
-                            example: active
-                          secret:
-                            type: string
-                            description: >-
-                              HMAC-SHA256 signing secret. Returned **only at creation time** — store it securely.
-                              Use it to verify the `x-webhook-signature` header on incoming notifications.
-                              To regenerate, call `POST /api/v1/webhooks/{id}/rotate-secret`.
-                            example: whsec_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6
-                          created_at:
-                            type: string
-                            format: date-time
-                          updated_at:
-                            type: string
-                            format: date-time
-                        required:
-                          - id
-                          - url
-                          - events
-                          - status
-                          - secret
-                          - created_at
-                          - updated_at
+                        allOf:
+                          - $ref: '#/components/schemas/Webhook'
+                          - type: object
+                            properties:
+                              secret:
+                                type: string
+                                description: >-
+                                  HMAC-SHA256 signing secret. Returned **only at
+                                  creation time** — store it securely. Use it to
+                                  verify the `X-Webhook-Signature` header on
+                                  incoming notifications. To regenerate, call
+                                  `POST /api/v1/webhooks/{id}/rotate-secret`.
+                                example: whsec_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6
+                            required:
+                              - secret
     get:
       tags:
         - Webhooks
@@ -3428,6 +3529,11 @@ paths:
       description: >-
         Lists all webhooks registered by the authenticated client.
 
+
+        **Scope:** `webhooks:read`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
       parameters:
         - name: limit
           in: query
@@ -3435,7 +3541,7 @@ paths:
             type: integer
             default: 20
             maximum: 100
-          description: Items per page (max 100, default 20)
+          description: Items per page (1–100, default 20)
           example: 20
         - name: offset
           in: query
@@ -3448,8 +3554,30 @@ paths:
         '200':
           description: List of webhooks
           content:
-            application/json: {}
-  /api/v1/webhooks/{webhook_id}:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      webhooks:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Webhook'
+                      total:
+                        type: integer
+                        example: 2
+                      limit:
+                        type: integer
+                        example: 20
+                      offset:
+                        type: integer
+                        example: 0
+  /api/v1/webhooks/{id}:
     get:
       tags:
         - Webhooks
@@ -3458,18 +3586,36 @@ paths:
       description: >-
         Retrieves a specific webhook by ID. Returns webhook details including
         status and last activity timestamps.
+
+
+        **Scope:** `webhooks:read`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
       parameters:
-        - name: webhook_id
+        - name: id
           in: path
           schema:
             type: string
+            format: uuid
           required: true
           description: Webhook ID
       responses:
         '200':
           description: Webhook details
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      webhook:
+                        $ref: '#/components/schemas/Webhook'
         '404':
           description: Webhook not found
     put:
@@ -3480,11 +3626,18 @@ paths:
       description: >-
         Updates an existing webhook. All fields are optional — send only what
         you want to change.
+
+
+        **Scope:** `webhooks:write`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
       parameters:
-        - name: webhook_id
+        - name: id
           in: path
           schema:
             type: string
+            format: uuid
           required: true
           description: Webhook ID
       requestBody:
@@ -3513,7 +3666,18 @@ paths:
         '200':
           description: Webhook updated successfully
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      webhook:
+                        $ref: '#/components/schemas/Webhook'
         '404':
           description: Webhook not found
     delete:
@@ -3527,149 +3691,40 @@ paths:
 
 
         **WARNING:** This action is irreversible.
+
+
+        **Scope:** `webhooks:write`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
       parameters:
-        - name: webhook_id
+        - name: id
           in: path
           schema:
             type: string
+            format: uuid
           required: true
           description: Webhook ID
       responses:
         '200':
           description: Webhook deleted successfully
           content:
-            application/json: {}
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      deleted:
+                        type: boolean
+                        example: true
         '404':
           description: Webhook not found
-  /api/v1/webhooks/deliveries:
-    get:
-      tags:
-        - Webhooks
-      summary: List Deliveries
-      operationId: listDeliveries
-      description: >-
-        Lists webhook deliveries for the client. Each delivery shows the event,
-        status, payload sent, response received, attempt count, and timestamps.
-
-      parameters:
-        - name: webhook_id
-          in: query
-          schema:
-            type: string
-          description: Filter by webhook ID (UUID)
-        - name: transaction_id
-          in: query
-          schema:
-            type: string
-          description: Filter by transaction ID (UUID)
-        - name: event_type
-          in: query
-          schema:
-            type: string
-          description: Filter by event type (e.g. pix.cash_in.confirmed)
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [delivered, pending, failed]
-          description: Filter by delivery status
-        - name: start_date
-          in: query
-          schema:
-            type: string
-            format: date
-          description: Filter by start date (YYYY-MM-DD)
-        - name: end_date
-          in: query
-          schema:
-            type: string
-            format: date
-          description: Filter by end date (YYYY-MM-DD)
-        - name: page
-          in: query
-          schema:
-            type: integer
-            default: 1
-          description: Page number (1-based, default 1)
-          example: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 50
-            maximum: 100
-          description: Items per page (max 100, default 50)
-          example: 20
-        - name: offset
-          in: query
-          schema:
-            type: integer
-          description: Alternative to page-based pagination (0-based)
-          example: 0
-      responses:
-        '200':
-          description: List of deliveries
-          content:
-            application/json: {}
-  /api/v1/webhooks/deliveries/{delivery_id}:
-    get:
-      tags:
-        - Webhooks
-      summary: Get Delivery by ID
-      operationId: getDelivery
-      description: >-
-        Retrieves details of a specific delivery, including the payload sent,
-        HTTP response status, and number of attempts.
-      parameters:
-        - name: delivery_id
-          in: path
-          schema:
-            type: string
-          required: true
-          description: Delivery ID
-      responses:
-        '200':
-          description: Delivery details
-          content:
-            application/json: {}
-        '404':
-          description: Delivery not found
-  /api/v1/webhooks/deliveries/{delivery_id}/resend:
-    post:
-      tags:
-        - Webhooks
-      summary: Resend Delivery
-      operationId: resendDelivery
-      description: >-
-        Manually resends a failed or undelivered webhook delivery.
-
-
-        Useful when:
-
-        - Your URL was down and is now back online
-
-        - You missed a notification and need to reprocess
-
-        - You want to test integration with real data
-
-
-        The delivery will be re-queued and delivered on the next worker
-        execution.
-      parameters:
-        - name: delivery_id
-          in: path
-          schema:
-            type: string
-          required: true
-          description: Delivery ID
-      responses:
-        '200':
-          description: Delivery re-queued successfully
-          content:
-            application/json: {}
-        '404':
-          description: Delivery not found
-  /api/v1/webhooks/{webhook_id}/rotate-secret:
+  /api/v1/webhooks/{id}/rotate-secret:
     post:
       tags:
         - Webhooks
@@ -3683,8 +3738,14 @@ paths:
         Use this if your secret was compromised or as a periodic rotation
         practice. After rotation, update your signature verification logic with
         the new secret before deliveries resume.
+
+
+        **Scope:** `webhooks:write`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
       parameters:
-        - name: webhook_id
+        - name: id
           in: path
           schema:
             type: string
@@ -3705,22 +3766,246 @@ paths:
                   data:
                     type: object
                     properties:
-                      webhook:
-                        type: object
-                        properties:
-                          id:
-                            type: string
-                            format: uuid
-                          secret:
-                            type: string
-                            description: >-
-                              New signing secret. Store it securely — it will not be shown again.
-                            example: whsec_z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6b5a4
-                          updated_at:
-                            type: string
-                            format: date-time
+                      webhook_id:
+                        type: string
+                        format: uuid
+                        example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                      secret:
+                        type: string
+                        description: >-
+                          New signing secret. Store it securely — it will not be
+                          shown again.
+                        example: whsec_z9y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6b5a4
+                    required:
+                      - webhook_id
+                      - secret
         '404':
           description: Webhook not found
+  /api/v1/webhooks/deliveries:
+    get:
+      tags:
+        - Webhooks
+      summary: List Deliveries
+      operationId: listDeliveries
+      description: >-
+        Lists webhook deliveries for the client. Each delivery shows the event
+        type, status, payload, response HTTP status, attempt count, and
+        timestamps.
+
+
+        **Scope:** `webhooks:read`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: event_type
+          in: query
+          schema:
+            type: string
+          description: Filter by event type (e.g. `pix.cash_in.confirmed`)
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [delivered, pending, failed]
+          description: Filter by delivery status
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: >-
+            Filter deliveries created at or after this instant (RFC 3339, e.g.
+            `2026-03-01T00:00:00Z`).
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: >-
+            Filter deliveries created at or before this instant (RFC 3339).
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Items per page (1–100, default 20)
+          example: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Offset for pagination (default 0)
+          example: 0
+      responses:
+        '200':
+          description: List of deliveries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      deliveries:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/WebhookDelivery'
+                      total:
+                        type: integer
+                        example: 2
+                      limit:
+                        type: integer
+                        example: 20
+                      offset:
+                        type: integer
+                        example: 0
+  /api/v1/webhooks/deliveries/{id}:
+    get:
+      tags:
+        - Webhooks
+      summary: Get Delivery by ID
+      operationId: getDelivery
+      description: >-
+        Retrieves details of a specific delivery, including the payload sent,
+        response HTTP status, and number of attempts.
+
+
+        **Scope:** `webhooks:read`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: Delivery ID
+      responses:
+        '200':
+          description: Delivery details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      delivery:
+                        $ref: '#/components/schemas/WebhookDelivery'
+        '404':
+          description: Delivery not found
+  /api/v1/webhooks/deliveries/{id}/resend:
+    post:
+      tags:
+        - Webhooks
+      summary: Resend Delivery
+      operationId: resendDelivery
+      description: >-
+        Manually re-queues a failed or undelivered webhook delivery.
+
+
+        Useful when:
+
+        - Your URL was down and is now back online
+
+        - You missed a notification and need to reprocess
+
+        - You want to test integration with real data
+
+
+        The delivery is re-queued and delivered on the next worker execution.
+
+
+        **Scope:** `webhooks:write`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: id
+          in: path
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: Delivery ID
+      responses:
+        '200':
+          description: Delivery re-queued successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                        example: true
+                      message:
+                        type: string
+                        example: delivery resend requested
+        '404':
+          description: Delivery not found
+  /api/v1/webhooks/activity:
+    get:
+      tags:
+        - Webhooks
+      summary: Get Delivery Activity
+      operationId: getWebhookActivity
+      description: >-
+        Returns the most recent webhook deliveries for the client (activity
+        feed), newest first. Lighter than the paginated deliveries list — use it
+        for a quick health/activity view.
+
+
+        **Scope:** `webhooks:read`
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+          description: Maximum records to return (1–100, default 50)
+          example: 50
+      responses:
+        '200':
+          description: Recent delivery activity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      activity:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/WebhookDelivery'
   /api/v1/pix/p2p:
     post:
       tags:
