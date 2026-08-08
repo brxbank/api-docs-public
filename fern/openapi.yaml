@@ -166,6 +166,61 @@ servers:
     x-fern-server-name: QrCodeServer
 components:
   schemas:
+    ClientProfile:
+      type: object
+      description: Client profile returned by the auth service (login/status).
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        personType:
+          type: string
+          enum: [individual, company]
+        cpf:
+          type: string
+          nullable: true
+        cnpj:
+          type: string
+          nullable: true
+        companyName:
+          type: string
+          nullable: true
+        tradeName:
+          type: string
+          nullable: true
+        status:
+          type: string
+        account_type:
+          type: string
+          example: primary
+        parent_client_id:
+          type: string
+          nullable: true
+        account_display_name:
+          type: string
+        two_factor_enabled:
+          type: boolean
+    VerificationResult:
+      type: object
+      description: Result of an email or phone OTP verification.
+      properties:
+        message:
+          type: string
+          example: Email verified successfully
+        emailVerified:
+          type: boolean
+        phoneVerified:
+          type: boolean
+        allVerified:
+          type: boolean
+        nextStep:
+          type: string
+          enum: [login, verify-email, verify-phone]
     PixKeyReadResponse:
       type: object
       properties:
@@ -1542,6 +1597,1190 @@ paths:
                   error:
                     type: string
                     example: "Invalid x-key-id or x-secret-key"
+  /api/v1/auth/refresh-token:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh Bearer Token
+      operationId: refreshToken
+      description: >-
+        Exchange a `refreshToken` for a new Bearer Token. Works for both
+        API-key Bearer tokens and client login sessions.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                  description: The refresh token issued alongside the Bearer Token.
+                  example: "365d1f9d-ba6f-4643-8759-6654fa0ec947"
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  tokenType:
+                    type: string
+                    example: "Bearer"
+                  expiresIn:
+                    type: integer
+                    example: 3600
+                  expiresAt:
+                    type: string
+                    format: date-time
+                  scopes:
+                    type: array
+                    items:
+                      type: string
+                  refreshToken:
+                    type: string
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Invalid refresh token"
+                  code:
+                    type: string
+                    example: "INVALID_REFRESH_TOKEN"
+  /api/v1/auth/revoke-token:
+    post:
+      tags:
+        - Authentication
+      summary: Revoke Bearer Token(s)
+      operationId: revokeToken
+      description: >-
+        Revoke a single Bearer Token (by `token` or `tokenId`) or, with
+        `revokeAll: true`, revoke every token for the authenticated client
+        (requires the `Authorization: Bearer <token>` header).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: The Bearer Token string to revoke.
+                tokenId:
+                  type: string
+                  format: uuid
+                  description: The id of the token to revoke.
+                revokeAll:
+                  type: boolean
+                  default: false
+                  description: >-
+                    Revoke all Bearer Tokens for the authenticated client.
+                    Requires the `Authorization` header.
+      responses:
+        '200':
+          description: Token(s) revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Bearer token revoked successfully"
+        '401':
+          description: Bearer token required or invalid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    example: "INVALID_BEARER_TOKEN"
+  /api/v1/auth/signup:
+    post:
+      tags:
+        - Authentication
+      summary: Client Signup (Onboarding)
+      operationId: signup
+      description: >-
+        Self-service client registration. Auto-provisions a wallet, a system
+        API key and the base modules, then creates an onboarding record. The
+        resulting `status` and required verification steps depend on the
+        tenant's onboarding configuration (email/phone OTP, auto-approve).
+
+
+        Rate limited to 5 requests per IP per hour with a 30s cooldown.
+      security: []
+      parameters:
+        - name: x-tenant-id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: >-
+            Tenant under which to register the client. If omitted, the default
+            tenant is used.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - personType
+                - name
+                - email
+                - password
+                - phone
+              properties:
+                personType:
+                  type: string
+                  enum:
+                    - individual
+                    - company
+                name:
+                  type: string
+                  minLength: 1
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                phone:
+                  type: string
+                  description: E.164 format.
+                  example: "+5511998765432"
+                cpf:
+                  type: string
+                  description: Required for `individual` (≥11 digits).
+                cnpj:
+                  type: string
+                  description: Required for `company` (≥14 digits).
+                companyName:
+                  type: string
+                  description: Required for `company`.
+                tradeName:
+                  type: string
+      responses:
+        '201':
+          description: Client registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  clientId:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    description: Derived from tenant onboarding config.
+                    example: "pending"
+                  verification:
+                    type: object
+                    properties:
+                      provider:
+                        type: string
+                        example: "internal"
+                      emailRequired:
+                        type: boolean
+                      phoneRequired:
+                        type: boolean
+                      emailSent:
+                        type: boolean
+                      smsSent:
+                        type: boolean
+                      expiresInMinutes:
+                        type: integer
+                  tenantId:
+                    type: string
+                  apiKey:
+                    type: object
+                    description: Present when a system API key was provisioned.
+                    properties:
+                      keyId:
+                        type: string
+                      secretKey:
+                        type: string
+                      environment:
+                        type: string
+                        example: "production"
+                      warning:
+                        type: string
+                  provisioningWarning:
+                    type: string
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - INVALID_CPF
+                      - INVALID_CNPJ
+                      - VALIDATION_ERROR
+                  details:
+                    type: object
+        '403':
+          description: Tenant inactive or not primary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - TENANT_INACTIVE
+                      - TENANT_NOT_PRIMARY
+        '404':
+          description: Tenant not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    example: "TENANT_NOT_FOUND"
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    example: "EMAIL_EXISTS"
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Client Login
+      operationId: login
+      description: >-
+        Authenticate a client with email + password. For an `active` client the
+        response contains a Bearer `token` and `refreshToken`. For clients still
+        in onboarding, a longer-lived onboarding JWT is returned alongside a
+        `verification` block describing the next steps.
+
+
+        Depending on device/MFA policy the endpoint may instead return a
+        transitional `status` (e.g. `needs_app_token`, `needs_email_otp`,
+        `needs_device_swap_confirmation`) or an `mfa_enrollment_required` gate,
+        all with HTTP 200.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 1
+      responses:
+        '200':
+          description: Login result (successful, transitional, or onboarding)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  token:
+                    type: string
+                  refreshToken:
+                    type: string
+                  tokenType:
+                    type: string
+                    example: "Bearer"
+                  expiresIn:
+                    type: integer
+                  expiresAt:
+                    type: string
+                    format: date-time
+                  scopes:
+                    type: array
+                    items:
+                      type: string
+                  password_reset_required:
+                    type: boolean
+                  status:
+                    type: string
+                    description: >-
+                      Present only for transitional flows.
+                    enum:
+                      - needs_app_token
+                      - needs_email_otp
+                      - needs_device_swap_confirmation
+                  login_token:
+                    type: string
+                  mfa_enrollment_required:
+                    type: boolean
+                  enrollment_token:
+                    type: string
+                  verification:
+                    type: object
+                    properties:
+                      required:
+                        type: boolean
+                      emailVerified:
+                        type: boolean
+                      phoneVerified:
+                        type: boolean
+                      nextSteps:
+                        type: array
+                        items:
+                          type: string
+                  client:
+                    $ref: '#/components/schemas/ClientProfile'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    example: "VALIDATION_ERROR"
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    example: "INVALID_CREDENTIALS"
+  /api/v1/auth/verify-email:
+    post:
+      tags:
+        - Authentication
+      summary: Verify Email OTP
+      operationId: verifyEmail
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - code
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  example: "123456"
+      responses:
+        '200':
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResult'
+        '400':
+          description: Verification failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - VALIDATION_ERROR
+                      - VERIFICATION_FAILED
+                      - ALREADY_VERIFIED
+  /api/v1/auth/verify-phone:
+    post:
+      tags:
+        - Authentication
+      summary: Verify Phone OTP
+      operationId: verifyPhone
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phone
+                - code
+              properties:
+                phone:
+                  type: string
+                  example: "+5511998765432"
+                code:
+                  type: string
+                  example: "123456"
+      responses:
+        '200':
+          description: Phone verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResult'
+        '400':
+          description: Verification failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - VALIDATION_ERROR
+                      - VERIFICATION_FAILED
+                      - ALREADY_VERIFIED
+  /api/v1/auth/resend-otp:
+    post:
+      tags:
+        - Authentication
+      summary: Resend OTP Code
+      operationId: resendOtp
+      description: >-
+        Resend a one-time password over the given channel. To prevent account
+        enumeration, an unknown email still returns a generic success.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - channel
+              properties:
+                email:
+                  type: string
+                  format: email
+                channel:
+                  type: string
+                  enum:
+                    - email
+                    - sms
+                purpose:
+                  type: string
+                  enum:
+                    - onboarding
+                    - login
+                    - 2fa
+                    - cash_out_approval
+      responses:
+        '200':
+          description: OTP resent (or generic success)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  channel:
+                    type: string
+                  purpose:
+                    type: string
+                  expiresInMinutes:
+                    type: integer
+        '429':
+          description: Rate limited
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    example: "RATE_LIMITED"
+  /api/v1/auth/status:
+    get:
+      tags:
+        - Authentication
+      summary: Get Onboarding / Account Status
+      operationId: getOnboardingStatus
+      description: >-
+        Return the client's profile, account status, linked bank accounts and
+        onboarding record. Authenticated with the onboarding JWT issued by
+        `/login` or `/signup` (sent as `Authorization: Bearer <token>`).
+        Supports tenant delegation via the `x-client-id` header.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: x-client-id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Target sub-client id for tenant delegation.
+      responses:
+        '200':
+          description: Client status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  client:
+                    $ref: '#/components/schemas/ClientProfile'
+                  accountStatus:
+                    type: string
+                  bankAccounts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        bankCode:
+                          type: string
+                        agency:
+                          type: string
+                        account:
+                          type: string
+                        status:
+                          type: string
+                        accountType:
+                          type: string
+                        provider:
+                          type: string
+                        currency:
+                          type: string
+                  onboarding:
+                    type: object
+                    nullable: true
+                    properties:
+                      status:
+                        type: string
+                      reviewerNotes:
+                        type: string
+                      reviewedAt:
+                        type: string
+                        format: date-time
+                      documentsStatus:
+                        type: object
+                      logs:
+                        type: array
+                        items:
+                          type: object
+        '401':
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - TOKEN_REQUIRED
+                      - INVALID_TOKEN
+                      - CLIENT_NOT_FOUND
+  /api/v1/auth/documents:
+    post:
+      tags:
+        - Authentication
+      summary: Upload Onboarding Documents
+      operationId: uploadDocuments
+      description: >-
+        Upload KYC documents, either as `multipart/form-data` file parts or as a
+        JSON body with base64-encoded content. Authenticated with the onboarding
+        JWT. Only allowed while onboarding status is `pending` or `under_review`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties:
+                type: string
+                format: binary
+          application/json:
+            schema:
+              type: object
+              description: >-
+                Map of document type to base64-encoded content and metadata.
+              additionalProperties: true
+      responses:
+        '200':
+          description: Documents uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  status:
+                    type: string
+                  uploadMethod:
+                    type: string
+                  uploadedDocuments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                        url:
+                          type: string
+                        size:
+                          type: integer
+                        mimeType:
+                          type: string
+                  statistics:
+                    type: object
+                  nextSteps:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Invalid upload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - ONBOARDING_NOT_FOUND
+                      - INVALID_STATUS
+                      - NO_DOCUMENTS
+                      - INVALID_DOCUMENT_FORMAT
+                  currentStatus:
+                    type: string
+                  allowedStatuses:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - TOKEN_REQUIRED
+                      - INVALID_TOKEN
+                      - CLIENT_NOT_FOUND
+  /api/v1/auth/documents/presigned-urls:
+    post:
+      tags:
+        - Authentication
+      summary: Generate Presigned Upload URLs
+      operationId: generatePresignedUploadUrls
+      description: >-
+        Request presigned S3 upload URLs for direct client-side upload of KYC
+        documents. Authenticated with the onboarding JWT.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - documents
+              properties:
+                documents:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - fileName
+                      - mimeType
+                    properties:
+                      type:
+                        type: string
+                        example: "identity_front"
+                      fileName:
+                        type: string
+                        example: "id-front.pdf"
+                      mimeType:
+                        type: string
+                        example: "application/pdf"
+      responses:
+        '200':
+          description: Presigned URLs generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  urls:
+                    type: object
+                  instructions:
+                    type: object
+                    properties:
+                      step1:
+                        type: string
+                      step2:
+                        type: string
+                      step3:
+                        type: string
+                      maxFileSize:
+                        type: string
+                      expiresIn:
+                        type: string
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    example: "INVALID_INPUT"
+                  example:
+                    type: object
+        '401':
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    example: "INVALID_TOKEN"
+  /api/v1/auth/documents/confirm:
+    post:
+      tags:
+        - Authentication
+      summary: Confirm Document Upload
+      operationId: confirmDocumentUpload
+      description: >-
+        Confirm S3 uploads previously created via presigned URLs and register
+        their metadata. On the first submission the onboarding moves to
+        `under_review`. Authenticated with the onboarding JWT.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - uploads
+              properties:
+                uploads:
+                  type: object
+                  description: >-
+                    Map of document type to the confirmed S3 key and CloudFront
+                    URL.
+                  additionalProperties:
+                    type: object
+                    properties:
+                      s3Key:
+                        type: string
+                      cloudFrontUrl:
+                        type: string
+      responses:
+        '200':
+          description: Documents confirmed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  status:
+                    type: string
+                  uploadedDocuments:
+                    type: array
+                    items:
+                      type: string
+                  nextSteps:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Invalid input or onboarding not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - INVALID_INPUT
+                      - ONBOARDING_NOT_FOUND
+        '401':
+          description: Invalid token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - CLIENT_NOT_FOUND
+                      - INVALID_TOKEN
+  /api/v1/auth/system-credentials:
+    post:
+      tags:
+        - Authentication
+      summary: Retrieve System API Credentials
+      operationId: getSystemCredentials
+      description: >-
+        Return the client's production system API key credentials. Requires an
+        `active` client with 2FA enabled; the current TOTP code must be supplied.
+        Authenticated with the onboarding JWT.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - totpCode
+              properties:
+                totpCode:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+                  example: "123456"
+      responses:
+        '200':
+          description: Credentials returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  credentials:
+                    type: object
+                    properties:
+                      keyId:
+                        type: string
+                      secretKey:
+                        type: string
+                      environment:
+                        type: string
+                      scopes:
+                        type: array
+                        items:
+                          type: string
+                      status:
+                        type: string
+                  warning:
+                    type: string
+        '400':
+          description: Invalid TOTP or validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - INVALID_TOTP
+                      - VALIDATION_ERROR
+        '403':
+          description: Client inactive or 2FA not configured
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - CLIENT_INACTIVE
+                      - 2FA_REQUIRED
+                      - 2FA_NOT_CONFIGURED
+        '404':
+          description: No production API key
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - NO_API_KEYS
+                      - NO_PRODUCTION_KEY
+  /api/v1/auth/reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Request Password Reset
+      operationId: resetPassword
+      description: >-
+        Start a password reset. The public OTP flow sends codes to the masked
+        email/phone. A tenant may reset a sub-client's password directly
+        (skip_otp) using `Authorization: Bearer <token>` + `x-client-id`, which
+        returns a temporary password.
+      security: []
+      parameters:
+        - name: x-client-id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Target sub-client id for tenant-initiated reset.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Reset initiated (OTP flow) or completed (tenant flow)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  email:
+                    type: string
+                    description: Masked, in the OTP flow.
+                  phone:
+                    type: string
+                    description: Masked, in the OTP flow.
+                  next_step:
+                    type: string
+                  temporary_password:
+                    type: string
+                    description: Present only in the tenant (skip_otp) flow.
+                  password_reset_required:
+                    type: boolean
+                  timestamp:
+                    type: string
+                    format: date-time
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    example: "CLIENT_NOT_FOUND"
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    example: "RATE_LIMITED"
+                  retry_after_seconds:
+                    type: integer
+  /api/v1/auth/confirm-reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Confirm Password Reset
+      operationId: confirmResetPassword
+      description: >-
+        Complete the public OTP password reset with the email and phone codes
+        and the new password.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - email_code
+                - phone_code
+                - new_password
+              properties:
+                email:
+                  type: string
+                  format: email
+                email_code:
+                  type: string
+                  example: "123456"
+                phone_code:
+                  type: string
+                  example: "654321"
+                new_password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Password updated successfully"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '400':
+          description: Verification failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - VERIFICATION_FAILED
+                      - VALIDATION_ERROR
+  /api/v1/balance:
+    get:
+      tags:
+        - PIX Balance
+      summary: Get Wallet Balance (Auth Service)
+      operationId: getAuthBalance
+      description: >-
+        Return the authenticated client's wallet balance. Requires the
+        `balance` scope. Response is a flat object.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Balance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available:
+                    type: string
+                    example: "1500.75"
+                  blocked:
+                    type: string
+                    example: "0.00"
+                  total:
+                    type: string
+                    example: "1500.75"
+                  currency:
+                    type: string
+                    example: "BRL"
+        '401':
+          description: Missing or invalid Bearer token
   /health:
     get:
       tags:
